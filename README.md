@@ -21,7 +21,7 @@ Varaibles we want to generate :
 Resolutions :
 
 - 1 deg :   `199 * 62 *36 `
-- 1/4 deg : `797 * 242 * 26`
+- 1/4 deg : `797 * 242 * 36`
 
 --> Data in `/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion` on Jeanzay
 
