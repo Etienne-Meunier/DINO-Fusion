@@ -26,4 +26,10 @@ Resolutions :
 --> Data in `/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion` on Jeanzay
 
 
+Exemple 1dregee : 
+  - Restart37 (First 50y ):
+     - DINO_10d_grid_T_2D.nc : SSH
+     - DINO_10d_grid_T_3D.nc  : T, S
+
+
 
