@@ -20,8 +20,16 @@ Varaibles we want to generate :
 
 Resolutions :
 
-- 1 deg : `200 * 50 *36 `
-- 1/4 deg : `800*240*26`
+- 1 deg :   `199 * 62 *36 `
+- 1/4 deg : `797 * 242 * 36`
+
+--> Data in `/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion` on Jeanzay
+
+
+Exemple 1dregee : 
+  - Restart37 (First 50y ):
+     - DINO_10d_grid_T_2D.nc : SSH
+     - DINO_10d_grid_T_3D.nc  : T, S
 
 
 
