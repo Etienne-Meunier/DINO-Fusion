@@ -4,6 +4,8 @@ import torch
 import torch.nn.functional as F
 from backbones.backbones import get_simple_unet
 from diffusers.optimization import get_cosine_schedule_with_warmup
+from accelerate import Accelerator
+import os
 
 class DiffusionModel(nn.Module) : 
     
@@ -13,6 +15,17 @@ class DiffusionModel(nn.Module) :
         self.denoiser = get_simple_unet(self.config.image_size)
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps)
         self.optimizer, self.lr_scheduler = self.config_optimizer()
+        self.accelerator = self.config_accelerate()
+        
+    def config_accelerate(self) :
+        os.makedirs(self.config.output_dir, exist_ok=True) 
+        accelerator = Accelerator(mixed_precision=self.config.mixed_precision,
+                                  gradient_accumulation_steps=self.config.gradient_accumulation_steps, 
+                                  log_with='wandb',
+                                  project_dir=os.path.join(self.config.output_dir, 'logs'))
+        if accelerator.is_main_process:
+            accelerator.init_trackers('dino-fusion', config=vars(self.config))
+        return accelerator
 
     def config_optimizer(self) : 
         """
@@ -67,13 +80,15 @@ class DiffusionModel(nn.Module) :
         """
         clean_images = batch["images"]
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
-        noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
-        loss = F.mse_loss(noises_pred, noises)
-        loss.backward() #TODO(etienne) : accelerate
-        #accelerator.clip_grad_norm_(model.parameters(), 1.0)
-        self.optimizer.step()
-        self.lr_scheduler.step()
-        self.optimizer.zero_grad()
+        with self.accelerator.accumulate(self.denoiser) :
+            noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
+
+            loss = F.mse_loss(noises_pred, noises)
+            self.accelerator.backward(loss)
+            self.accelerator.clip_grad_norm_(self.denoiser.parameters(), 1.0)
+            self.optimizer.step()
+            self.lr_scheduler.step()
+            self.optimizer.zero_grad()
         return loss.detach().item()
 
     def test_step(self) : 
