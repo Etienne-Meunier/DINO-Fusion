@@ -45,7 +45,7 @@ class DiffusionModel(nn.Module) :
 
     def denoise(self, noisy_images, timesteps) :
         """
-            Takes as input a tensoir of noisy images and a set of timesteps. 
+            Takes as input a tensor of noisy images and a set of timesteps. 
             return the denoised image. 
             noisy_images (b, c, i, j) : noisy image
             timesteps (b,) : timestep for each batch
@@ -95,12 +95,12 @@ class DiffusionModel(nn.Module) :
         """
         Generate a list of images `List[PIL.Image]` from noise
         """
-        pipeline = DDPMPipeline(unet=self.denoiser, scheduler=self.noise_scheduler)
+        pipeline = DDPMPipeline(unet=self.denoiser, scheduler=self.noise_scheduler, output_type='nd.array')
         images = pipeline(
                         batch_size=self.config.eval_batch_size,
                         generator=torch.manual_seed(self.config.seed),
                         num_inference_steps=self.config.num_inference_steps,
-                        ).images
+                        )
         return images
     
 

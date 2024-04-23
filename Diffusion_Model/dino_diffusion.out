@@ -1,0 +1,107 @@
++ srun accelerate launch train.py
+The following values were not passed to `accelerate launch` and had defaults used instead:
+	`--num_processes` was set to a value of `2`
+		More than one GPU was found, enabling multi-GPU training.
+		If this was unintended please pass in `--num_processes=1`.
+	`--num_machines` was set to a value of `1`
+	`--mixed_precision` was set to a value of `'no'`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+Traceback (most recent call last):
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 70, in <module>
+Traceback (most recent call last):
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 70, in <module>
+    main()
+    main()
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 41, in main
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 41, in main
+    diffusion = DiffusionModel(config)
+         diffusion = DiffusionModel(config) 
+          ^^^^^^^^^^^^^^ ^ ^ ^ ^ ^ ^ ^ ^ 
+      File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 15, in __init__
+   ^^^^^^^^^^^^^^^^^^^^^^
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 15, in __init__
+    self.denoiser = get_simple_unet(self.config.image_size)
+                    ^^^    ^^self.denoiser = get_simple_unet(self.config.image_size)^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^ ^ ^^ ^ ^ 
+      File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/backbones/backbones.py", line 10, in get_simple_unet
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/backbones/backbones.py", line 10, in get_simple_unet
+        model = UNet2DModel(model = UNet2DModel(
+
+                    ^ ^ ^ ^ ^^^^^^^^^^^^^^^^
+^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/configuration_utils.py", line 653, in inner_init
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/configuration_utils.py", line 653, in inner_init
+    init(self, *args, **init_kwargs)
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d.py", line 175, in __init__
+    init(self, *args, **init_kwargs)
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d.py", line 175, in __init__
+    down_block = get_down_block(
+                 ^^^^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 79, in get_down_block
+    down_block = get_down_block(
+                 ^^^^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 79, in get_down_block
+    return DownBlock2D(
+           ^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 1326, in __init__
+    return DownBlock2D(
+           ^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 1326, in __init__
+    ResnetBlock2D(
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/resnet.py", line 272, in __init__
+    ResnetBlock2D(
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/resnet.py", line 272, in __init__
+    self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
+    self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
+                    ^^ ^^^ ^^ ^^ ^^^ ^^ ^^^ ^^ ^^ ^^ ^^^^^^^^^^ ^^^ ^^ ^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 266, in __init__
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 266, in __init__
+    raise ValueError('num_channels must be divisible by num_groups')
+ValueError: num_channels must be divisible by num_groups
+    raise ValueError('num_channels must be divisible by num_groups')
+ValueError: num_channels must be divisible by num_groups
+[2024-04-23 13:17:33,047] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 0 (pid: 1267794) of binary: /linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/bin/python3.11
+Traceback (most recent call last):
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/bin/accelerate", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/accelerate_cli.py", line 46, in main
+    args.func(args)
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/launch.py", line 1066, in launch_command
+    multi_gpu_launcher(args)
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/launch.py", line 711, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/run.py", line 803, in run
+    elastic_launch(
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 135, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 268, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+train.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2024-04-23_13:17:33
+  host      : r9i7n1-ib0
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 1267795)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-04-23_13:17:33
+  host      : r9i7n1-ib0
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1267794)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+srun: error: r9i7n1: task 0: Exited with exit code 1
+srun: Terminating StepId=1612679.0

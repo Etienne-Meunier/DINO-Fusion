@@ -12,7 +12,7 @@ def get_simple_unet(image_size) :
         in_channels=73,  # the number of input channels, 3 for RGB images
         out_channels=73,  # the number of output channels
         layers_per_block=2,  # how many ResNet layers to use per UNet block
-        block_out_channels= (128, 256, 256, 512),  # the number of output channels for each UNet block
+        block_out_channels= (6,6,6,6), #(128, 256, 256, 512),  # the number of output channels for each UNet block
         down_block_types=(
             "DownBlock2D",  # a regular ResNet downsampling block
             "DownBlock2D",
