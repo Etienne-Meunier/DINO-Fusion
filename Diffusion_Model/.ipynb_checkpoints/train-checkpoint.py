@@ -5,7 +5,7 @@ from torchvision import transforms
 from tqdm import tqdm
 import torch 
 from utils import save_images
-import numpy as np
+
 
 def main() :
     # Load config
@@ -35,8 +35,6 @@ def main() :
     #########################################################
     
     dataset = np.load('../../normalized_data.npy')
-    dataset[:,71,:,:]=0
-    dataset[:,35,:,:]=0
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_batch_size, shuffle=True)
 
     # Load Model 

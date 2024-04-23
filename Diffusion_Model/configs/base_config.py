@@ -9,7 +9,7 @@ class TrainingConfig:
     eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
     num_inference_steps: int = 1000  #for noise scheduler
-    num_epochs: int = 1 #50
+    num_epochs: int = 50
     gradient_accumulation_steps: int = 1
     learning_rate: float = 3e-4
     lr_warmup_steps: int = 500

@@ -19,10 +19,10 @@ def get_simple_unet(image_size) :
             #"DownBlock2D",
             #"DownBlock2D",
             "AttnDownBlock2D",  # a ResNet downsampling block with spatial self-attention
-            "DownBlock2D",
+            "AttnDownBlock2D",
         ),
         up_block_types=(
-            "UpBlock2D",  # a regular ResNet upsampling block
+            "AttnUpBlock2D",  # a regular ResNet upsampling block
             "AttnUpBlock2D",  # a ResNet upsampling block with spatial self-attention
             #"UpBlock2D",
             #"UpBlock2D",
