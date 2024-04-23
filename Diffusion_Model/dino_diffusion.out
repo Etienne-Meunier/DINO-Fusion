@@ -7,63 +7,34 @@ The following values were not passed to `accelerate launch` and had defaults use
 	`--mixed_precision` was set to a value of `'no'`
 	`--dynamo_backend` was set to a value of `'no'`
 To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/accelerator.py:391: UserWarning: `log_with=wandb` was passed but no supported trackers are currently installed.
+  warnings.warn(f"`log_with={log_with}` was passed but no supported trackers are currently installed.")
+Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/accelerator.py:391: UserWarning: `log_with=wandb` was passed but no supported trackers are currently installed.
+  warnings.warn(f"`log_with={log_with}` was passed but no supported trackers are currently installed.")
+  0%|          | 0/10 [00:00<?, ?it/s]  0%|          | 0/10 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/10 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/10 [00:00<?, ?it/s]Traceback (most recent call last):
 Traceback (most recent call last):
   File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 70, in <module>
-Traceback (most recent call last):
   File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 70, in <module>
-    main()
-    main()
-  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 41, in main
-  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 41, in main
-    diffusion = DiffusionModel(config)
-         diffusion = DiffusionModel(config) 
-          ^^^^^^^^^^^^^^ ^ ^ ^ ^ ^ ^ ^ ^ 
-      File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 15, in __init__
-   ^^^^^^^^^^^^^^^^^^^^^^
-  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 15, in __init__
-    self.denoiser = get_simple_unet(self.config.image_size)
-                    ^^^    ^^self.denoiser = get_simple_unet(self.config.image_size)^
-^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^ ^ ^^ ^ ^ 
-      File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/backbones/backbones.py", line 10, in get_simple_unet
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/backbones/backbones.py", line 10, in get_simple_unet
-        model = UNet2DModel(model = UNet2DModel(
+        main()main()
 
-                    ^ ^ ^ ^ ^^^^^^^^^^^^^^^^
-^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/configuration_utils.py", line 653, in inner_init
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/configuration_utils.py", line 653, in inner_init
-    init(self, *args, **init_kwargs)
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d.py", line 175, in __init__
-    init(self, *args, **init_kwargs)
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d.py", line 175, in __init__
-    down_block = get_down_block(
-                 ^^^^^^^^^^^^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 79, in get_down_block
-    down_block = get_down_block(
-                 ^^^^^^^^^^^^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 79, in get_down_block
-    return DownBlock2D(
-           ^^^^^^^^^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 1326, in __init__
-    return DownBlock2D(
-           ^^^^^^^^^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/unets/unet_2d_blocks.py", line 1326, in __init__
-    ResnetBlock2D(
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/resnet.py", line 272, in __init__
-    ResnetBlock2D(
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/diffusers/models/resnet.py", line 272, in __init__
-    self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
-    self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
-                    ^^ ^^^ ^^ ^^ ^^^ ^^ ^^^ ^^ ^^ ^^ ^^^^^^^^^^ ^^^ ^^ ^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-^^  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 266, in __init__
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 266, in __init__
-    raise ValueError('num_channels must be divisible by num_groups')
-ValueError: num_channels must be divisible by num_groups
-    raise ValueError('num_channels must be divisible by num_groups')
-ValueError: num_channels must be divisible by num_groups
-[2024-04-23 13:17:33,047] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 0 (pid: 1267794) of binary: /linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/bin/python3.11
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 54, in main
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py", line 54, in main
+    loss = diffusion.training_step(batch)
+    loss = diffusion.training_step(batch)
+                  ^ ^ ^ ^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 81, in training_step
+
+  File "/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/DiffusionModel.py", line 81, in training_step
+    clean_images = batch["images"]
+    clean_images = batch["images"]
+                         ~ ~ ~ ~ ~ ^ ^ ^ ^ ^ ^ ^ ^ ^~^~
+~~~^^IndexError^: ^too many indices for tensor of dimension 4^
+^^^^^
+IndexError: too many indices for tensor of dimension 4
+Epoch 0:   0%|          | 0/10 [00:00<?, ?it/s]
+Epoch 0:   0%|          | 0/10 [00:00<?, ?it/s]
+[2024-04-23 13:30:58,102] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 0 (pid: 1935960) of binary: /linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/bin/python3.11
 Traceback (most recent call last):
   File "/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/bin/accelerate", line 10, in <module>
     sys.exit(main())
@@ -87,21 +58,21 @@ train.py FAILED
 ------------------------------------------------------------
 Failures:
 [1]:
-  time      : 2024-04-23_13:17:33
-  host      : r9i7n1-ib0
+  time      : 2024-04-23_13:30:58
+  host      : r6i7n6-ib0
   rank      : 1 (local_rank: 1)
-  exitcode  : 1 (pid: 1267795)
+  exitcode  : 1 (pid: 1935961)
   error_file: <N/A>
   traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
 ------------------------------------------------------------
 Root Cause (first observed failure):
 [0]:
-  time      : 2024-04-23_13:17:33
-  host      : r9i7n1-ib0
+  time      : 2024-04-23_13:30:58
+  host      : r6i7n6-ib0
   rank      : 0 (local_rank: 0)
-  exitcode  : 1 (pid: 1267794)
+  exitcode  : 1 (pid: 1935960)
   error_file: <N/A>
   traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
 ============================================================
-srun: error: r9i7n1: task 0: Exited with exit code 1
-srun: Terminating StepId=1612679.0
+srun: error: r6i7n6: task 0: Exited with exit code 1
+srun: Terminating StepId=1612703.0
