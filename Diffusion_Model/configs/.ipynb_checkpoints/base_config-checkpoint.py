@@ -5,13 +5,13 @@ from typing import List
 class TrainingConfig:
     image_size: List = field(default_factory=lambda: [200, 64])  # the generated image resolution
     train_batch_size: int = 16
-    train_steps_by_epoch: int = 10  # Steps by epoch
+    train_steps_by_epoch: int = 100  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
     num_inference_steps: int = 1000  #for noise scheduler
-    num_epochs: int = 50
+    num_epochs: int = 100
     gradient_accumulation_steps: int = 1
-    learning_rate: float = 3e-4
+    learning_rate: float = 1e-4
     lr_warmup_steps: int = 500
     mixed_precision: str = 'no'  # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
     output_dir: str = "ddpm-butterflies-128"  # the model name locally and on the HF Hub

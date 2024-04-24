@@ -74,19 +74,21 @@ class DiffusionModel(nn.Module) :
         noisy_images = self.noise_scheduler.add_noise(clean_images, noises, timesteps)
         return noisy_images, noises, timesteps
     
-    def training_step(self, batch) :
+    def training_step(self, batch, mask) :
         """
         Takes a batch of images and do a training step.
         """
         clean_images = batch#["images"]
+        mask_tensor = torch.from_numpy(mask).expand(clean_images.shape).type(torch.float).to(self.accelerator.device)
         ### pad one line at the bottom to make size number of lines 200 a multiple of 4
         clean_images = F.pad(clean_images, (1, 1, 0, 1), "constant", 0)
+        mask_tensor = F.pad(mask_tensor, (1, 1, 0, 1), "constant", 0)
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
 
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
 
-            loss = F.mse_loss(noises_pred, noises)
+            loss = F.mse_loss(mask_tensor*noises_pred, mask_tensor*noises)
             self.accelerator.backward(loss)
             self.accelerator.clip_grad_norm_(self.denoiser.parameters(), 1.0)
             self.optimizer.step()

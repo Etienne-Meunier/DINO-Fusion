@@ -5,7 +5,7 @@ from torchvision import transforms
 from tqdm import tqdm
 import torch 
 from utils import save_images
-
+import numpy as np
 
 def main() :
     # Load config
@@ -35,8 +35,11 @@ def main() :
     #########################################################
     
     dataset = np.load('../../normalized_data.npy')
+    dataset[:,71,:,:]=0
+    dataset[:,35,:,:]=0
+    mask = 1. * (dataset[0,-1,:,:]!=0.46890652)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_batch_size, shuffle=True)
-
+    
     # Load Model 
     diffusion = DiffusionModel(config)
 
@@ -51,7 +54,7 @@ def main() :
         progress_bar.set_description(f"Epoch {epoch}")
         for step, batch in enumerate(train_dataloader):
             if step == config.train_steps_by_epoch : break
-            loss = diffusion.training_step(batch)
+            loss = diffusion.training_step(batch, mask) ##### add mask
             progress_bar.update(1)
             logs = {"loss": loss,
                     "lr": diffusion.lr_scheduler.get_last_lr()[0],
@@ -60,9 +63,10 @@ def main() :
             diffusion.accelerator.log(logs, step=global_step)
             global_step += 1
         
-        print('Generate images ...')
-        generated_images = diffusion.test_step()
-        save_images(generated_images, './' + config.output_dir + f'/epoch_{epoch}.png')
+        if epoch % 5 == 0:
+            print('Generate images ...')
+            generated_images = diffusion.test_step()
+            save_images(generated_images, './' + config.output_dir + f'/epoch_{epoch}.png')
 
     diffusion.accelerator.end_training()
 

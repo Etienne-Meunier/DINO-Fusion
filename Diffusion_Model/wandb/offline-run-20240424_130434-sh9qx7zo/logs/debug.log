@@ -1,0 +1,25 @@
+2024-04-24 13:04:34,920 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Current SDK version is 0.16.6
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Configure stats pid to 1029803
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Loading settings from /linkhome/rech/genloc01/udu91zn/.config/wandb/settings
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Loading settings from /gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/wandb/settings
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Loading settings from environment variables: {'mode': 'offline'}
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'train.py', 'program_abspath': '/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py', 'program': '/gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/train.py'}
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:_log_setup():521] Logging user logs to /gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/wandb/offline-run-20240424_130434-sh9qx7zo/logs/debug.log
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:_log_setup():522] Logging internal logs to /gpfsdswork/projects/rech/omr/udu91zn/diffusionmodels/DINO-Fusion/Diffusion_Model/wandb/offline-run-20240424_130434-sh9qx7zo/logs/debug-internal.log
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:init():561] calling init triggers
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:init():568] wandb.init called with sweep_config: {}
+config: {}
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:init():611] starting backend
+2024-04-24 13:04:34,921 INFO    MainThread:1029803 [wandb_init.py:init():615] setting up manager
+2024-04-24 13:04:34,923 INFO    MainThread:1029803 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-04-24 13:04:34,934 INFO    MainThread:1029803 [wandb_init.py:init():623] backend started and connected
+2024-04-24 13:04:34,936 INFO    MainThread:1029803 [wandb_init.py:init():715] updated telemetry
+2024-04-24 13:04:34,937 INFO    MainThread:1029803 [wandb_init.py:init():748] communicating run to backend with 90.0 second timeout
+2024-04-24 13:04:34,940 INFO    MainThread:1029803 [wandb_init.py:init():799] starting run threads in backend
+2024-04-24 13:04:53,653 INFO    MainThread:1029803 [wandb_run.py:_console_start():2335] atexit reg
+2024-04-24 13:04:53,669 INFO    MainThread:1029803 [wandb_run.py:_redirect():2190] redirect: wrap_raw
+2024-04-24 13:04:53,669 INFO    MainThread:1029803 [wandb_run.py:_redirect():2255] Wrapping output streams.
+2024-04-24 13:04:53,669 INFO    MainThread:1029803 [wandb_run.py:_redirect():2280] Redirects installed.
+2024-04-24 13:04:53,669 INFO    MainThread:1029803 [wandb_init.py:init():842] run started, returning control to user process
+2024-04-24 13:04:53,670 INFO    MainThread:1029803 [wandb_run.py:_config_callback():1347] config_cb None None {'image_size': [200, 64], 'train_batch_size': 16, 'train_steps_by_epoch': 1000, 'eval_batch_size': 16, 'num_train_timesteps': 1000, 'num_inference_steps': 1000, 'num_epochs': 100, 'gradient_accumulation_steps': 1, 'learning_rate': 0.0003, 'lr_warmup_steps': 500, 'mixed_precision': 'no', 'output_dir': 'ddpm-butterflies-128', 'seed': 0}

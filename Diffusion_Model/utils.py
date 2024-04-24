@@ -24,6 +24,6 @@ def save_images(images, output_path) :
 
     for ax, im in zip(grid, image_data):
         # Iterating over the grid returns the Axes.
-        ax.imshow(im)
+        ax.imshow(im, cmap='coolwarm')
 
     fig.savefig(str(output_path), bbox_inches='tight')

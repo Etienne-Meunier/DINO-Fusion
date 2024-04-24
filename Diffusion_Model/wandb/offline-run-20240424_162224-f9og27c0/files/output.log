@@ -1,0 +1,67 @@
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_0.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_5.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_10.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_15.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_20.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_25.png
+Generate images ...
+(16, 200, 64, 73)
+./ddpm-butterflies-128/epoch_30.png
+Epoch 0:   0%|          | 0/1000 [00:00<?, ?it/s]/linkhome/rech/genloc01/udu91zn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/autograd/__init__.py:266: UserWarning: Grad strides do not match bucket view strides. This may indicate grad was not created according to the gradient layout contract, or that the param's strides changed since DDP was constructed.  This is not an error, but may impair performance.
+grad.sizes() = [512, 1024, 1, 1], strides() = [1024, 1, 1024, 1024]
+bucket_view.sizes() = [512, 1024, 1, 1], strides() = [1024, 1, 1, 1] (Triggered internally at ../torch/csrc/distributed/c10d/reducer.cpp:322.)
+  Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+100%|██████████| 1000/1000 [05:54<00:00,  2.82it/s].18s/it, loss=0.515, lr=0.0001, step=168]
+Epoch 0:  17%|█▋        | 169/1000 [09:21<46:03,  3.33s/it, loss=0.515, lr=0.0001, step=168]
+Epoch 1:  17%|█▋        | 169/1000 [03:25<16:51,  1.22s/it, loss=0.282, lr=0.0001, step=337]
+Epoch 2:  17%|█▋        | 169/1000 [03:21<16:30,  1.19s/it, loss=0.242, lr=9.99e-5, step=506]
+Epoch 3:  17%|█▋        | 169/1000 [03:21<16:31,  1.19s/it, loss=0.176, lr=9.99e-5, step=675]
+Epoch 4:  17%|█▋        | 169/1000 [03:21<16:30,  1.19s/it, loss=0.171, lr=9.98e-5, step=844]
+100%|██████████| 1000/1000 [05:55<00:00,  2.82it/s]
+Epoch 5:  17%|█▋        | 169/1000 [09:19<45:50,  3.31s/it, loss=0.105, lr=9.97e-5, step=1013]
+Epoch 6:  17%|█▋        | 169/1000 [03:25<16:51,  1.22s/it, loss=0.0785, lr=9.96e-5, step=1182]
+Epoch 7:  17%|█▋        | 169/1000 [03:21<16:30,  1.19s/it, loss=0.107, lr=9.94e-5, step=1351]
+Epoch 8:  17%|█▋        | 169/1000 [03:21<16:32,  1.19s/it, loss=0.0707, lr=9.92e-5, step=1520]
+Epoch 9:  17%|█▋        | 169/1000 [03:22<16:33,  1.20s/it, loss=0.0955, lr=9.9e-5, step=1689]
+100%|██████████| 1000/1000 [05:56<00:00,  2.81it/s]1.18s/it, loss=0.0555, lr=9.88e-5, step=1858]
+Epoch 10:  17%|█▋        | 169/1000 [09:20<45:57,  3.32s/it, loss=0.0555, lr=9.88e-5, step=1858]
+Epoch 11:  17%|█▋        | 169/1000 [03:25<16:51,  1.22s/it, loss=0.0457, lr=9.86e-5, step=2027]
+Epoch 12:  17%|█▋        | 169/1000 [03:21<16:33,  1.20s/it, loss=0.0776, lr=9.83e-5, step=2196]
+Epoch 13:  17%|█▋        | 169/1000 [03:21<16:32,  1.19s/it, loss=0.0468, lr=9.8e-5, step=2365]
+Epoch 14:  17%|█▋        | 169/1000 [03:22<16:33,  1.20s/it, loss=0.0597, lr=9.77e-5, step=2534]
+100%|██████████| 1000/1000 [05:55<00:00,  2.81it/s]
+Epoch 15:  17%|█▋        | 169/1000 [09:20<45:55,  3.32s/it, loss=0.0385, lr=9.74e-5, step=2703]
+Epoch 16:  17%|█▋        | 169/1000 [03:25<16:50,  1.22s/it, loss=0.0322, lr=9.7e-5, step=2872]
+Epoch 17:  17%|█▋        | 169/1000 [03:22<16:33,  1.20s/it, loss=0.0646, lr=9.66e-5, step=3041]
+Epoch 18:  17%|█▋        | 169/1000 [03:22<16:33,  1.20s/it, loss=0.0338, lr=9.63e-5, step=3210]
+Epoch 19:  17%|█▋        | 169/1000 [03:22<16:33,  1.20s/it, loss=0.0439, lr=9.58e-5, step=3379]
+100%|██████████| 1000/1000 [05:55<00:00,  2.81it/s]1.18s/it, loss=0.031, lr=9.54e-5, step=3548]
+Epoch 20:  17%|█▋        | 169/1000 [09:20<45:55,  3.32s/it, loss=0.031, lr=9.54e-5, step=3548]
+Epoch 21:  17%|█▋        | 169/1000 [03:26<16:53,  1.22s/it, loss=0.0259, lr=9.49e-5, step=3717]
+Epoch 22:  17%|█▋        | 169/1000 [03:21<16:32,  1.19s/it, loss=0.0478, lr=9.45e-5, step=3886]
+Epoch 23:  17%|█▋        | 169/1000 [03:21<16:31,  1.19s/it, loss=0.0289, lr=9.4e-5, step=4055]
+Epoch 24:  17%|█▋        | 169/1000 [03:21<16:30,  1.19s/it, loss=0.035, lr=9.34e-5, step=4224]
+100%|██████████| 1000/1000 [05:50<00:00,  2.85it/s]
+Epoch 25:  17%|█▋        | 169/1000 [09:15<45:29,  3.28s/it, loss=0.0254, lr=9.29e-5, step=4393]
+Epoch 26:  17%|█▋        | 169/1000 [03:30<17:13,  1.24s/it, loss=0.024, lr=9.23e-5, step=4562]
+Epoch 27:  17%|█▋        | 169/1000 [03:21<16:31,  1.19s/it, loss=0.0386, lr=9.18e-5, step=4731]
+Epoch 28:  17%|█▋        | 169/1000 [03:21<16:31,  1.19s/it, loss=0.0242, lr=9.12e-5, step=4900]
+Epoch 29:  17%|█▋        | 169/1000 [03:21<16:30,  1.19s/it, loss=0.0292, lr=9.06e-5, step=5069]
+100%|██████████| 1000/1000 [05:50<00:00,  2.85it/s]1.18s/it, loss=0.0243, lr=8.99e-5, step=5238]
+Epoch 30:  17%|█▋        | 169/1000 [09:15<45:30,  3.29s/it, loss=0.0243, lr=8.99e-5, step=5238]
+Epoch 31:  17%|█▋        | 169/1000 [03:30<17:17,  1.25s/it, loss=0.0202, lr=8.93e-5, step=5407]
+Epoch 32:  17%|█▋        | 169/1000 [03:21<16:32,  1.19s/it, loss=0.0345, lr=8.86e-5, step=5576]
+  0%|          | 0/1000 [00:00<?, ?it/s]
+Epoch 33:  17%|█▋        | 168/1000 [03:20<16:36,  1.20s/it, loss=0.0351, lr=8.79e-5, step=5744]
