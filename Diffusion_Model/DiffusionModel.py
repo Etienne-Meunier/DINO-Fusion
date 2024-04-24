@@ -95,12 +95,16 @@ class DiffusionModel(nn.Module) :
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
         return loss.detach().item()
+    
+    def get_pipeline(self) : 
+        pipeline = DDPMPipeline(unet=self.accelerator.unwrap_model(self.denoiser), scheduler=self.noise_scheduler)
+        return pipeline
 
     def test_step(self) : 
         """
         Generate a list of images `List[PIL.Image]` from noise
         """
-        pipeline = DDPMPipeline(unet=self.accelerator.unwrap_model(self.denoiser), scheduler=self.noise_scheduler)
+        pipeline = self.get_pipeline()
         images = pipeline(
                         batch_size=self.config.eval_batch_size,
                         generator=torch.manual_seed(self.config.seed),
@@ -110,6 +114,10 @@ class DiffusionModel(nn.Module) :
         print(images.shape)
         return images
     
+    def save_model(self) : 
+        pipeline = self.get_pipeline()
+        pipeline.save_pretrained(self.config.output_dir)
+
 
 
     

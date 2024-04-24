@@ -67,6 +67,7 @@ def main() :
             print('Generate images ...')
             generated_images = diffusion.test_step()
             save_images(generated_images, './' + config.output_dir + f'/epoch_{epoch}.png')
+            diffusion.save_model()
 
     diffusion.accelerator.end_training()
 
