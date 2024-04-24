@@ -1,1 +1,0 @@
-+ srun accelerate launch train.py
