@@ -12,7 +12,7 @@ class TrainingConfig:
     num_epochs: int = 100
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4
-    lr_warmup_steps: int = 500
+    lr_warmup_steps: int = 0 #500
     mixed_precision: str = 'no'  # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
     output_dir: str = "ddpm-butterflies-128"  # the model name locally and on the HF Hub
     seed: int = 0
