@@ -6,6 +6,7 @@ from backbones.backbones import get_simple_unet
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from accelerate import Accelerator
 import os
+from ipdb import set_trace
 
 class DiffusionModel(nn.Module) : 
     
@@ -25,6 +26,9 @@ class DiffusionModel(nn.Module) :
                                   project_dir=os.path.join(self.config.output_dir, 'logs'))
         if accelerator.is_main_process:
             accelerator.init_trackers('dino-fusion', config=vars(self.config))
+        if self.config.output_dir == 'wandb' : 
+            wandb_id = accelerator.trackers[0].run.id
+            self.config.output_dir = wandb_id
         return accelerator
 
     def config_optimizer(self) : 
