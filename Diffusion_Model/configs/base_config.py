@@ -5,7 +5,7 @@ from typing import List
 class TrainingConfig:
     image_size: List = field(default_factory=lambda: [200, 64])  # the generated image resolution
     train_batch_size: int = 16
-    train_steps_by_epoch: int = 100  # Steps by epoch
+    train_steps_by_epoch: int = 10  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
     num_inference_steps: int = 1000  #for noise scheduler
