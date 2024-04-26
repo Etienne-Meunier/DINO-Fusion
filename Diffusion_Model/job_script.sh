@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --hint=nomultithread
 #SBATCH --time=10:00:00              # max20h on qos_gpu_t3
-#SBATCH --qos=qos_gpu-t3
+#SBATCH --qos=qos_gpu-t4
 #SBATCH --cpus-per-task=40           # 
 #SBATCH --account=omr@v100
 #SBATCH -C v100-32g

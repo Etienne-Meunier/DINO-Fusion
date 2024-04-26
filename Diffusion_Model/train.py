@@ -34,7 +34,7 @@ def main() :
     #train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_batch_size, shuffle=True)
     #########################################################
     
-    dataset = np.load(config.data_file) #np.load('../../normalized_data.npy')
+    dataset = np.load(config.data_file)
     dataset[:,71,:,:]=0
     dataset[:,35,:,:]=0
     mask = 1. * (dataset[0,-1,:,:]!=0.46890652)

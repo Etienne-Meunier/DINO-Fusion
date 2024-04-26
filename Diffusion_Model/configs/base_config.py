@@ -5,7 +5,7 @@ from typing import List
 class TrainingConfig:
     data_file : str = '../../normalized_data.npy'
     image_size: List = field(default_factory=lambda: [200, 64])  # the generated image resolution
-    train_batch_size: int = 16# 16
+    train_batch_size: int = 16
     train_steps_by_epoch: int = 10  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
