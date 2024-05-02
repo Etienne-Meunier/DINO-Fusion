@@ -34,10 +34,8 @@ def main() :
     #train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_batch_size, shuffle=True)
     #########################################################
     
-    dataset = np.load(config.data_file)
-    dataset[:,71,:,:]=0
-    dataset[:,35,:,:]=0
-    mask = 1. * (dataset[0,-1,:,:]!=0.46890652)
+    dataset = np.load(config.data_file)[:, np.append(np.arange(0,35),70) ,:,:]
+    mask = None #1. * (dataset[0,-1,:,:]!=-1.0557332)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_batch_size, shuffle=True)
     
     # Load Model 
@@ -63,7 +61,7 @@ def main() :
             diffusion.accelerator.log(logs, step=global_step)
             global_step += 1
         
-        if epoch % 5 == 0:
+        if epoch % 20 == 0:
             print('Generate images ...')
             generated_images = diffusion.test_step()
             save_images(generated_images, './' + config.output_dir + f'/epoch_{epoch}.png')

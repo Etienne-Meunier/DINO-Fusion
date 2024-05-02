@@ -6,11 +6,11 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
 #SBATCH --hint=nomultithread
-#SBATCH --time=10:00:00              # max20h on qos_gpu_t3
-#SBATCH --qos=qos_gpu-t4
-#SBATCH --cpus-per-task=40           # 
+#SBATCH --time=20:00:00              # max20h on qos_gpu_t3
+#SBATCH --qos=qos_gpu-t3
+#SBATCH --cpus-per-task=24           #40
 #SBATCH --account=omr@v100
-#SBATCH -C v100-32g
+#SBATCH --partition=gpu_p2s          #-C v100-32g
 
 ## load Pytorch module
 module purge
@@ -22,4 +22,4 @@ export WANDB_MODE=offline          # run wandb sync offline-run-XXXXXXX/ when yo
 set -x
 
 # code execution
-srun accelerate launch train.py
+srun accelerate launch train.py --num_processes 4
