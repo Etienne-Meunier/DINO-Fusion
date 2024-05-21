@@ -22,7 +22,6 @@ def main() :
                                                                                         diffusion.optimizer,
                                                                                         diffusion.lr_scheduler,
                                                                                         train_dataloader)
-
     for epoch in range(config.num_epochs) : 
         progress_bar = tqdm(total=config.train_steps_by_epoch)
         progress_bar.set_description(f"Epoch {epoch}")

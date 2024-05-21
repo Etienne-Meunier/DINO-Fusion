@@ -97,9 +97,7 @@ class TransformFields :
                 
 
 def get_dataloader(tar_file, batch_size=5) : 
-
-    composed = transforms.Compose([TransformFields(0,0)])
-
+    composed = transforms.Compose([TransformFields()])
     dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed)
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
     return dl
