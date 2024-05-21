@@ -1,0 +1,107 @@
++ srun accelerate launch train.py
+The cache for model files in Transformers v4.22.0 has been updated. Migrating your old cache. This is a one-time only operation. You can interrupt this and resume the migration later on by calling `transformers.utils.move_cache()`.
+0it [00:00, ?it/s]0it [00:00, ?it/s]
+The following values were not passed to `accelerate launch` and had defaults used instead:
+	`--num_processes` was set to a value of `4`
+		More than one GPU was found, enabling multi-GPU training.
+		If this was unintended please pass in `--num_processes=1`.
+	`--num_machines` was set to a value of `1`
+	`--mixed_precision` was set to a value of `'no'`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 74, in <module>
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 74, in <module>
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 74, in <module>
+Traceback (most recent call last):
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 74, in <module>
+    main()
+    main()
+    main()
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 37, in main
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 37, in main
+    main()
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 37, in main
+  File "/gpfsdswork/projects/rech/omr/uen17sn/DINO-Fusion/DINO-Fusion/Diffusion_Model/train.py", line 37, in main
+    dataset = np.load('../../normalized_data.npy')
+         dataset = np.load('../../normalized_data.npy') dataset = np.load('../../normalized_data.npy')
+ 
+           ^^^^    ^^dataset = np.load('../../normalized_data.npy')^ 
+ ^  ^  ^  ^  ^  ^ ^  ^  ^  ^    ^    ^   ^     ^^^ ^^^ ^^^ ^ ^^^ ^^^ ^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/numpy/lib/npyio.py", line 427, in load
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^
+^  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/numpy/lib/npyio.py", line 427, in load
+^^  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/numpy/lib/npyio.py", line 427, in load
+^^
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/numpy/lib/npyio.py", line 427, in load
+    fid = stack.enter_context(open(os_fspath(file), "rb"))    
+fid = stack.enter_context(open(os_fspath(file), "rb"))    
+fid = stack.enter_context(open(os_fspath(file), "rb"))
+    fid = stack.enter_context(open(os_fspath(file), "rb"))
+                                                                                                   ^  ^   ^     ^  ^ ^  ^^ ^^^ ^^^ ^ ^^ ^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^FileNotFoundError^^^
+^^: ^^[Errno 2] No such file or directory: '../../normalized_data.npy'
+^FileNotFoundError
+^^FileNotFoundError
+: [Errno 2] No such file or directory: '../../normalized_data.npy'
+: [Errno 2] No such file or directory: '../../normalized_data.npy'FileNotFoundError
+: [Errno 2] No such file or directory: '../../normalized_data.npy'
+[2024-04-25 16:49:18,033] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 0 (pid: 2246261) of binary: /linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/bin/python3.11
+Traceback (most recent call last):
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/bin/accelerate", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/accelerate_cli.py", line 46, in main
+    args.func(args)
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/launch.py", line 1066, in launch_command
+    multi_gpu_launcher(args)
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/accelerate/commands/launch.py", line 711, in multi_gpu_launcher
+    distrib_run.run(args)
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/run.py", line 803, in run
+    elastic_launch(
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 135, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/linkhome/rech/genloc01/uen17sn/.conda/envs/MLenv/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 268, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+train.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2024-04-25_16:49:18
+  host      : r8i2n8-ib0
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 2246262)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[2]:
+  time      : 2024-04-25_16:49:18
+  host      : r8i2n8-ib0
+  rank      : 2 (local_rank: 2)
+  exitcode  : 1 (pid: 2246263)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+[3]:
+  time      : 2024-04-25_16:49:18
+  host      : r8i2n8-ib0
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 2246264)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-04-25_16:49:18
+  host      : r8i2n8-ib0
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 2246261)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+srun: error: r8i2n8: task 0: Exited with exit code 1
+srun: Terminating StepId=1647287.0
