@@ -1,9 +1,10 @@
-import os 
 from pathlib import Path
-#from diffusers.utils import make_image_grid
-from torchvision.utils import make_grid, save_image
 from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+from torchvision import transforms
+import webdataset as wds
+
 
 def save_images(images, output_path) : 
     """
@@ -27,3 +28,25 @@ def save_images(images, output_path) :
         ax.imshow(im, cmap='coolwarm')
 
     fig.savefig(str(output_path), bbox_inches='tight')
+
+class TransformFields :
+
+        def __init__(self, mu, std) : 
+            self.mu = mu
+            self.std = std 
+            print(f'Transform init with mu {mu} and std {std}')
+        
+        def __call__(self, sample) :
+            toce, soce, ssh = sample['toce.npy'], sample['soce.npy'], sample['ssh.npy']
+            #1. Cut edges
+            #2. Normalize (using pre-computed values self.mu, self.std)
+            #3. ... 
+            return {'toce' : toce, 'soce' : soce, 'ssh' : ssh }
+
+def get_dataloader(tar_file, batch_size=5) : 
+
+    composed = transforms.Compose([TransformFields(0,0)])
+
+    dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed)
+    dl = DataLoader(dataset=dataset, batch_size=batch_size)
+    return dl
