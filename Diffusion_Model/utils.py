@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import webdataset as wds
-
+import pickle
 
 def save_images(images, output_path) : 
     """
@@ -31,17 +31,70 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, mu, std) : 
-            self.mu = mu
-            self.std = std 
-            print(f'Transform init with mu {mu} and std {std}')
+        def __init__(self):#, mu, std) : 
+            self.mu   = {}
+            self.std  = {} 
+            self.mask = {}
+            #print(f'Transform init with mu {self.mu} and std {self.std}')
         
         def __call__(self, sample) :
-            toce, soce, ssh = sample['toce.npy'], sample['soce.npy'], sample['ssh.npy']
-            #1. Cut edges
-            #2. Normalize (using pre-computed values self.mu, self.std)
-            #3. ... 
-            return {'toce' : toce, 'soce' : soce, 'ssh' : ssh }
+            #toce, soce, ssh = sample['toce.npy'], sample['soce.npy'], sample['ssh.npy']
+            dico = {}
+            for feature in ["soce","toce","ssh"]:
+                mu,std,mask = get_infos(feature)  
+                #1. standardize
+                data = standardize_4D(sample[f"{feature}.npy"],mu,std)
+                #1. replace padding and edges by 0 
+                data = replaceEdges(data,mask)#,mean_stand)
+                dico[feature] = data
+            #return {'toce' : toce, 'soce' : soce, 'ssh' : ssh }
+
+        def get_infos(feature):
+            file_path = f'/data/emeunier/dataDiffModel/{feature}_infos.pickle'
+            with open(file_path, 'rb') as file:
+                data = pickle.load(file)
+                mu[feature] = data["mean"]
+                std[feature] = data["std"]
+                mask[feature] = data["mask"]
+                return data["mean"],  data["std"], data["mask"]
+
+
+        def standardize_4D(data,x_mean=None,x_std=None):
+            """
+                Standardize the data given a mean and a std
+                OR
+                Obtain mean and std of a dataset
+                    - data :         (batch,depth,x,y) 
+                    - mean and std : (1,depth,1,1)
+            """
+            if x_mean is None:
+                # Get min, max value aming all elements for each column
+                x_mean = np.nanmean(data, axis=(0,2,3), keepdims=True)
+                x_std  = np.nanstd(data, axis=(0,2,3), keepdims=True)
+                return x_mean, x_std
+            else : 
+                data = (data - x_mean)/ x_std
+                return data
+
+        def replaceEdges(data,mask,values=None):
+            """
+                Replace edges by a values. Default is 0
+                data : batch, depth, x, y 
+            """
+            batch_size,depth = np.shape(data)[0:2]
+            if values is None:
+                mask = np.tile(mask, (batch_size, depth, 1, 1))
+                data[mask] = 0
+            else:
+                mask = np.tile(mask, (batch_size, 1, 1))
+                data = data.transpose(1, 0, 2, 3)
+                values = np.squeeze(values)
+                for i in range(len(values)):
+                    data[i][mask] = values[i]
+                data = data.transpose(1, 0, 2, 3)
+            return data
+                                        
+                
 
 def get_dataloader(tar_file, batch_size=5) : 
 
