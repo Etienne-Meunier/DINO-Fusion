@@ -1,1 +1,6 @@
 *.pyc
+wandb/
+wandb*/
+.ipynb_checkpoints/
+__pycache__/
+*.out
