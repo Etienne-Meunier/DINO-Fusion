@@ -31,62 +31,53 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self):#, mu, std) : 
-            self.mu   = {}
-            self.std  = {} 
-            self.mask = {}
-            #print(f'Transform init with mu {self.mu} and std {self.std}')
+        def __init__(self, mu=None, std=None,mask=None) : 
+            if mu is None:
+                self.mu,self.std,self.mask = {},{},{}
+                self.get_infos()
+            else:
+                self.mu   = mu
+                self.std  = std
+                self.mask = mask
         
         def __call__(self, sample) :
-            #toce, soce, ssh = sample['toce.npy'], sample['soce.npy'], sample['ssh.npy']
             dico = {}
             for feature in ["soce","toce","ssh"]:
-                mu,std,mask = get_infos(feature)  
                 #1. standardize
-                data = standardize_4D(sample[f"{feature}.npy"],mu,std)
+                data = self.standardize_4D(sample,feature)
                 #1. replace padding and edges by 0 
-                data = replaceEdges(data,mask)#,mean_stand)
+                data = self.replaceEdges(data,feature)
                 dico[feature] = data
-            #return {'toce' : toce, 'soce' : soce, 'ssh' : ssh }
-
-        def get_infos(feature):
-            file_path = f'/data/emeunier/dataDiffModel/{feature}_infos.pickle'
-            with open(file_path, 'rb') as file:
-                data = pickle.load(file)
-                mu[feature] = data["mean"]
-                std[feature] = data["std"]
-                mask[feature] = data["mask"]
-                return data["mean"],  data["std"], data["mask"]
+            return dico
 
 
-        def standardize_4D(data,x_mean=None,x_std=None):
+        def get_infos(self):
+            for feature in ["soce","toce","ssh"]:
+                file_path = f'/data/emeunier/dataDiffModel/{feature}_infos.pickle'
+                with open(file_path, 'rb') as file:
+                    data = pickle.load(file)
+                    self.mu[feature]   = data["mean"]
+                    self.std[feature]  = data["std"]
+                    self.mask[feature] = data["mask"]
+
+
+        def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
-                OR
-                Obtain mean and std of a dataset
-                    - data :         (batch,depth,x,y) 
-                    - mean and std : (1,depth,1,1)
             """
-            if x_mean is None:
-                # Get min, max value aming all elements for each column
-                x_mean = np.nanmean(data, axis=(0,2,3), keepdims=True)
-                x_std  = np.nanstd(data, axis=(0,2,3), keepdims=True)
-                return x_mean, x_std
-            else : 
-                data = (data - x_mean)/ x_std
-                return data
+            return (sample[f'{feature}.npy'] - self.mu[feature]) / self.std[feature]
 
-        def replaceEdges(data,mask,values=None):
+        def replaceEdges(data,feature,values=None):
             """
                 Replace edges by a values. Default is 0
                 data : batch, depth, x, y 
             """
             batch_size,depth = np.shape(data)[0:2]
             if values is None:
-                mask = np.tile(mask, (batch_size, depth, 1, 1))
+                mask = np.tile(self.mask[feature], (batch_size, depth, 1, 1))
                 data[mask] = 0
             else:
-                mask = np.tile(mask, (batch_size, 1, 1))
+                mask = np.tile(self.mask[feature], (batch_size, 1, 1))
                 data = data.transpose(1, 0, 2, 3)
                 values = np.squeeze(values)
                 for i in range(len(values)):
