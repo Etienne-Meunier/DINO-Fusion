@@ -8,20 +8,27 @@ from utils import save_images
 import numpy as np
 
 def main() :
+    print("\n----------INITIALISATION----------\n")
     # Load config
     config = TrainingConfig()
-    
+    print("Config loaded")
+
     mask = None#TODO:load mask here
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size)
+    print("Data loaded")
     
     # Load Model 
     diffusion = DiffusionModel(config)
+    print("Model loaded")
 
     global_step = 0
     diffusion.denoiser, diffusion.optimizer, diffusion.lr_scheduler, train_dataloader = diffusion.accelerator.prepare(diffusion.denoiser,
                                                                                         diffusion.optimizer,
                                                                                         diffusion.lr_scheduler,
                                                                                         train_dataloader)
+    print("Accelerate setted")
+
+    print("\n----------TRAINING----------\n")
     for epoch in range(config.num_epochs) : 
         progress_bar = tqdm(total=config.train_steps_by_epoch)
         progress_bar.set_description(f"Epoch {epoch}")

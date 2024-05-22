@@ -53,7 +53,7 @@ class TransformFields :
 
         def get_infos(self):
             for feature in ["soce","toce","ssh"]:
-                file_path = f'/data/emeunier/dataDiffModel/{feature}_infos.pickle'
+                file_path = f'/home/tissot/data/{feature}_infos.pickle'
                 with open(file_path, 'rb') as file:
                     data = pickle.load(file)
                     self.mu[feature]   = data["mean"]
@@ -87,7 +87,7 @@ class TransformFields :
             return data
                                         
                 
-def get_dataloader(tar_file, batch_size=5) : 
+def get_dataloader(tar_file, batch_size=5) :
     composed = transforms.Compose([TransformFields()])
     dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed)
     dl = DataLoader(dataset=dataset, batch_size=batch_size)

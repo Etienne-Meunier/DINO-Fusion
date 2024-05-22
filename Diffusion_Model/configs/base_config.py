@@ -4,7 +4,7 @@ from typing import List
 @dataclass
 class TrainingConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = '../../normalized_data.npy'
+    data_file : str = '/home/tissot/data/dataset.tar'
     image_size: List = field(default_factory=lambda: [208, 64])  # the generated image resolution
     train_batch_size: int = 8 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
     train_steps_by_epoch: int = 200  # Steps by epoch
@@ -23,7 +23,7 @@ class TrainingConfig:
 
 @dataclass
 class MiniConfig:
-    data_file : str = '../../mini_data.npy'
+    data_file : str = "/home/tissot/data/dataset.tar"
     image_size: List = field(default_factory=lambda: [208, 64])  # the generated image resolution
     train_batch_size: int = 2# 16
     train_steps_by_epoch: int = 10  # Steps by epoch
@@ -41,7 +41,7 @@ class MiniConfig:
 
 @dataclass
 class MiniConfig:
-    data_file : str = '../../mini_data.npy'
+    data_file : str = "/home/tissot/data/dataset.tar"
     image_size: List = field(default_factory=lambda: [200, 64])  # the generated image resolution
     train_batch_size: int = 2# 16
     train_steps_by_epoch: int = 10  # Steps by epoch
