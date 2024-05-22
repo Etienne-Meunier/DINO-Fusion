@@ -4,6 +4,7 @@ from torchvision import transforms
 from utils import get_dataloader
 from tqdm import tqdm
 import torch 
+from ipdb import set_trace
 from utils import save_images
 import numpy as np
 
@@ -14,7 +15,7 @@ def main() :
     print("Config loaded")
 
     mask = None#TODO:load mask here
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,num_workers=2)
     print("Data loaded")
     
     # Load Model 
@@ -34,7 +35,8 @@ def main() :
         progress_bar.set_description(f"Epoch {epoch}")
         for step, batch in enumerate(train_dataloader):
             if step == config.train_steps_by_epoch : break
-            loss = diffusion.training_step(batch, mask) ##### add mask
+            #set_trace()
+            loss = diffusion.training_step(batch)
             progress_bar.update(1)
             logs = {"loss": loss,
                     "lr": diffusion.lr_scheduler.get_last_lr()[0],

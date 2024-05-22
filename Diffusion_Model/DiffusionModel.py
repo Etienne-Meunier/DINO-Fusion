@@ -86,7 +86,7 @@ class DiffusionModel(nn.Module) :
         noisy_images = self.noise_scheduler.add_noise(clean_images, noises, timesteps)
         return noisy_images, noises, timesteps
     
-    def training_step(self, batch, mask) :
+    def training_step(self, batch, mask=None) :
         """
         Takes a batch of images and do a training step.
         """
@@ -95,9 +95,12 @@ class DiffusionModel(nn.Module) :
         ### pad one line right and left to make number of columns 64 (multiple of 16)
         ### pad 4 lines up and 5 at the bottom to make size number of lines 208 (multiple of 16)
         
-        clean_images = F.pad(clean_images, (1, 1, 4, 5), "constant", 0)
+        #set_trace()
+        clean_images = F.pad(clean_images, (0,0,3,3), "constant", 0)
         #mask_tensor = F.pad(mask_tensor, (1, 1, 4, 5), "constant", 0)
+        #TODO:assert img_size
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
+        
 
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
