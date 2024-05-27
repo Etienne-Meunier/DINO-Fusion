@@ -11,7 +11,7 @@
 module purge
 #module load python
 conda activate MLenv
-export WANDB_MODE=offline          # run wandb sync offline-run-XXXXXXX/ when you are on the head nodes with internet
+export WANDB_MODE=online          # run wandb sync offline-run-XXXXXXX/ when you are on the head nodes with internet
 
 ## launch script on every node
 set -x
