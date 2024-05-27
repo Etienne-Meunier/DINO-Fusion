@@ -4,9 +4,9 @@ from typing import List
 @dataclass
 class TrainingConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = '/home/tissot/data/dataset.tar'
+    data_file : str = '/home/tissot/data/dataset2.tar'
     image_size: List = field(default_factory=lambda: [208, 64])  # the generated image resolution
-    train_batch_size: int = 8 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
+    train_batch_size: int = 16 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
     train_steps_by_epoch: int = 200  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler

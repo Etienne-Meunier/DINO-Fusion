@@ -15,9 +15,9 @@ def main() :
     print("Config loaded")
 
     mask = None#TODO:load mask here
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,num_workers=2)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,step=2)
     print("Data loaded")
-    
+
     # Load Model 
     diffusion = DiffusionModel(config)
     print("Model loaded")

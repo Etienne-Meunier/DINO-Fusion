@@ -37,7 +37,8 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, mu=None, std=None,mask=None) : 
+        def __init__(self, mu=None, std=None,mask=None,step=1) : 
+            self.step=step
             if mu is None:
                 self.mu,self.std,self.mask = {},{},{}
                 self.get_infos()
@@ -51,17 +52,19 @@ class TransformFields :
             for feature in ["soce","toce","ssh"]:
                 #1. standardize
                 data = self.standardize_4D(sample,feature)
-                #1. replace padding and edges by 0 
-                data = self.replaceEdges(data,feature)
+                #2. replace padding and edges by 0 
+                data = self.replaceEdges(data,feature,val=0)
+                #3. pad data
+                data = self.padData(data,xup=1,xdown=1,yup=4,ydown=5,val=0)
                 dico[feature] = data
             #set_trace()
-            data = np.concatenate((dico['soce'], dico['toce'], dico['ssh']), axis=1).squeeze(axis=0)
+            data = np.concatenate((dico['soce'][:,::self.step], dico['toce'][:,::self.step], dico['ssh']), axis=1).squeeze(axis=0)
             return data
 
 
         def get_infos(self):
             for feature in ["soce","toce","ssh"]:
-                file_path = f'/home/tissot/data/{feature}_infos.pickle'
+                file_path = f'/home/tissot/data/infos/{feature}_info.pkl'
                 with open(file_path, 'rb') as file:
                     data = pickle.load(file)
                     self.mu[feature]   = data["mean"]
@@ -75,34 +78,40 @@ class TransformFields :
             """
             return (sample[f'{feature}.npy'] - self.mu[feature]) / self.std[feature]
 
-        def replaceEdges(self,data,feature,values=None):
+        def replaceEdges(self,data,feature,val=None,values=None):
             """
                 Replace edges by a values. Default is 0
                 data : batch, depth, x, y 
             """
             batch_size,depth = np.shape(data)[0:2]
-            if values is None:
+            if val is not None:
                 mask = np.tile(self.mask[feature], (batch_size, depth, 1, 1))
-                data[mask] = 0
-            else:
-                mask = np.tile(self.mask[feature], (batch_size, 1, 1))
-                data = data.transpose(1, 0, 2, 3)
-                values = np.squeeze(values)
-                for i in range(len(values)):
-                    data[i][mask] = values[i]
-                data = data.transpose(1, 0, 2, 3)
+                data[mask] = val
+            #find less greedy than transpose method
+            #if values is not None:
+            #    mask = np.tile(self.mask[feature], (batch_size, 1, 1))
+            #    data = data.transpose(1, 0, 2, 3)
+            #    values = np.squeeze(values)
+            #    for i in range(len(values)):
+            #        data[i][mask] = values[i]
+            #    data = data.transpose(1, 0, 2, 3)
             return data
+        
+        def padData(self,dataset,xup,xdown,yup,ydown,val):
+            """
+                pad data on axis x and y
+            """
+            return np.pad(dataset, ((0, 0), (0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
+
                                         
                 
-def get_dataloader(tar_file, batch_size=5,num_workers=2,distributed=True) :
-    composed = transforms.Compose([TransformFields()])
+def get_dataloader(tar_file, batch_size=5,step=1) :
+    composed = transforms.Compose([TransformFields(step=step)])
     dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed) #nodesplitter=wds.split_by_worker
-
+    dl = DataLoader(dataset=dataset, batch_size=batch_size)#,num_workers=num_workers)#sampler=sampler
+    return dl
     #if distributed:
     #    torch.distributed.init_process_group(backend='gloo') 
     #    sampler = DistributedSampler(dataset)
     #else:
     #    sampler = None
-
-    dl = DataLoader(dataset=dataset, batch_size=batch_size)#,num_workers=num_workers)#sampler=sampler
-    return dl

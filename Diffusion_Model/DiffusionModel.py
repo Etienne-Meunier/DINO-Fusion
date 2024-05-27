@@ -96,7 +96,7 @@ class DiffusionModel(nn.Module) :
         ### pad 4 lines up and 5 at the bottom to make size number of lines 208 (multiple of 16)
         
         #set_trace()
-        clean_images = F.pad(clean_images, (0,0,3,3), "constant", 0)
+        #clean_images = F.pad(clean_images, (0,0,3,3), "constant", 0)
         #mask_tensor = F.pad(mask_tensor, (1, 1, 4, 5), "constant", 0)
         #TODO:assert img_size
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
