@@ -109,8 +109,8 @@ class TransformFields :
                 
 def get_dataloader(tar_file, batch_size=5,step=1) :
     composed = transforms.Compose([TransformFields(step=step)])
-    dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed) #nodesplitter=wds.split_by_worker
-    dl = DataLoader(dataset=dataset, batch_size=batch_size)#,num_workers=num_workers)#sampler=sampler
+    dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed) 
+    dl = DataLoader(dataset=dataset, batch_size=batch_size)
     return dl
     #if distributed:
     #    torch.distributed.init_process_group(backend='gloo') 

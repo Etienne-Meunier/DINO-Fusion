@@ -10,6 +10,7 @@
 ## load Pytorch module
 module purge
 #module load python
+conda init
 conda activate MLenv
 export WANDB_MODE=online          # run wandb sync offline-run-XXXXXXX/ when you are on the head nodes with internet
 

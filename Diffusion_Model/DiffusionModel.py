@@ -35,8 +35,8 @@ class DiffusionModel(nn.Module) :
             #print(gather_object(accelerator.trackers))
             #et_trace()
             #wandb_id = accelerator.logging_dir#.name
-            self.config.output_dir = f"models/{wandb_id}"
-            #print(wandb_id)
+            self.config.output_dir = f"../model/{wandb_id}"
+            os.makedirs(self.config.output_dir, exist_ok=True)
         return accelerator
 
     def config_optimizer(self) : 
