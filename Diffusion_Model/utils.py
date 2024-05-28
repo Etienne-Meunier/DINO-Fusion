@@ -21,6 +21,7 @@ def save_images(images, output_path) :
     print(output_path)
     #save_image(from_numpy(images[:,:,:,0].squeeze()), str(output_path), nrow=4)
     
+    np.save(str(output_path).replace(".png",".npy"),images)
 
     fig = plt.figure(figsize=(20., 20.))
     grid = ImageGrid(fig, 111,  # similar to subplot(111)
@@ -34,6 +35,7 @@ def save_images(images, output_path) :
         ax.imshow(im, cmap='coolwarm')
 
     fig.savefig(str(output_path), bbox_inches='tight')
+
 
 class TransformFields :
 

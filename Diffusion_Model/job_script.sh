@@ -2,7 +2,7 @@
 #SBATCH --job-name=dino_diffusion
 #SBATCH --output=dino_diffusion.out
 #SBATCH --error=dino_diffusion.out
-#
+#SBATCH --partition=hard
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
 #SBATCH --time=40:00:00             
@@ -17,4 +17,5 @@ export WANDB_MODE=online          # run wandb sync offline-run-XXXXXXX/ when you
 set -x
 
 # code execution
-srun python train.py #launch accelerate --num_processes 1
+#srun accelerate launch train.py --num_processes 1 #srun python tr  #
+srun accelerate launch train.py --num_processes 1

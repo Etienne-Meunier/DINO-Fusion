@@ -30,18 +30,19 @@ class DiffusionModel(nn.Module) :
             accelerator.init_trackers('dino-fusion', config=vars(self.config))
         if self.config.output_dir == 'wandb' : 
             # https://github.com/huggingface/accelerate/issues/1040#issuecomment-1448347671
-            #wandb_id = accelerator.trackers[0].run.id*
+            wandb_id = accelerator.trackers[0].run.id
             #print(accelerator.trackers)
             #print(gather_object(accelerator.trackers))
-            wandb_id = accelerator.logging_dir#.name
-            self.config.output_dir = wandb_id
+            #et_trace()
+            #wandb_id = accelerator.logging_dir#.name
+            self.config.output_dir = f"models/{wandb_id}"
             #print(wandb_id)
         return accelerator
 
     def config_optimizer(self) : 
         """
         Setup optimizer and scheduler
-        Return 
+        Return ls
             optimizer
             lr_scheduler
         """
