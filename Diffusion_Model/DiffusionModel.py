@@ -8,6 +8,7 @@ from accelerate import Accelerator
 from accelerate.utils.operations import gather_object
 import os
 from ipdb import set_trace
+from pipelines.pipeline_tensor import DDPMPipeline_Tensor
 
 class DiffusionModel(nn.Module) : 
     
@@ -16,7 +17,9 @@ class DiffusionModel(nn.Module) :
         self.config = config
         self.accelerator = self.config_accelerate()
         self.denoiser = get_simple_unet(self.config.image_size, self.config.use_ema)
-        self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps, beta_schedule="squaredcos_cap_v2")
+        self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
+                                             beta_schedule="squaredcos_cap_v2", 
+                                             clip_sample=False)
         self.optimizer, self.lr_scheduler = self.config_optimizer()
         
         
@@ -116,7 +119,7 @@ class DiffusionModel(nn.Module) :
         return loss.detach().item()
     
     def get_pipeline(self) : 
-        pipeline = DDPMPipeline(unet=self.accelerator.unwrap_model(self.denoiser),
+        pipeline = DDPMPipeline_Tensor(unet=self.accelerator.unwrap_model(self.denoiser),
                                 scheduler=self.noise_scheduler)
         return pipeline
 
@@ -125,12 +128,10 @@ class DiffusionModel(nn.Module) :
         Generate a list of images `List[PIL.Image]` from noise
         """
         pipeline = self.get_pipeline()
-        images = pipeline(
-                        batch_size=self.config.eval_batch_size,
+        images = pipeline(batch_size=self.config.eval_batch_size,
                         generator=torch.manual_seed(self.config.seed),
                         num_inference_steps=self.config.num_inference_steps,
-                        output_type='numpy'
-                        ).images
+                        return_dict=False)[0]
         print(images.shape)
         return images
     
