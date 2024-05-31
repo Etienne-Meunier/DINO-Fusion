@@ -131,14 +131,8 @@ class DiffusionModel(nn.Module) :
         images = pipeline(batch_size=self.config.eval_batch_size,
                         generator=torch.manual_seed(self.config.seed),
                         num_inference_steps=self.config.num_inference_steps,
-<<<<<<< HEAD
-                        output_type='numpy'
-                        ).images
-        #print(images.shape)
-=======
                         return_dict=False)[0]
         print(images.shape)
->>>>>>> 779f6f34e1a3e6de57a75989b6b5efca95153d55
         return images
     
     def save_model(self) : 
