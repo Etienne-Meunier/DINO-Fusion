@@ -35,7 +35,7 @@ class DiffusionModel(nn.Module) :
             #print(gather_object(accelerator.trackers))
             #et_trace()
             #wandb_id = accelerator.logging_dir#.name
-            self.config.output_dir = f"../model/{wandb_id}"
+            self.config.output_dir = f"../../diffModel_experiences/{wandb_id}"
             os.makedirs(self.config.output_dir, exist_ok=True)
         return accelerator
 
@@ -131,7 +131,7 @@ class DiffusionModel(nn.Module) :
                         num_inference_steps=self.config.num_inference_steps,
                         output_type='numpy'
                         ).images
-        print(images.shape)
+        #print(images.shape)
         return images
     
     def save_model(self) : 
