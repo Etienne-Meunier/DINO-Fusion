@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torch.utils.data.distributed import DistributedSampler
 from ipdb import set_trace
+import einops
 
 def save_images(images, output_path) : 
     """
@@ -48,6 +49,7 @@ class TransformFields :
         
         def __call__(self, sample) :
             dico = {}
+            sample = {key.replace('.npy', '') : val for key, val in sample.items()}
             for feature in ["soce","toce","ssh"]:
                 #1. standardize
                 data = self.standardize_4D(sample,feature)
@@ -57,13 +59,50 @@ class TransformFields :
                 data = self.padData(data,xup=1,xdown=1,yup=4,ydown=5,val=0)
                 dico[feature] = data
             #set_trace()
-            data = np.concatenate((dico['soce'][:,::self.step], dico['toce'][:,::self.step], dico['ssh']), axis=1).squeeze(axis=0)
-            return data
+            data = self.stride_concat(dico)
+            return data  
+
+        def uncall(self, data) : 
+            sample = self.un_stride_concat(data)
+            for feature in ["soce","toce","ssh"]: 
+                array = sample[feature]
+                array = self.unpadData(array,xup=1,xdown=1,yup=4,ydown=5)
+
+                array = self.replaceEdges(array, feature, val=np.nan)
+
+                array = self.unstandardize_4D(array, feature)
+                sample[feature] =  array
+            sample = {key+'.npy' : val for key, val in sample.items()}
+            return sample
+
+
+        def stride_concat(self, sample) : 
+            return np.concatenate((sample['soce'][:,::self.step], sample['toce'][:,::self.step], sample['ssh']), axis=1).squeeze(axis=0)
+        
+        def un_stride_concat(self, data) : 
+            assert self.step == 2, 'Only works for step=2 for now'
+            assert (len(data.shape) == 4), 'Only works for arrays like (b c h w) for now'
+            ranges = {'toce' : slice(0, 18), 'soce' : slice(18, 36), 'ssh' : slice(36,None)}
+            sample =  {key : data[:, val] for key, val in ranges.items()}
+            sample['toce'] = self.interpolate_double(sample['toce'])
+            sample['soce'] = self.interpolate_double(sample['soce'])
+            return sample
+
+
+        def interpolate_double(self, array) : 
+            """
+            Take array with size (b, c, w, h) and return 
+            array with (b, c*2, w, h) using interpolation to fill the 
+            gaps. 
+            """
+            r = (array[:, 0:-1] + array[:, 1:]) / 2
+            interleaved_tensor = einops.rearrange([array[:, :-1], r], 'd b c h w -> b (c d) h w', d=2)
+            return np.concatenate([interleaved_tensor, array[:, -1:]], axis=1)
 
 
         def get_infos(self):
             for feature in ["soce","toce","ssh"]:
-                file_path = f'/home/tissot/data/infos/{feature}_info.pkl'
+                file_path = f'data/{feature}_info.pkl'
                 with open(file_path, 'rb') as file:
                     data = pickle.load(file)
                     self.mu[feature]   = data["mean"]
@@ -75,9 +114,15 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}.npy'] - self.mu[feature]) / (2*self.std[feature])
-
-        def replaceEdges(self,data,feature,val=None,values=None):
+            return (sample[f'{feature}'] - self.mu[feature]) / (2*self.std[feature])
+        
+        def unstandardize_4D(self,sample,feature):
+            """
+                Standardize the data given a mean and a std
+            """
+            return (sample * (2*self.std[feature])) + self.mu[feature]
+        
+        def replaceEdges(self,data,feature,val=None):
             """
                 Replace edges by a values. Default is 0
                 data : batch, depth, x, y 
@@ -102,6 +147,8 @@ class TransformFields :
             """
             return np.pad(dataset, ((0, 0), (0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
 
+        def unpadData(self,dataset,xup,xdown,yup,ydown):
+            return dataset[:, :,yup:-ydown, xup:-xdown]
                                         
                 
 def get_dataloader(tar_file, batch_size=5,step=1) :
