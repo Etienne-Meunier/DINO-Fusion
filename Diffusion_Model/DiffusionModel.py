@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from backbones.backbones import get_simple_unet
 from diffusers.optimization import get_constant_schedule_with_warmup, get_cosine_schedule_with_warmup
 from accelerate import Accelerator
+
 from accelerate.utils.operations import gather_object
 import os
 from ipdb import set_trace
@@ -19,27 +20,23 @@ class DiffusionModel(nn.Module) :
         self.denoiser = get_simple_unet(self.config.image_size, self.config.use_ema)
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
                                              beta_schedule="squaredcos_cap_v2", 
-                                             clip_sample=False)
+                                             clip_sample=True)
         self.optimizer, self.lr_scheduler = self.config_optimizer()
         
         
-    def config_accelerate(self) :
-        os.makedirs(self.config.output_dir, exist_ok=True) 
+    def config_accelerate(self) :        
         accelerator = Accelerator(mixed_precision=self.config.mixed_precision,
                                   gradient_accumulation_steps=self.config.gradient_accumulation_steps, 
-                                  log_with='wandb',
-                                  project_dir=os.path.join(self.config.output_dir, 'logs'))
+                                  log_with=self.config.logger)
+        
         if accelerator.is_main_process:
             accelerator.init_trackers('dino-fusion', config=vars(self.config))
+            accelerator.trackers[0].run.log_code("../")
         if self.config.output_dir == 'wandb' : 
-            # https://github.com/huggingface/accelerate/issues/1040#issuecomment-1448347671
             wandb_id = accelerator.trackers[0].run.id
-            #print(accelerator.trackers)
-            #print(gather_object(accelerator.trackers))
-            #et_trace()
-            #wandb_id = accelerator.logging_dir#.name
-            self.config.output_dir = f"../../diffModel_experiences/{wandb_id}"
-            os.makedirs(self.config.output_dir, exist_ok=True)
+            self.config.output_dir = f"{self.config.base_output_dir}/{wandb_id}"
+        os.makedirs(self.config.output_dir, exist_ok=True)
+        print(f'Config output dir : {self.config.output_dir}')
         return accelerator
 
     def config_optimizer(self) : 
@@ -52,11 +49,16 @@ class DiffusionModel(nn.Module) :
         #https://github.com/huggingface/accelerate/issues/963
         optimizer = torch.optim.AdamW(self.denoiser.parameters(), lr=self.config.learning_rate)
         num_update_steps_per_epoch = self.config.train_steps_by_epoch / self.config.gradient_accumulation_steps
-        lr_scheduler = get_cosine_schedule_with_warmup( #constant
-                            optimizer=optimizer,
-                            num_warmup_steps=self.config.lr_warmup_steps * self.accelerator.num_processes,
-                            num_training_steps=(num_update_steps_per_epoch * self.config.num_epochs * self.accelerator.num_processes),
-                        )
+        if self.config.lr_schedule == 'cosine_schedule' :
+            lr_scheduler = get_cosine_schedule_with_warmup( #constant
+                                optimizer=optimizer,
+                                num_warmup_steps=self.config.lr_warmup_steps * self.accelerator.num_processes,
+                                num_training_steps=(num_update_steps_per_epoch * self.config.num_epochs * self.accelerator.num_processes),
+                            )
+        elif self.config.lr_schedule == 'linear' :
+            lr_scheduler = get_constant_schedule_with_warmup(optimizer=optimizer,
+                                                             num_warmup_steps=self.config.lr_warmup_steps * self.accelerator.num_processes)
+            
         return optimizer, lr_scheduler
 
     def denoise(self, noisy_images, timesteps) :
@@ -95,16 +97,8 @@ class DiffusionModel(nn.Module) :
         Takes a batch of images and do a training step.
         """
         clean_images = batch#["images"]
-        #mask_tensor = torch.from_numpy(mask).expand(clean_images.shape).type(torch.float).to(self.accelerator.device)
-        ### pad one line right and left to make number of columns 64 (multiple of 16)
-        ### pad 4 lines up and 5 at the bottom to make size number of lines 208 (multiple of 16)
-        
-        #set_trace()
-        #clean_images = F.pad(clean_images, (0,0,3,3), "constant", 0)
-        #mask_tensor = F.pad(mask_tensor, (1, 1, 4, 5), "constant", 0)
-        #TODO:assert img_size
+       
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
-        
 
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]

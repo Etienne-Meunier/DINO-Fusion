@@ -16,23 +16,20 @@ def save_images(images, output_path) :
     """
     XXX
     """
-    #image_grid = make_image_grid(images[:,:,:,0], nrows=4)
+    images = images.cpu()
     Path(output_path).parent.mkdir(exist_ok=True)
-    print(output_path)
-    #save_image(from_numpy(images[:,:,:,0].squeeze()), str(output_path), nrow=4)
     
     np.save(str(output_path).replace(".png",".npy"),images)
 
-    fig = plt.figure(figsize=(20., 20.))
-    grid = ImageGrid(fig, 111,  # similar to subplot(111)
-                 nrows_ncols=(4, 4),  # creates 2x2 grid of axes
-                 axes_pad=0.1,  # pad between axes in inch.
-                 )
-    image_data = [images[i,:,:,0].squeeze() for i in range(images.shape[0])]
-
-    for ax, im in zip(grid, image_data):
-        # Iterating over the grid returns the Axes.
-        ax.imshow(im, cmap='coolwarm')
+    fig, axs = plt.subplots(3, min(len(images), 8), figsize=(15,15))
+    for ci, c in enumerate([(0, 'surface_toce'), (18, 'surface_soce'), (-1, 'ssh')]) : 
+        for b in range(min(len(images), 8)) : 
+            axs[ci, b].imshow(images[b, c[0]], origin='lower')
+            
+            if b == 0 : 
+                axs[ci, b].set_title(c[1])
+            else :
+                axs[ci, b].axis('off')
 
     fig.savefig(str(output_path), bbox_inches='tight')
 
@@ -78,7 +75,7 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}.npy'] - self.mu[feature]) / self.std[feature]
+            return (sample[f'{feature}.npy'] - self.mu[feature]) / (2*self.std[feature])
 
         def replaceEdges(self,data,feature,val=None,values=None):
             """

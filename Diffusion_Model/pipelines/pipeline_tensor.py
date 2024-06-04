@@ -79,7 +79,7 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
             # 2. compute previous image: x_t -> x_t-1
             image = self.scheduler.step(model_output, t, image, generator=generator).prev_sample
 
-        print(image.min(), image.max())
+        #print(image.min(), image.max())
         if not return_dict:
             return (image,)
 

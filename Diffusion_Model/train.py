@@ -1,5 +1,5 @@
 from DiffusionModel import DiffusionModel
-from configs.base_config import TrainingConfig
+from configs.base_config import TrainingConfig, MiniConfig
 from torchvision import transforms
 from utils import get_dataloader
 from tqdm import tqdm
@@ -35,7 +35,6 @@ def main() :
         progress_bar.set_description(f"Epoch {epoch}")
         for step, batch in enumerate(train_dataloader):
             if step == config.train_steps_by_epoch : break
-            #set_trace()
             loss = diffusion.training_step(batch)
             progress_bar.update(1)
             logs = {"loss": loss,
