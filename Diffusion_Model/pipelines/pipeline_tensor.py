@@ -5,9 +5,10 @@ import torch
 import numpy as np
 
 
-from diffusers.utils import randn_tensor
+from diffusers.utils.torch_utils import randn_tensor
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers.pipelines import DDPMPipeline
 
 class DDPMPipeline_Tensor(DiffusionPipeline):
     r"""
