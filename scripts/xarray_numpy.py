@@ -24,4 +24,5 @@ for restart in restarts :
         np.save(save_path + f'soce_{idx}.npy', soce[i])
         np.save(save_path + f'ssh_{idx}.npy',  ssh[i])
         idx += 1
+    del data_TS, data_SSH, toce, soce, ssh
 
