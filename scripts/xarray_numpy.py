@@ -20,8 +20,8 @@ for restart in restarts :
     soce = data_TS.soce_inst.values
     ssh = data_SSH.ssh_inst.values
     for i in tqdm(range(len(toce))) :
-        np.save(toce[i], save_path + f'toce_{idx}.npy')
-        np.save(soce[i], save_path + f'soce_{idx}.npy')
-        np.save(ssh[i], save_path + f'ssh_{idx}.npy')
+        np.save(save_path + f'toce_{idx}.npy', toce[i])
+        np.save(save_path + f'soce_{idx}.npy', soce[i])
+        np.save(save_path + f'ssh_{idx}.npy',  ssh[i])
         idx += 1
 
