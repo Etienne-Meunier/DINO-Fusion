@@ -11,7 +11,7 @@ idx = 0
 for restart in restarts :
     try :
         data_TS = xr.open_mfdataset(restart + '/DINO_10d_grid_T_3D.nc')
-        data_SSH = xr.open_mfdataset(restart + '/DINO_10d_grid_T_2D.nc', decode_time=False)
+        data_SSH = xr.open_mfdataset(restart + '/DINO_10d_grid_T_2D.nc', decode_times=False)
         toce = data_TS.toce_inst.values
         soce = data_TS.soce_inst.values
         ssh = data_SSH.ssh_inst.values
