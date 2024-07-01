@@ -59,5 +59,8 @@ if __name__ == '__main__' :
 
     with open(save_path + '_files.txt', 'w+') as f:
         for restart in restarts :
-            convert_nc(restart, save_path, f, infos)
+            try : 
+                convert_nc(restart, save_path, f, infos)
+            except Exception as e : 
+                print(restart, e)
 
