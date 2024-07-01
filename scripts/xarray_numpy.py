@@ -18,7 +18,7 @@ for restart in restarts :
         continue
 
     data = {}
-    infos = {}
+    infos = Infos()
     data['toce.npy'] = data_TS.toce_inst.values
     data['soce.npy'] = data_TS.soce_inst.values
     data['ssh.npy'] = data_SSH.ssh_inst.values
@@ -26,11 +26,33 @@ for restart in restarts :
         for key in data.keys() :
             name=f'{idx:05d}.{key}'    
             np.save(save_path + name, data[key][i])
+            
+            infos[key]['mean'] += np.nanmean(data[key][i], axis=(1,2), keepdims=True)[None]
+            infos[key]['std'] += np.nanstd(data[key][i], axis=(1,2), keepdims=True)[None]
             f.writelines(name+'\n')
             idx += 1
     del data_TS, data_SSH, data
 f.close()
 
-d = data['toce.npy']
-x_mean = np.nanmean(d, axis=(0,2,3), keepdims=False)
-x_std  = np.nanstd(d, axis=(0,2,3), keepdims=False)
+
+class Infos : 
+    
+    def __init__(self, keys) : 
+        self.infos = {}
+        for key in keys :
+            self.infos[key] = {'mean' :  0, 'std' : 0, 'counter' : 0}
+
+    def update(self, key, mean, std) : 
+        self.infos[key]['mean'] += mean
+        self.infos[key]['std'] += std
+        self.infos[key]['counter'] += 1
+
+    def normalise(self) : 
+        for key in self.infos.keys : 
+            self.infos[key]['mean'] /= self.infos[key]['counter']
+            self.infos[key]['std'] /= self.infos[key]['counter']
+
+
+    
+
+
