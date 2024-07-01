@@ -55,7 +55,7 @@ if __name__ == '__main__' :
     restarts = glob('/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion/1_4degree/restart*')
     save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree'
 
-    counter, infos = 0, Infos()
+    counter, infos = 0, Infos(keys=['toce.npy', 'soce.npy', 'ssh.npy'])
 
     with open(save_path + '_files.txt', 'w+') as f:
         for restart in restarts :
