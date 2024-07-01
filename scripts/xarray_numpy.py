@@ -41,7 +41,7 @@ def convert_nc(restart_path, save_path, file_names, infos, counter) :
     assert len(data['toce.npy']) == data['soce.npy'] == data['ssh.npy'], 'Inequal length'
     for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
-            name=f'{infos['key']['counter']:05d}.{key}'    
+            name=f"{infos['key']['counter']:05d}.{key}"
             np.save(save_path + name, data[key][i])
             infos.update(key,
                          np.nanmean(data[key][i], axis=(1,2)),
@@ -59,5 +59,5 @@ if __name__ == '__main__' :
 
     with open(save_path + '_files.txt', 'w+') as f:
         for restart in restarts :
-            counter = convert_nc(restart, save_path, f, infos, counter)
+            convert_nc(restart, save_path, f, infos)
 
