@@ -14,6 +14,7 @@ class BaseConfig:
     seed: int = 0
     use_ema: bool = False
     base_output_dir : str = "../../diffModel_experiences/" # Base dir for output model
+    lr_schedule = 'linear'
 
 
 @dataclass
@@ -26,10 +27,10 @@ class TrainingConfig(BaseConfig):
     num_epochs: int = 1000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run 
     logger = 'wandb'
-    lr_schedule = 'linear'
 
 @dataclass
 class MiniConfig(BaseConfig):
+    data_file : str = '/Users/emeunier/Documents/scai/mini_dataset2.tar'
     train_batch_size: int = 16 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
     train_steps_by_epoch: int = 20  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
@@ -38,3 +39,4 @@ class MiniConfig(BaseConfig):
     num_epochs: int = 1000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run 
     logger = 'wandb'
+    mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision

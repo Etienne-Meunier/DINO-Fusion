@@ -1,36 +1,74 @@
 import xarray as xr
 import numpy as np
 from glob import glob
+import json
 from tqdm import tqdm
+from pathlib import Path
+
+class Infos : 
+    
+    def __init__(self, keys) : 
+        self.infos = {}
+        self.global_counter = 0
+        for key in keys :
+            self.infos[key] = {'mean' :  0, 'std' : 0, 'mask' : None, 'counter' : 0}
+
+    def update(self, key, mean, std, mask) : 
+        self.infos[key]['mean'] += mean
+        self.infos[key]['std'] += std
+        if self.infos[key]['mask'] is None : 
+            self.infos[key]['mask'] = mask
+        self.infos[key]['counter'] += 1
+
+    def normalise(self) : 
+        for key in self.infos.keys : 
+            self.infos[key]['mean'] /= self.infos[key]['counter']
+            self.infos[key]['std'] /= self.infos[key]['counter']
+            
+
+    def save(self, save_path) : 
+        Path(save_path + '/infos/').mkdir(exist_ok=True, parents=True)
+        for key in self.infos.keys() :
+            assert self.global_counter == self.infos[key]['counter'], f'Counter error {key} : {self.global_counter} != {self.infos[key]["counter"]}'
+            np.save(f'{save_path}/infos/mean.{key}', self.infos[key]['mean'])
+            np.save(f'{save_path}/infos/std.{key}', self.infos[key]['std'])
+            np.save(f'{save_path}/infos/mask.{key}', self.infos[key]['mask'])
+        
 
 
-restarts = glob('/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion/1_4degree/restart*')
-save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree'
-
-f = open(save_path + '_files.txt')
-idx = 0
-for restart in restarts :
-    try :
-        data_TS = xr.open_mfdataset(restart + '/DINO_10d_grid_T_3D.nc')
-        data_SSH = xr.open_mfdataset(restart + '/DINO_10d_grid_T_2D.nc', decode_times=False)
-    except Exception as e : 
-        print(restart, e)
-        continue
+def convert_nc(restart_path, save_path, file_names, infos) : 
+    data_TS = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_3D.nc')
+    data_SSH = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_2D.nc', decode_times=False)
 
     data = {}
-    infos = {}
     data['toce.npy'] = data_TS.toce_inst.values
     data['soce.npy'] = data_TS.soce_inst.values
     data['ssh.npy'] = data_SSH.ssh_inst.values
-    for i in tqdm(range(len(data['toce']))) :
+    assert len(data['toce.npy']) == data['soce.npy'] == data['ssh.npy'], 'Inequal length'
+    for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
-            name=f'{idx:05d}.{key}'    
+            name=f"{infos.infos[key]['counter']:05d}.{key}"
             np.save(save_path + name, data[key][i])
-            f.writelines(name+'\n')
-            idx += 1
-    del data_TS, data_SSH, data
-f.close()
+            infos.update(key,
+                         np.nanmean(data[key][i], axis=(-1,-2)),
+                         np.nanstd(data[key][i], axis=(-1,-2))
+                         (data[key][i] == 0))
+            file_names.writelines(name+'\n')
+        infos.global_counter += 1
+    return counter
 
-d = data['toce.npy']
-x_mean = np.nanmean(d, axis=(0,2,3), keepdims=False)
-x_std  = np.nanstd(d, axis=(0,2,3), keepdims=False)
+
+if __name__ == '__main__' : 
+    restarts = glob('/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion/1_4degree/restart*')
+    save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree'
+
+    counter, infos = 0, Infos(keys=['toce.npy', 'soce.npy', 'ssh.npy'])
+
+    with open(save_path + '_files.txt', 'w+') as f:
+        for restart in restarts :
+            try : 
+                convert_nc(restart, save_path, f, infos)
+            except Exception as e : 
+                print(restart, e)
+    infos.save(save_path)
+

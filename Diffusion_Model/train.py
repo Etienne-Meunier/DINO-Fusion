@@ -11,7 +11,7 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = TrainingConfig()
+    config = MiniConfig()
     print("Config loaded")
 
     mask = None#TODO:load mask here
