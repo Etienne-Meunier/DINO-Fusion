@@ -5,7 +5,7 @@ from typing import List
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = '/home/tissot/data/dataset2.tar'
+    data_file : str = '/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'#'/home/tissot/data/dataset2.tar'
     image_size: List = field(default_factory=lambda: [208, 64])  # the generated image resolution
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4

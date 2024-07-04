@@ -12,6 +12,10 @@ from torchvision import transforms
 from torch.utils.data.distributed import DistributedSampler
 from ipdb import set_trace
 import einops
+import io
+import tarfile
+import collections
+
 
 def save_images(images, output_path) : 
     """
@@ -37,18 +41,14 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, mu=None, std=None,mask=None,step=1) : 
+        def __init__(self, step=1) : 
             self.step=step
-            if mu is None:
-                self.mu,self.std,self.mask = {},{},{}
-                self.get_infos()
-            else:
-                self.mu   = mu
-                self.std  = std
-                self.mask = mask
+            self.get_infos()
+          
         
         def __call__(self, sample) :
             dico = {}
+            set_trace()
             sample = {key.replace('.npy', '') : val for key, val in sample.items()}
             for feature in ["soce","toce","ssh"]:
                 #1. standardize
@@ -99,28 +99,33 @@ class TransformFields :
             interleaved_tensor = einops.rearrange([array[:, :-1], r], 'd b c h w -> b (c d) h w', d=2)
             return np.concatenate([interleaved_tensor, array[:, -1:]], axis=1)
 
+    
+        def get_infos(self, tar_file):
+            tar = tarfile.open(tar_file)
 
-        def get_infos(self):
-            for feature in ["soce","toce","ssh"]:
-                file_path = f'data/{feature}_info.pkl'
-                with open(file_path, 'rb') as file:
-                    data = pickle.load(file)
-                    self.mu[feature]   = data["mean"]
-                    self.std[feature]  = data["std"]
-                    self.mask[feature] = data["mask"]
+            target_path='infos/'
+            max_return = 6
 
+            infos = collections.defaultdict(dict)
+            while max_return > 0 : 
+                member = tar.next()
+                if member.path.startswith(target_path):
+                    feature, metric, _ = member.name.replace('infos/', '').split('.')
+                    self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
+                    max_return -= 1
+            return infos
 
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.mu[feature]) / (2*self.std[feature])
+            return (sample[f'{feature}'] - self.infos[feature]['mean']) / (2*self.infos[feature]['std'])
         
         def unstandardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample * (2*self.std[feature])) + self.mu[feature]
+            return (sample * (2*self.infos[feature]['std'])) + self.infos[feature]['mean']
         
         def replaceEdges(self,data,feature,val=None):
             """
@@ -129,16 +134,8 @@ class TransformFields :
             """
             batch_size,depth = np.shape(data)[0:2]
             if val is not None:
-                mask = np.tile(self.mask[feature], (batch_size, depth, 1, 1))
+                mask = np.tile(self.infos[feature]['masks'], (batch_size, depth, 1, 1))
                 data[mask] = val
-            #find less greedy than transpose method
-            #if values is not None:
-            #    mask = np.tile(self.mask[feature], (batch_size, 1, 1))
-            #    data = data.transpose(1, 0, 2, 3)
-            #    values = np.squeeze(values)
-            #    for i in range(len(values)):
-            #        data[i][mask] = values[i]
-            #    data = data.transpose(1, 0, 2, 3)
             return data
         
         def padData(self,dataset,xup,xdown,yup,ydown,val):
@@ -161,3 +158,18 @@ def get_dataloader(tar_file, batch_size=5,step=1) :
     #    sampler = DistributedSampler(dataset)
     #else:
     #    sampler = None
+
+
+from utils import *
+tar_file='/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
+composed = transforms.Compose([TransformFields(step=2)])
+dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).decode()
+idt = iter(dataset)
+
+def get_infos(tf, target_path='infos/', max_return=float('inf')):
+    select = []
+    while len(select) < max_return : 
+        member = tf.next()
+        if member.path.startswith(target_path):
+            select.append(member)
+    return select
