@@ -41,14 +41,13 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, step=1) : 
+        def __init__(self, info_file, step=1) : 
             self.step=step
-            self.get_infos()
+            self.get_infos(info_file)
           
         
         def __call__(self, sample) :
             dico = {}
-            set_trace()
             sample = {key.replace('.npy', '') : val for key, val in sample.items()}
             for feature in ["soce","toce","ssh"]:
                 #1. standardize
@@ -100,32 +99,32 @@ class TransformFields :
             return np.concatenate([interleaved_tensor, array[:, -1:]], axis=1)
 
     
-        def get_infos(self, tar_file):
-            tar = tarfile.open(tar_file)
+        def get_infos(self, info_file):
+            print(f'Reading infos in {info_file}')
+            tar = tarfile.open(info_file)
 
             target_path='infos/'
-            max_return = 6
+            max_return = 9
 
-            infos = collections.defaultdict(dict)
+            self.infos = collections.defaultdict(dict)
             while max_return > 0 : 
                 member = tar.next()
                 if member.path.startswith(target_path):
                     feature, metric, _ = member.name.replace('infos/', '').split('.')
                     self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
                     max_return -= 1
-            return infos
 
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos[feature]['mean']) / (2*self.infos[feature]['std'])
+            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature])
         
         def unstandardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample * (2*self.infos[feature]['std'])) + self.infos[feature]['mean']
+            return (sample * (2*self.infos['std'][feature])) + self.infos['mean'][feature]
         
         def replaceEdges(self,data,feature,val=None):
             """
@@ -134,7 +133,7 @@ class TransformFields :
             """
             batch_size,depth = np.shape(data)[0:2]
             if val is not None:
-                mask = np.tile(self.infos[feature]['masks'], (batch_size, depth, 1, 1))
+                mask = np.tile(self.infos['masks'][feature], (batch_size, depth, 1, 1))
                 data[mask] = val
             return data
         
@@ -162,8 +161,8 @@ def get_dataloader(tar_file, batch_size=5,step=1) :
 
 from utils import *
 tar_file='/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
-composed = transforms.Compose([TransformFields(step=2)])
-dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).decode()
+composed = transforms.Compose([TransformFields(info_file=tar_file, step=2)])
+dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).decode().map(composed)
 idt = iter(dataset)
 
 def get_infos(tf, target_path='infos/', max_return=float('inf')):

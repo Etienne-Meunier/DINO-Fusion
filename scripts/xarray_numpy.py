@@ -44,14 +44,14 @@ def convert_nc(restart_path, save_path, file_names, infos) :
     data['toce.npy'] = data_TS.toce_inst.values
     data['soce.npy'] = data_TS.soce_inst.values
     data['ssh.npy'] = data_SSH.ssh_inst.values
-    assert len(data['toce.npy']) == data['soce.npy'] == data['ssh.npy'], 'Inequal length'
+    assert len(data['toce.npy']) == len(data['soce.npy']) == len(data['ssh.npy']), 'Inequal length'
     for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
             name=f"{infos.infos[key]['counter']:05d}.{key}"
             np.save(save_path + name, data[key][i])
             infos.update(key,
-                         np.nanmean(data[key][i], axis=(-1,-2)),
-                         np.nanstd(data[key][i], axis=(-1,-2))
+                         np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
+                         np.nanstd(data[key][i], axis=(-1,-2), keepdims=True)
                          (data[key][i] == 0))
             file_names.writelines(name+'\n')
         infos.global_counter += 1
@@ -60,11 +60,11 @@ def convert_nc(restart_path, save_path, file_names, infos) :
 
 if __name__ == '__main__' : 
     restarts = glob('/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion/1_4degree/restart*')
-    save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree'
+    save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree/'
 
     counter, infos = 0, Infos(keys=['toce.npy', 'soce.npy', 'ssh.npy'])
 
-    with open(save_path + '_files.txt', 'w+') as f:
+    with open(save_path + 'list_files.txt', 'w+') as f:
         for restart in restarts :
             try : 
                 convert_nc(restart, save_path, f, infos)
