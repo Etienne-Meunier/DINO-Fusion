@@ -3,6 +3,7 @@ import numpy as np
 from glob import glob
 import json
 from tqdm import tqdm
+from pathlib import Path
 
 class Infos : 
     
@@ -10,23 +11,28 @@ class Infos :
         self.infos = {}
         self.global_counter = 0
         for key in keys :
-            self.infos[key] = {'mean' :  0, 'std' : 0, 'counter' : 0}
+            self.infos[key] = {'mean' :  0, 'std' : 0, 'mask' : None, 'counter' : 0}
 
-    def update(self, key, mean, std) : 
+    def update(self, key, mean, std, mask) : 
         self.infos[key]['mean'] += mean
         self.infos[key]['std'] += std
+        if self.infos[key]['mask'] is None : 
+            self.infos[key]['mask'] = mask
         self.infos[key]['counter'] += 1
 
     def normalise(self) : 
         for key in self.infos.keys : 
             self.infos[key]['mean'] /= self.infos[key]['counter']
             self.infos[key]['std'] /= self.infos[key]['counter']
+            
 
     def save(self, save_path) : 
+        Path(save_path + '/infos/').mkdir(exist_ok=True, parents=True)
         for key in self.infos.keys() :
             assert self.global_counter == self.infos[key]['counter'], f'Counter error {key} : {self.global_counter} != {self.infos[key]["counter"]}'
-            with open(f'{save_path}/infos.{key}', 'w+') as j  : 
-                json.dump(self.infos[key], j)
+            np.save(f'{save_path}/infos/mean.{key}', self.infos[key]['mean'])
+            np.save(f'{save_path}/infos/std.{key}', self.infos[key]['std'])
+            np.save(f'{save_path}/infos/mask.{key}', self.infos[key]['mask'])
         
 
 
@@ -41,11 +47,12 @@ def convert_nc(restart_path, save_path, file_names, infos) :
     assert len(data['toce.npy']) == data['soce.npy'] == data['ssh.npy'], 'Inequal length'
     for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
-            name=f"{infos['key']['counter']:05d}.{key}"
+            name=f"{infos.infos[key]['counter']:05d}.{key}"
             np.save(save_path + name, data[key][i])
             infos.update(key,
-                         np.nanmean(data[key][i], axis=(1,2)),
-                         np.nanstd(data[key][i], axis=(1,2)))
+                         np.nanmean(data[key][i], axis=(-1,-2)),
+                         np.nanstd(data[key][i], axis=(-1,-2))
+                         (data[key][i] == 0))
             file_names.writelines(name+'\n')
         infos.global_counter += 1
     return counter
@@ -63,4 +70,5 @@ if __name__ == '__main__' :
                 convert_nc(restart, save_path, f, infos)
             except Exception as e : 
                 print(restart, e)
+    infos.save(save_path)
 
