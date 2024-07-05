@@ -11,11 +11,19 @@ class Infos :
         self.infos = {}
         self.global_counter = 0
         for key in keys :
-            self.infos[key] = {'mean' :  0, 'std' : 0, 'mask' : None, 'counter' : 0}
+            self.infos[key] = {'mean' :  None, 'std' : None, 'mask' : None, 'counter' : 0}
+
+
+    @staticmethod
+    def s_plus(old, new) : 
+        if old is None : 
+            old = new * 0.0
+        old += new 
+        
 
     def update(self, key, mean, std, mask) : 
-        self.infos[key]['mean'] += mean
-        self.infos[key]['std'] += std
+        Infos.s_plus(self.infos[key]['mean'], mean)
+        Infos.s_plus(self.infos[key]['std'], std)
         if self.infos[key]['mask'] is None : 
             self.infos[key]['mask'] = mask
         self.infos[key]['counter'] += 1
