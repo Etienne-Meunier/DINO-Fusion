@@ -54,8 +54,11 @@ class TransformFields :
                 data = self.standardize_4D(sample,feature)
                 #2. replace padding and edges by 0 
                 data = self.replaceEdges(data,feature,val=0)
+
+                if data.ndim == 2 :
+                    data = data[None]
                 #3. pad data
-                data = self.padData(data,xup=1,xdown=1,yup=4,ydown=5,val=0)
+                data = self.padData(data,xup=3,xdown=3,yup=1,ydown=2,val=0)
                 dico[feature] = data
             #set_trace()
             data = self.stride_concat(dico)
@@ -76,7 +79,7 @@ class TransformFields :
 
 
         def stride_concat(self, sample) : 
-            return np.concatenate((sample['soce'][:,::self.step], sample['toce'][:,::self.step], sample['ssh']), axis=1).squeeze(axis=0)
+            return np.concatenate((sample['soce'][::self.step], sample['toce'][::self.step], sample['ssh']), axis=0)
         
         def un_stride_concat(self, data) : 
             assert self.step == 2, 'Only works for step=2 for now'
@@ -118,7 +121,7 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature])
+            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature] + 1e-8)
         
         def unstandardize_4D(self,sample,feature):
             """
@@ -126,49 +129,26 @@ class TransformFields :
             """
             return (sample * (2*self.infos['std'][feature])) + self.infos['mean'][feature]
         
-        def replaceEdges(self,data,feature,val=None):
+        def replaceEdges(self,data,feature,val):
             """
                 Replace edges by a values. Default is 0
                 data : batch, depth, x, y 
             """
-            batch_size,depth = np.shape(data)[0:2]
-            if val is not None:
-                mask = np.tile(self.infos['masks'][feature], (batch_size, depth, 1, 1))
-                data[mask] = val
+            data[self.infos['mask'][feature]] = val
             return data
         
         def padData(self,dataset,xup,xdown,yup,ydown,val):
             """
                 pad data on axis x and y
             """
-            return np.pad(dataset, ((0, 0), (0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
+            return np.pad(dataset, ((0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
 
         def unpadData(self,dataset,xup,xdown,yup,ydown):
             return dataset[:, :,yup:-ydown, xup:-xdown]
                                         
                 
-def get_dataloader(tar_file, batch_size=5,step=1) :
-    composed = transforms.Compose([TransformFields(step=step)])
-    dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed) 
+def get_dataloader(tar_file, batch_size=5, step=1) :
+    composed = transforms.Compose([TransformFields(info_file=tar_file, step=step)])
+    dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).shuffle(100).decode().map(composed) 
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
     return dl
-    #if distributed:
-    #    torch.distributed.init_process_group(backend='gloo') 
-    #    sampler = DistributedSampler(dataset)
-    #else:
-    #    sampler = None
-
-
-from utils import *
-tar_file='/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
-composed = transforms.Compose([TransformFields(info_file=tar_file, step=2)])
-dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).decode().map(composed)
-idt = iter(dataset)
-
-def get_infos(tf, target_path='infos/', max_return=float('inf')):
-    select = []
-    while len(select) < max_return : 
-        member = tf.next()
-        if member.path.startswith(target_path):
-            select.append(member)
-    return select

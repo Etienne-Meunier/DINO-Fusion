@@ -18,12 +18,13 @@ class Infos :
     def s_plus(old, new) : 
         if old is None : 
             old = new * 0.0
-        old += new 
+        old += new
+        return old 
         
 
     def update(self, key, mean, std, mask) : 
-        Infos.s_plus(self.infos[key]['mean'], mean)
-        Infos.s_plus(self.infos[key]['std'], std)
+        self.infos[key]['mean'] = Infos.s_plus(self.infos[key]['mean'], mean)
+        self.infos[key]['std']  =  Infos.s_plus(self.infos[key]['std'], std)
         if self.infos[key]['mask'] is None : 
             self.infos[key]['mask'] = mask
         self.infos[key]['counter'] += 1
@@ -34,14 +35,19 @@ class Infos :
             self.infos[key]['std'] /= self.infos[key]['counter']
             
 
-    def save(self, save_path) : 
+    def save(self, save_path, file_names) : 
+    
+
         Path(save_path + '/infos/').mkdir(exist_ok=True, parents=True)
         for key in self.infos.keys() :
             assert self.global_counter == self.infos[key]['counter'], f'Counter error {key} : {self.global_counter} != {self.infos[key]["counter"]}'
-            np.save(f'{save_path}/infos/mean.{key}', self.infos[key]['mean'])
-            np.save(f'{save_path}/infos/std.{key}', self.infos[key]['std'])
-            np.save(f'{save_path}/infos/mask.{key}', self.infos[key]['mask'])
+            write_file(self.infos[key]['mean'], f'infos/mean.{key}\n', save_path, file_names)
+            write_file(self.infos[key]['std'], f'infos/std.{key}\n', save_path, file_names)
+            write_file(self.infos[key]['mask'], f'infos/mask.{key}\n', save_path, file_names)
         
+def write_file(array, name, save_path, file_names) : 
+    np.save(save_path + name, array)
+    file_names.writelines(name+'\n')
 
 
 def convert_nc(restart_path, save_path, file_names, infos) : 
@@ -56,12 +62,11 @@ def convert_nc(restart_path, save_path, file_names, infos) :
     for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
             name=f"{infos.infos[key]['counter']:05d}.{key}"
-            np.save(save_path + name, data[key][i])
+            write_file(data[key][i], name, save_path, file_names)
             infos.update(key,
                          np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
-                         np.nanstd(data[key][i], axis=(-1,-2), keepdims=True)
+                         np.nanstd(data[key][i], axis=(-1,-2), keepdims=True),
                          (data[key][i] == 0))
-            file_names.writelines(name+'\n')
         infos.global_counter += 1
     return counter
 
@@ -78,5 +83,5 @@ if __name__ == '__main__' :
                 convert_nc(restart, save_path, f, infos)
             except Exception as e : 
                 print(restart, e)
-    infos.save(save_path)
+        infos.save(save_path, f)
 

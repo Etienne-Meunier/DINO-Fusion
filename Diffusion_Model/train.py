@@ -11,11 +11,10 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = MiniConfig()
+    config = TrainingConfig()
     print("Config loaded")
 
-    mask = None#TODO:load mask here
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,step=2)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,step=config.vertical_step)
     print("Data loaded")
 
     # Load Model 

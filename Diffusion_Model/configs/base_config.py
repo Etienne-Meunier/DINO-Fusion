@@ -6,7 +6,7 @@ from typing import List
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
     data_file : str = '/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'#'/home/tissot/data/dataset2.tar'
-    image_size: List = field(default_factory=lambda: [208, 64])  # the generated image resolution
+    image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 0 #500
@@ -19,7 +19,7 @@ class BaseConfig:
 
 @dataclass
 class TrainingConfig(BaseConfig):
-    train_batch_size: int = 32 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
+    train_batch_size: int = 8 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
     train_steps_by_epoch: int = 200  # Steps by epoch
     eval_batch_size: int = 8  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
@@ -27,6 +27,7 @@ class TrainingConfig(BaseConfig):
     num_epochs: int = 1000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run 
     logger = 'wandb'
+    vertical_step = 5
 
 @dataclass
 class MiniConfig(BaseConfig):
