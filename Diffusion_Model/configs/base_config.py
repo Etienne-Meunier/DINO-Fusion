@@ -29,6 +29,10 @@ class TrainingConfig(BaseConfig):
     logger = 'wandb'
     vertical_step = 5
 
+@dataclass 
+class FineTuningConfig(TrainingConfig) : 
+    st_path : str= "../../diffModel_experiences/vh9dn5be/"
+
 @dataclass
 class MiniConfig(BaseConfig):
     data_file : str = '/Users/emeunier/Documents/scai/mini_dataset2.tar'

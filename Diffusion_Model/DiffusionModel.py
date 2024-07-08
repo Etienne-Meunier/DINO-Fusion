@@ -21,6 +21,8 @@ class DiffusionModel(nn.Module) :
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
                                              beta_schedule="squaredcos_cap_v2", 
                                              clip_sample=True)
+        if self.config.st_path is not None : 
+            self.load_model(self.config.st_path)
         self.optimizer, self.lr_scheduler = self.config_optimizer()
         
         
@@ -99,7 +101,8 @@ class DiffusionModel(nn.Module) :
         clean_images = batch#["images"]
        
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
-
+        set_trace()
+        
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
             loss = F.mse_loss(noises_pred, noises)
@@ -132,6 +135,13 @@ class DiffusionModel(nn.Module) :
     def save_model(self) : 
         pipeline = self.get_pipeline()
         pipeline.save_pretrained(self.config.output_dir)
+
+    def load_model(self, model_path) : 
+        print(f'Loading model : {model_path}')
+        pipeline = DDPMPipeline_Tensor.from_pretrained(model_path).to('cuda')
+        self.denoiser.load_state_dict(pipeline.unet.state_dict())
+
+    
 
 
 
