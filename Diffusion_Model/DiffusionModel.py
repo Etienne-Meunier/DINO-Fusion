@@ -31,7 +31,7 @@ class DiffusionModel(nn.Module) :
                                   gradient_accumulation_steps=self.config.gradient_accumulation_steps, 
                                   log_with=self.config.logger)
         
-        if accelerator.is_main_process:
+        if (self.config.logger == 'wandb') and accelerator.is_main_process:
             accelerator.init_trackers('dino-fusion', config=vars(self.config))
             accelerator.trackers[0].run.log_code("../")
         if self.config.output_dir == 'wandb' : 

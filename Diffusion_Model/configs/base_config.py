@@ -15,6 +15,7 @@ class BaseConfig:
     use_ema: bool = False
     base_output_dir : str = "../../diffModel_experiences/" # Base dir for output model
     lr_schedule = 'linear'
+    st_path = None
 
 
 @dataclass
@@ -45,3 +46,15 @@ class MiniConfig(BaseConfig):
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run 
     logger = 'wandb'
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
+
+@dataclass
+class DevConfig(BaseConfig):
+    train_batch_size: int = 3 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
+    train_steps_by_epoch: int = 20  # Steps by epoch
+    eval_batch_size: int = 16  # how many images to sample during evaluation
+    num_train_timesteps: int = 1000  #for noise scheduler
+    num_inference_steps: int = 1000  #for noise scheduler
+    num_epochs: int = 1000
+    mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
+    logger=None
+    output_dir: str = "dev"  #  wandb means the directory will be named with the id of the run 

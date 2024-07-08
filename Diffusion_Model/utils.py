@@ -82,7 +82,8 @@ class TransformFields :
 
 
         def stride_concat(self, sample) : 
-            return np.concatenate((sample['soce'][::self.step], sample['toce'][::self.step], sample['ssh']), axis=0)
+            # Remove last dimension as it's just 0
+            return np.concatenate((sample['soce'][:-1:self.step], sample['toce'][:-1:self.step], sample['ssh']), axis=0)
         
         def un_stride_concat(self, data) : 
             assert self.step == 2, 'Only works for step=2 for now'
