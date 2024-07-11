@@ -49,6 +49,7 @@ class TransformFields :
             self.fields = fields 
             self.get_infos(info_file)
             self.data_shape = None
+            self.padding =  {'xup' : 3, 'xdown' : 3, 'yup' : 1, 'ydown' : 2, 'val' : 0} 
           
         
         def __call__(self, sample) :
@@ -63,7 +64,7 @@ class TransformFields :
                 if data.ndim == 2 :
                     data = data[None]
                 #3. pad data
-                data = self.padData(data,xup=3,xdown=3,yup=1,ydown=2,val=0)
+                data = self.padData(data, **self.padding)
                 dico[feature] = data
             #set_trace()
             data = self.stride_concat(dico)
@@ -73,7 +74,7 @@ class TransformFields :
             sample = self.un_stride_concat(data)
             for feature in ["soce","toce","ssh"]: 
                 array = sample[feature]
-                array = self.unpadData(array,xup=1,xdown=1,yup=4,ydown=5)
+                array = self.unpadData(array,**self.padding)
 
                 array = self.replaceEdges(array, feature, val=np.nan)
 
@@ -87,8 +88,11 @@ class TransformFields :
             return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
            
         def get_data_shape(self) : 
-            fake_data = {key : np.random.rand(*self.infos[key]['shape']) for key in self.fields.keys()}
-            return self.stride_concat(fake_data).shape
+            fake_data = {key : np.random.rand(*(self.infos[key]['shape'])) for key in self.fields.keys()}
+            fake_data = self.stride_concat(fake_data)
+            fake_data = self.padData(fake_data, **self.padding)
+
+            return fake_data.shape
 
         def un_stride_concat(self, data) : 
             assert self.step == 2, 'Only works for step=2 for now'
@@ -128,7 +132,7 @@ class TransformFields :
 
             self.infos['soce']['shape'] = (36, 797, 242)
             self.infos['toce']['shape'] = (36, 797, 242)
-            self.infos['ssh']['shape'] = (36, 797, 242)
+            self.infos['ssh']['shape'] = (1, 797, 242)
 
         def standardize_4D(self,sample,feature):
             """

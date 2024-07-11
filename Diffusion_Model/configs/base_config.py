@@ -16,7 +16,7 @@ class BaseConfig:
     base_output_dir : str = "../../diffModel_experiences/" # Base dir for output model
     lr_schedule = 'linear'
     st_path = None
-    
+    generation_frequency : int = 20
 
 
 
@@ -43,11 +43,8 @@ class FineTuningConfig(TrainingConfig) :
     st_path : str= "../../diffModel_experiences/vh9dn5be/"
 
 @dataclass
-class MiniConfig(BaseConfig):
-    data_file : str = '/Users/emeunier/Documents/scai/mini_dataset2.tar'
-    train_batch_size: int = 16 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
+class MiniConfig(TrainingConfig):
     train_steps_by_epoch: int = 20  # Steps by epoch
-    eval_batch_size: int = 16  # how many images to sample during evaluation
     num_train_timesteps: int = 100  #for noise scheduler
     num_inference_steps: int = 100  #for noise scheduler
     num_epochs: int = 1000
@@ -56,13 +53,14 @@ class MiniConfig(BaseConfig):
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
 
 @dataclass
-class DevConfig(BaseConfig):
+class DevConfig(TrainingConfig):
     train_batch_size: int = 3 #!!!!!!! this is batch size per GPU actually, so if 4 GPU, this is equivalent to using 32 as batch size
     train_steps_by_epoch: int = 20  # Steps by epoch
     eval_batch_size: int = 16  # how many images to sample during evaluation
-    num_train_timesteps: int = 1000  #for noise scheduler
-    num_inference_steps: int = 1000  #for noise scheduler
-    num_epochs: int = 1000
+    num_train_timesteps: int = 100  #for noise scheduler
+    num_inference_steps: int = 100  #for noise scheduler
+    num_epochs: int = 100
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
     logger=None
     output_dir: str = "dev"  #  wandb means the directory will be named with the id of the run 
+    generation_frequency : int = 1
