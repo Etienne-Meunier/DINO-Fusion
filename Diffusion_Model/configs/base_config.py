@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 
 
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
     data_file : str = '/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'#'/home/tissot/data/dataset2.tar'
-    image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
+    #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 0 #500
@@ -16,6 +16,8 @@ class BaseConfig:
     base_output_dir : str = "../../diffModel_experiences/" # Base dir for output model
     lr_schedule = 'linear'
     st_path = None
+    
+
 
 
 @dataclass
@@ -28,7 +30,13 @@ class TrainingConfig(BaseConfig):
     num_epochs: int = 1000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run 
     logger = 'wandb'
-    vertical_step = 5
+    fields : Dict = field(default_factory=lambda: ({'soce' : slice(0, -1, 5), 'toce' : slice(0, -1, 5), 'ssh' : slice(0, 1)}))
+
+@dataclass
+class SSHTrainingConfig(TrainingConfig):
+    fields : Dict = field(default_factory=lambda: ({'ssh' : slice(0, 1)}))
+
+
 
 @dataclass 
 class FineTuningConfig(TrainingConfig) : 

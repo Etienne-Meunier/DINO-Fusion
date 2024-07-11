@@ -1,16 +1,19 @@
 from diffusers import UNet2DModel
 from diffusers.training_utils import EMAModel
+from math import ceil
 
-def get_simple_unet(image_size, use_ema) : 
+sl_len = lambda sl : ceil((sl.stop - sl.start) / sl.step)
+
+def get_simple_unet(data_shape , use_ema) : 
     """
     Return the base unet introduced in HG tutorial
     https://huggingface.co/docs/diffusers/tutorials/basic_training
     image_size (int) : size of the image
     """
     model = UNet2DModel(
-        sample_size=image_size,  # the target image resolution
-        in_channels= 17,   # the number of input channels, 3 for RGB images
-        out_channels= 17,  # the number of output channels
+        sample_size=data_shape[1:],  # the target image resolution
+        in_channels= data_shape[0],   # the number of input channels, 3 for RGB images
+        out_channels= data_shape[0],  # the number of output channels
         layers_per_block= 2,  # how many ResNet layers to use per UNet block
         block_out_channels= (32, 64, 64, 128),  # the number of output channels for each UNet block
         down_block_types=(

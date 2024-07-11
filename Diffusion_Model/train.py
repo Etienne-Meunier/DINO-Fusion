@@ -1,5 +1,5 @@
 from DiffusionModel import DiffusionModel
-from configs.base_config import TrainingConfig, MiniConfig, FineTuningConfig
+from configs.base_config import *
 from torchvision import transforms
 from utils import get_dataloader
 from tqdm import tqdm
@@ -11,10 +11,11 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = FineTuningConfig()
+    config = SSHTrainingConfig()
     print("Config loaded")
 
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,step=config.vertical_step)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
+    config.data_shape = train_dataloader.get_data_shape()
     print("Data loaded")
 
     # Load Model 

@@ -17,7 +17,7 @@ class DiffusionModel(nn.Module) :
         super().__init__()
         self.config = config
         self.accelerator = self.config_accelerate()
-        self.denoiser = get_simple_unet(self.config.image_size, self.config.use_ema)
+        self.denoiser = get_simple_unet(self.config.data_shape, self.config.use_ema)
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
                                              beta_schedule="squaredcos_cap_v2", 
                                              clip_sample=True)
@@ -101,7 +101,6 @@ class DiffusionModel(nn.Module) :
         clean_images = batch#["images"]
        
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
-        set_trace()
         
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]

@@ -15,6 +15,7 @@ import einops
 import io
 import tarfile
 import collections
+import types
 
 
 def save_images(images, output_path) : 
@@ -44,9 +45,10 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, info_file, step=1) : 
-            self.step=step
+        def __init__(self, info_file, fields) : 
+            self.fields = fields 
             self.get_infos(info_file)
+            self.data_shape = None
           
         
         def __call__(self, sample) :
@@ -82,9 +84,12 @@ class TransformFields :
 
 
         def stride_concat(self, sample) : 
-            # Remove last dimension as it's just 0
-            return np.concatenate((sample['soce'][:-1:self.step], sample['toce'][:-1:self.step], sample['ssh']), axis=0)
-        
+            return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
+           
+        def get_data_shape(self) : 
+            fake_data = {key : np.random.rand(*self.infos[key]['shape']) for key in self.fields.keys()}
+            return self.stride_concat(fake_data).shape
+
         def un_stride_concat(self, data) : 
             assert self.step == 2, 'Only works for step=2 for now'
             assert (len(data.shape) == 4), 'Only works for arrays like (b c h w) for now'
@@ -121,11 +126,15 @@ class TransformFields :
                     self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
                     max_return -= 1
 
+            self.infos['soce']['shape'] = (36, 797, 242)
+            self.infos['toce']['shape'] = (36, 797, 242)
+            self.infos['ssh']['shape'] = (36, 797, 242)
+
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature] + 1e-8)
+            return (sample[f'{feature}'] - self.infos['mean'][feature]/ 1800.) / (2*self.infos['std'][feature]/1800. + 1e-8) 
         
         def unstandardize_4D(self,sample,feature):
             """
@@ -149,10 +158,14 @@ class TransformFields :
 
         def unpadData(self,dataset,xup,xdown,yup,ydown):
             return dataset[:, :,yup:-ydown, xup:-xdown]
-                                        
-                
-def get_dataloader(tar_file, batch_size=5, step=1) :
-    composed = transforms.Compose([TransformFields(info_file=tar_file, step=step)])
+
+def get_data_shape(self) :
+    return self.dataset.pipeline[-1].args[0].transforms[0].get_data_shape()                                        
+
+def get_dataloader(tar_file, fields, batch_size=5) :
+    transform = TransformFields(info_file=tar_file, fields=fields)
+    composed = transforms.Compose([transform])
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).shuffle(100).decode().map(composed) 
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
+    dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
