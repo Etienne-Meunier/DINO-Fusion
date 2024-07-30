@@ -1,15 +1,16 @@
-from diffusers import DDPMScheduler, DDPMPipeline
+from diffusers import DDPMScheduler, DDPMPipeline, AutoencoderKL
+
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from backbones.backbones import get_simple_unet
 from diffusers.optimization import get_constant_schedule_with_warmup, get_cosine_schedule_with_warmup
 from accelerate import Accelerator
-
 from accelerate.utils.operations import gather_object
 import os
 from ipdb import set_trace
 from pipelines.pipeline_tensor import DDPMPipeline_Tensor
+from diffusers.training_utils import EMAModel
 
 class DiffusionModel(nn.Module) : 
     
@@ -17,14 +18,28 @@ class DiffusionModel(nn.Module) :
         super().__init__()
         self.config = config
         self.accelerator = self.config_accelerate()
-        self.denoiser = get_simple_unet(self.config.data_shape, self.config.use_ema)
+
+        if self.config.use_LDM:
+            self.AE_model = AutoencoderKL.from_pretrained('./backbones/AutoEncoder/SSH/').to('cuda')
+            self.AE_model.requires_grad_(False)
+            self.config.data_shape = torch.Size([4, 200, 64]) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                            
+        self.denoiser = get_simple_unet(self.config.data_shape)
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
                                              beta_schedule="squaredcos_cap_v2", 
                                              clip_sample=True)
         if self.config.st_path is not None : 
             self.load_model(self.config.st_path)
         self.optimizer, self.lr_scheduler = self.config_optimizer()
-        
+
+
+        if self.config.use_ema:
+            self.ema_model = EMAModel(
+                self.denoiser.parameters(),
+                #inv_gamma=config.ema_inv_gamma,
+                #power=config.ema_power,
+                #max_value=config.ema_max_decay
+            )
         
     def config_accelerate(self) :        
         accelerator = Accelerator(mixed_precision=self.config.mixed_precision,
@@ -94,28 +109,36 @@ class DiffusionModel(nn.Module) :
         noisy_images = self.noise_scheduler.add_noise(clean_images, noises, timesteps)
         return noisy_images, noises, timesteps
     
-    def training_step(self, batch, mask=None) :
+    def training_step(self, batch) :
         """
         Takes a batch of images and do a training step.
         """
         clean_images = batch#["images"]
-       
+
+        if self.config.use_LDM:           
+            clean_images = self.AE_model.encode(clean_images).latent_dist.sample()
+            clean_images = F.pad(clean_images, (1,1,0,0) , "constant", 0) ##### padding from 62 to 64 to make it work with the Unet
+            
         noisy_images, noises, timesteps = self.get_noisy_images(clean_images)
         
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
             loss = F.mse_loss(noises_pred, noises)
-            #loss = F.mse_loss(mask_tensor*noises_pred, mask_tensor*noises)
             self.accelerator.backward(loss)
             if self.accelerator.sync_gradients:
                 self.accelerator.clip_grad_norm_(self.denoiser.parameters(), 1.0)
             self.optimizer.step()
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
+
+        if self.accelerator.sync_gradients:
+            if self.config.use_ema:
+                self.ema_model.step(self.denoiser.parameters())
+                
         return loss.detach().item()
     
     def get_pipeline(self) : 
-        pipeline = DDPMPipeline_Tensor(unet=self.accelerator.unwrap_model(self.denoiser),
+        pipeline = DDPMPipeline_Tensor(unet=self.accelerator.unwrap_model(self.ema_model.averaged_model if self.config.use_ema else self.denoiser),
                                 scheduler=self.noise_scheduler)
         return pipeline
 
@@ -128,7 +151,12 @@ class DiffusionModel(nn.Module) :
                         generator=torch.manual_seed(self.config.seed),
                         num_inference_steps=self.config.num_inference_steps,
                         return_dict=False)[0]
-        print(images.shape)
+        
+        if self.config.use_LDM:
+            print("decoding")
+            with torch.no_grad():
+                images = self.AE_model.decode(images[:,:,:,1:-1]).sample
+
         return images
     
     def save_model(self) : 
