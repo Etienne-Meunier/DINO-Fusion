@@ -5,7 +5,7 @@ from typing import List, Dict
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = '/gpfsstore/rech/omr/ufk69pe/dino_1_4_degree.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
+    data_file : str = '/lustre/fswork/projects/rech/omr/ufk69pe/dino_1_4_degree.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4
@@ -39,6 +39,10 @@ class SSHTrainingConfig(TrainingConfig):
 class TOCETrainingConfig(TrainingConfig):
     fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2)}))
 
+@dataclass
+class SOCETrainingConfig(TrainingConfig):
+    fields : Dict = field(default_factory=lambda: ({'soce' : slice(0, -1, 2)}))
+    
 @dataclass 
 class FineTuningConfig(TrainingConfig) : 
     st_path : str= "../../diffModel_experiences/vh9dn5be/"
