@@ -1,5 +1,4 @@
 from pathlib import Path
-from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import transforms
