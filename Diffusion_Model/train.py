@@ -1,5 +1,5 @@
 from DiffusionModel import DiffusionModel
-from configs.base_config import TrainingConfig, MiniConfig
+from configs.base_config import *
 from torchvision import transforms
 from utils import get_dataloader
 from tqdm import tqdm
@@ -11,11 +11,12 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = MiniConfig()
+    config = SSHTrainingConfig()
     print("Config loaded")
 
-    mask = None#TODO:load mask here
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,step=2)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
+    config.data_shape = train_dataloader.get_data_shape()
+    #set_trace()
     print("Data loaded")
 
     # Load Model 
@@ -44,7 +45,7 @@ def main() :
             diffusion.accelerator.log(logs, step=global_step)
             global_step += 1
         
-        if epoch % 20 == 0:
+        if epoch % config.generation_frequency == 0:
             print('Generate images ...')
             generated_images = diffusion.test_step()
             save_images(generated_images, './' + config.output_dir + f'/epoch_{epoch}.png')

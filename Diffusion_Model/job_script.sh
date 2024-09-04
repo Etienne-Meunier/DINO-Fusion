@@ -3,6 +3,7 @@
 #SBATCH --output=/home/meunier/logs/%x_%j.out
 #SBATCH --error=/home/meunier/logs/%x_%j.out
 #SBATCH --nodes=1
+#SBATCH --partition=hard
 #SBATCH --gpus-per-node=1
 #SBATCH --time=40:00:00             
 

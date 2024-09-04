@@ -1,5 +1,4 @@
 from pathlib import Path
-from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -15,6 +14,7 @@ import einops
 import io
 import tarfile
 import collections
+import types
 
 
 def save_images(images, output_path) : 
@@ -25,25 +25,30 @@ def save_images(images, output_path) :
     Path(output_path).parent.mkdir(exist_ok=True)
     
     np.save(str(output_path).replace(".png",".npy"),images)
+    try : 
 
-    fig, axs = plt.subplots(3, min(len(images), 8), figsize=(15,15))
-    for ci, c in enumerate([(0, 'surface_toce'), (18, 'surface_soce'), (-1, 'ssh')]) : 
-        for b in range(min(len(images), 8)) : 
-            axs[ci, b].imshow(images[b, c[0]], origin='lower')
-            
-            if b == 0 : 
-                axs[ci, b].set_title(c[1])
-            else :
-                axs[ci, b].axis('off')
+        fig, axs = plt.subplots(3, min(len(images), 8), figsize=(15,15))
+        for ci, c in enumerate([(0, 'surface_toce'), (8, 'surface_soce'), (-1, 'ssh')]) : 
+            for b in range(min(len(images), 8)) : 
+                axs[ci, b].imshow(images[b, c[0]], origin='lower')
+                
+                if b == 0 : 
+                    axs[ci, b].set_title(c[1])
+                else :
+                    axs[ci, b].axis('off')
 
-    fig.savefig(str(output_path), bbox_inches='tight')
+        fig.savefig(str(output_path), bbox_inches='tight')
+    except Exception as e : 
+        print(f'Error drawing figure {e}')
 
 
 class TransformFields :
 
-        def __init__(self, info_file, step=1) : 
-            self.step=step
+        def __init__(self, info_file, fields) : 
+            self.fields = fields 
             self.get_infos(info_file)
+            self.data_shape = None
+            self.padding =  {'xup' : 3, 'xdown' : 3, 'yup' : 1, 'ydown' : 2, 'val' : 0} 
           
         
         def __call__(self, sample) :
@@ -54,8 +59,11 @@ class TransformFields :
                 data = self.standardize_4D(sample,feature)
                 #2. replace padding and edges by 0 
                 data = self.replaceEdges(data,feature,val=0)
+
+                if data.ndim == 2 :
+                    data = data[None]
                 #3. pad data
-                data = self.padData(data,xup=1,xdown=1,yup=4,ydown=5,val=0)
+                data = self.padData(data, **self.padding)
                 dico[feature] = data
             #set_trace()
             data = self.stride_concat(dico)
@@ -65,7 +73,7 @@ class TransformFields :
             sample = self.un_stride_concat(data)
             for feature in ["soce","toce","ssh"]: 
                 array = sample[feature]
-                array = self.unpadData(array,xup=1,xdown=1,yup=4,ydown=5)
+                array = self.unpadData(array,**self.padding)
 
                 array = self.replaceEdges(array, feature, val=np.nan)
 
@@ -76,8 +84,15 @@ class TransformFields :
 
 
         def stride_concat(self, sample) : 
-            return np.concatenate((sample['soce'][:,::self.step], sample['toce'][:,::self.step], sample['ssh']), axis=1).squeeze(axis=0)
-        
+            return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
+           
+        def get_data_shape(self) : 
+            fake_data = {key : np.random.rand(*(self.infos[key]['shape'])) for key in self.fields.keys()}
+            fake_data = self.stride_concat(fake_data)
+            fake_data = self.padData(fake_data, **self.padding)
+
+            return fake_data.shape
+
         def un_stride_concat(self, data) : 
             assert self.step == 2, 'Only works for step=2 for now'
             assert (len(data.shape) == 4), 'Only works for arrays like (b c h w) for now'
@@ -114,11 +129,15 @@ class TransformFields :
                     self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
                     max_return -= 1
 
+            self.infos['soce']['shape'] = (36, 797, 242)
+            self.infos['toce']['shape'] = (36, 797, 242)
+            self.infos['ssh']['shape'] = (1, 797, 242)
+
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature])
+            return (sample[f'{feature}'] - self.infos['mean'][feature]/ 1800.) / (2*self.infos['std'][feature]/1800. + 1e-8) 
         
         def unstandardize_4D(self,sample,feature):
             """
@@ -126,49 +145,30 @@ class TransformFields :
             """
             return (sample * (2*self.infos['std'][feature])) + self.infos['mean'][feature]
         
-        def replaceEdges(self,data,feature,val=None):
+        def replaceEdges(self,data,feature,val):
             """
                 Replace edges by a values. Default is 0
                 data : batch, depth, x, y 
             """
-            batch_size,depth = np.shape(data)[0:2]
-            if val is not None:
-                mask = np.tile(self.infos['masks'][feature], (batch_size, depth, 1, 1))
-                data[mask] = val
+            data[self.infos['mask'][feature]] = val
             return data
         
         def padData(self,dataset,xup,xdown,yup,ydown,val):
             """
                 pad data on axis x and y
             """
-            return np.pad(dataset, ((0, 0), (0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
+            return np.pad(dataset, ((0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
 
         def unpadData(self,dataset,xup,xdown,yup,ydown):
             return dataset[:, :,yup:-ydown, xup:-xdown]
-                                        
-                
-def get_dataloader(tar_file, batch_size=5,step=1) :
-    composed = transforms.Compose([TransformFields(step=step)])
-    dataset = wds.WebDataset(tar_file).shuffle(100).decode().map(composed) 
+
+def get_data_shape(self) :
+    return self.dataset.pipeline[-1].args[0].transforms[0].get_data_shape()                                        
+
+def get_dataloader(tar_file, fields, batch_size=5) :
+    transform = TransformFields(info_file=tar_file, fields=fields)
+    composed = transforms.Compose([transform])
+    dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).shuffle(100).decode().map(composed) 
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
+    dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
-    #if distributed:
-    #    torch.distributed.init_process_group(backend='gloo') 
-    #    sampler = DistributedSampler(dataset)
-    #else:
-    #    sampler = None
-
-
-from utils import *
-tar_file='/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
-composed = transforms.Compose([TransformFields(info_file=tar_file, step=2)])
-dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).decode().map(composed)
-idt = iter(dataset)
-
-def get_infos(tf, target_path='infos/', max_return=float('inf')):
-    select = []
-    while len(select) < max_return : 
-        member = tf.next()
-        if member.path.startswith(target_path):
-            select.append(member)
-    return select

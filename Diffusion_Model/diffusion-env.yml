@@ -1,0 +1,13 @@
+name: MLenv
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+    pytorch 
+    torchvision
+    diffusers
+    webdataset
+    ipdb
+    matplotlib
+   
