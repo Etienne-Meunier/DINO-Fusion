@@ -4,6 +4,8 @@ from glob import glob
 import json
 from tqdm import tqdm
 from pathlib import Path
+from pdb import set_trace
+from copy import deepcopy
 
 class Infos : 
     
@@ -18,15 +20,15 @@ class Infos :
     def s_plus(old, new) : 
         if old is None : 
             old = new * 0.0
-        old += new 
+        old += new
+        return old 
         
-
     def update(self, key, mean, std, mask) : 
-        Infos.s_plus(self.infos[key]['mean'], mean)
-        Infos.s_plus(self.infos[key]['std'], std)
+        self.infos[key]['mean'] = Infos.s_plus(self.infos[key]['mean'], mean)
+        self.infos[key]['std']  =  Infos.s_plus(self.infos[key]['std'], std)
         if self.infos[key]['mask'] is None : 
             self.infos[key]['mask'] = mask
-        self.infos[key]['counter'] += 1
+        self.infos[key]['counter'] += 1        
 
     def normalise(self) : 
         for key in self.infos.keys : 
@@ -59,7 +61,7 @@ def convert_nc(restart_path, save_path, file_names, infos) :
             np.save(save_path + name, data[key][i])
             infos.update(key,
                          np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
-                         np.nanstd(data[key][i], axis=(-1,-2), keepdims=True)
+                         np.nanstd(data[key][i], axis=(-1,-2), keepdims=True),
                          (data[key][i] == 0))
             file_names.writelines(name+'\n')
         infos.global_counter += 1
