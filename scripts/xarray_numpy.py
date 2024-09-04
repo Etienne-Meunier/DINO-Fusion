@@ -60,8 +60,6 @@ def convert_nc(restart_path, save_path, file_names, infos) :
     data_TS = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_3D.nc')
     data_SSH = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_2D.nc', decode_times=False)
 
-    set_trace()
-
 
     data = {}
     data['toce.npy'] = fill_na(data_TS.toce_inst.values)
