@@ -6,10 +6,12 @@ from tqdm import tqdm
 from pathlib import Path
 from pdb import set_trace
 from copy import deepcopy
+import os
+from datetime import datetime
 
-class Infos : 
-    
-    def __init__(self, keys) : 
+class Infos :
+
+    def __init__(self, keys) :
         self.infos = {}
         self.global_counter = 0
         for key in keys :
@@ -17,27 +19,27 @@ class Infos :
 
 
     @staticmethod
-    def s_plus(old, new) : 
-        if old is None : 
+    def s_plus(old, new) :
+        if old is None :
             old = new * 0.0
         old += new
-        return old 
-        
-    def update(self, key, mean, std, mask) : 
+        return old
+
+    def update(self, key, mean, std, mask) :
         self.infos[key]['mean'] = Infos.s_plus(self.infos[key]['mean'], mean)
         self.infos[key]['std']  =  Infos.s_plus(self.infos[key]['std'], std)
-        if self.infos[key]['mask'] is None : 
+        if self.infos[key]['mask'] is None :
             self.infos[key]['mask'] = mask
-        self.infos[key]['counter'] += 1        
+        self.infos[key]['counter'] += 1
 
-    def normalise(self) : 
-        for key in self.infos.keys : 
+    def normalise(self) :
+        for key in self.infos.keys :
             self.infos[key]['mean'] /= self.infos[key]['counter']
             self.infos[key]['std'] /= self.infos[key]['counter']
-            
 
-    def save(self, save_path, file_names) : 
-    
+
+    def save(self, save_path, file_names) :
+
 
         Path(save_path + '/infos/').mkdir(exist_ok=True, parents=True)
         for key in self.infos.keys() :
@@ -45,18 +47,21 @@ class Infos :
             write_file(self.infos[key]['mean'], f'infos/mean.{key}\n', save_path, file_names)
             write_file(self.infos[key]['std'], f'infos/std.{key}\n', save_path, file_names)
             write_file(self.infos[key]['mask'], f'infos/mask.{key}\n', save_path, file_names)
-        
-def write_file(array, name, save_path, file_names) : 
+
+def write_file(array, name, save_path, file_names) :
     np.save(save_path + name, array)
     file_names.writelines(name+'\n')
 
-def fill_na(array, value=0) : 
+def fill_na(array, value=0) :
     array[array == value] = np.nan
     return array
 
-def convert_nc(restart_path, save_path, file_names, infos) : 
+def convert_nc(restart_path, save_path, file_names, infos) :
     data_TS = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_3D.nc')
     data_SSH = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_2D.nc', decode_times=False)
+
+    set_trace()
+
 
     data = {}
     data['toce.npy'] = fill_na(data_TS.toce_inst.values)
@@ -76,17 +81,18 @@ def convert_nc(restart_path, save_path, file_names, infos) :
     return counter
 
 
-if __name__ == '__main__' : 
-    restarts = glob('/gpfsstore/rech/omr/uym68qx/nemo_output/DINO/Dinoffusion/1_4degree/restart*')
-    save_path = '/gpfsstore/rech/gzi/ufk69pe/DINO-Fusion-Data/1_4_degree/'
+if __name__ == '__main__' :
+    restarts = glob(os.environ['OCEANDATA'] +'/DINO-Fusion-Data/1_4degree/restart*')
+    save_path = os.environ['OCEANDATA'] + f'DINO-Fusion-Data/1_4_degree_{datetime.now().strftime("%d%m%y")}/'
+
+    Path(save_path).mkdir(parents=True, exist_ok=True)
 
     counter, infos = 0, Infos(keys=['toce.npy', 'soce.npy', 'ssh.npy'])
 
     with open(save_path + 'list_files.txt', 'w+') as f:
         for restart in restarts :
-            try : 
+            try :
                 convert_nc(restart, save_path, f, infos)
-            except Exception as e : 
+            except Exception as e :
                 print(restart, e)
         infos.save(save_path, f)
-
