@@ -172,3 +172,9 @@ def get_dataloader(tar_file, fields, batch_size=5) :
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
     dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
+
+if __name__ == '__main__' : 
+    from configs.base_config import *
+    config = TrainingConfig()
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
+    config.data_shape = train_dataloader.get_data_shape() 

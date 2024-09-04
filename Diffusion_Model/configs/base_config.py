@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List, Dict
+import os
 
 
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = '/lustre/fswork/projects/rech/omr/ufk69pe/dino_1_4_degree.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar'
+    data_file : str = os.environ['OCEANDATA']+'/dino_1_4_degree.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar', /lustre/fswork/projects/rech/omr/ufk69pe/
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
     learning_rate: float = 1e-4

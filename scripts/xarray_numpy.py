@@ -49,16 +49,20 @@ def write_file(array, name, save_path, file_names) :
     np.save(save_path + name, array)
     file_names.writelines(name+'\n')
 
+def fill_na(array, value=0) : 
+    array[array == value] = np.nan
+    return array
 
 def convert_nc(restart_path, save_path, file_names, infos) : 
     data_TS = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_3D.nc')
     data_SSH = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_2D.nc', decode_times=False)
 
     data = {}
-    data['toce.npy'] = data_TS.toce_inst.values
-    data['soce.npy'] = data_TS.soce_inst.values
-    data['ssh.npy'] = data_SSH.ssh_inst.values
+    data['toce.npy'] = fill_na(data_TS.toce_inst.values)
+    data['soce.npy'] = fill_na(data_TS.soce_inst.values)
+    data['ssh.npy'] = fill_na(data_SSH.ssh_inst.values)
     assert len(data['toce.npy']) == len(data['soce.npy']) == len(data['ssh.npy']), 'Inequal length'
+
     for i in tqdm(range(len(data['toce.npy']))) :
         for key in data.keys() :
             name=f"{infos.infos[key]['counter']:05d}.{key}"
@@ -66,7 +70,7 @@ def convert_nc(restart_path, save_path, file_names, infos) :
             infos.update(key,
                          np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
                          np.nanstd(data[key][i], axis=(-1,-2), keepdims=True),
-                         (data[key][i] == 0))
+                         (data[key][i] == np.nan))
         infos.global_counter += 1
     return counter
 
