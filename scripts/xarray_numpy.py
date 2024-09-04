@@ -4,6 +4,8 @@ from glob import glob
 import json
 from tqdm import tqdm
 from pathlib import Path
+from pdb import set_trace
+from copy import deepcopy
 
 class Infos : 
     
@@ -21,13 +23,12 @@ class Infos :
         old += new
         return old 
         
-
     def update(self, key, mean, std, mask) : 
         self.infos[key]['mean'] = Infos.s_plus(self.infos[key]['mean'], mean)
         self.infos[key]['std']  =  Infos.s_plus(self.infos[key]['std'], std)
         if self.infos[key]['mask'] is None : 
             self.infos[key]['mask'] = mask
-        self.infos[key]['counter'] += 1
+        self.infos[key]['counter'] += 1        
 
     def normalise(self) : 
         for key in self.infos.keys : 
