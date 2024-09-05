@@ -39,14 +39,13 @@ class Infos :
 
 
     def save(self, save_path, file_names) :
-
-
+        self.normalise()
         Path(save_path + '/infos/').mkdir(exist_ok=True, parents=True)
         for key in self.infos.keys() :
             assert self.global_counter == self.infos[key]['counter'], f'Counter error {key} : {self.global_counter} != {self.infos[key]["counter"]}'
-            write_file(self.infos[key]['mean'], f'infos/mean.{key}\n', save_path, file_names)
-            write_file(self.infos[key]['std'], f'infos/std.{key}\n', save_path, file_names)
-            write_file(self.infos[key]['mask'], f'infos/mask.{key}\n', save_path, file_names)
+            write_file(self.infos[key]['mean'], f'infos/mean.{key}', save_path, file_names)
+            write_file(self.infos[key]['std'], f'infos/std.{key}', save_path, file_names)
+            write_file(self.infos[key]['mask'], f'infos/mask.{key}', save_path, file_names)
 
 def write_file(array, name, save_path, file_names) :
     np.save(save_path + name, array)
