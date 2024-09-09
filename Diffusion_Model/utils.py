@@ -125,8 +125,6 @@ class TransformFields :
             while max_return > 0 :
                 member = tar.next()
                 if member.path.startswith(target_path):
-                    set_trace()
-                    print(member.name)
                     feature, metric, _ = member.name.replace('infos/', '').split('.')
                     self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
                     max_return -= 1
@@ -139,7 +137,7 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]/ 1800.) / (2*self.infos['std'][feature]/1800. + 1e-8)
+            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature] + 1e-8)
 
         def unstandardize_4D(self,sample,feature):
             """
@@ -153,6 +151,9 @@ class TransformFields :
                 data : batch, depth, x, y
             """
             data[self.infos['mask'][feature]] = val
+
+            # Temporar : remove when using new tar
+            data = np.nan_to_num(data, val)
             return data
 
         def padData(self,dataset,xup,xdown,yup,ydown,val):
@@ -180,3 +181,5 @@ if __name__ == '__main__' :
     config = TrainingConfig()
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
     config.data_shape = train_dataloader.get_data_shape()
+    idt = iter(train_dataloader)
+    next(idt)

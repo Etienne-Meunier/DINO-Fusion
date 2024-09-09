@@ -73,7 +73,7 @@ def convert_nc(restart_path, save_path, file_names, infos) :
             infos.update(key,
                          np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
                          np.nanstd(data[key][i], axis=(-1,-2), keepdims=True),
-                         (data[key][i] == np.nan))
+                         np.isnan(data[key][i])
         infos.global_counter += 1
     return counter
 
