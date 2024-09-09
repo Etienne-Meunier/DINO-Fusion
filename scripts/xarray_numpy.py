@@ -93,3 +93,8 @@ if __name__ == '__main__' :
             except Exception as e :
                 print(restart, e)
         infos.save(save_path, f)
+
+    print(f'Now you can create to create the archive : \n \
+            1. cd {save_path} \n
+            2. gtar -cvf ../your_tar_name.tar -T list_files.txt\n \
+            (Use gtar and not tar.)')
