@@ -182,4 +182,4 @@ if __name__ == '__main__' :
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
     config.data_shape = train_dataloader.get_data_shape()
     idt = iter(train_dataloader)
-    next(idt)
+    b = next(idt)

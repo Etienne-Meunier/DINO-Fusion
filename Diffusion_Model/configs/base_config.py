@@ -6,7 +6,7 @@ import os
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/dino_1_4_degree_040924.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
+    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/1_4_degree_coarse_1_130924.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
     # /lustre/fswork/projects/rech/omr/ufk69pe/
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1

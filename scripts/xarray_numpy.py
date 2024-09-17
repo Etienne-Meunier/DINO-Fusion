@@ -33,7 +33,7 @@ class Infos :
         self.infos[key]['counter'] += 1
 
     def normalise(self) :
-        for key in self.infos.keys :
+        for key in self.infos.keys() :
             self.infos[key]['mean'] /= self.infos[key]['counter']
             self.infos[key]['std'] /= self.infos[key]['counter']
 
@@ -55,10 +55,13 @@ def fill_na(array, value=0) :
     array[array == value] = np.nan
     return array
 
-def convert_nc(restart_path, save_path, file_names, infos) :
+def read_nc(restart_path) :
     data_TS = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_3D.nc')
     data_SSH = xr.open_mfdataset(restart_path + '/DINO_10d_grid_T_2D.nc', decode_times=False)
+    return data_TS, data_SSH
 
+def convert_nc(data_TS, data_SSH, save_path, file_names, infos) :
+    
 
     data = {}
     data['toce.npy'] = fill_na(data_TS.toce_inst.values)
@@ -73,9 +76,8 @@ def convert_nc(restart_path, save_path, file_names, infos) :
             infos.update(key,
                          np.nanmean(data[key][i], axis=(-1,-2), keepdims=True),
                          np.nanstd(data[key][i], axis=(-1,-2), keepdims=True),
-                         np.isnan(data[key][i])
+                         np.isnan(data[key][i]))
         infos.global_counter += 1
-    return counter
 
 
 if __name__ == '__main__' :
@@ -89,12 +91,13 @@ if __name__ == '__main__' :
     with open(save_path + 'list_files.txt', 'w+') as f:
         for restart in restarts :
             try :
-                convert_nc(restart, save_path, f, infos)
+                data_TS, data_SSH = read_nc(restart_path)
+                convert_nc(data_TS, data_SSH, save_path, f, infos)
             except Exception as e :
                 print(restart, e)
         infos.save(save_path, f)
 
     print(f'Now you can create to create the archive : \n \
-            1. cd {save_path} \n
+            1. cd {save_path} \n \
             2. gtar -cvf ../your_tar_name.tar -T list_files.txt\n \
             (Use gtar and not tar.)')
