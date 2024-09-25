@@ -13,7 +13,7 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 def main() :
     print("\n----------INITIALISATION----------\n")
     
-    exp="SSH"
+    exp="TOCE"
     
     # Load config
     if exp=="SSH":
@@ -37,7 +37,7 @@ def main() :
             out_channels = 1,
             down_block_types = ("DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D",),
             up_block_types = ("UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D",),
-            block_out_channels = (32, 64, 128,),
+            block_out_channels = (64, 64, 64,),
             layers_per_block = 1,
             act_fn = "silu",
             latent_channels= 1,
@@ -47,7 +47,7 @@ def main() :
             out_channels = 18,
             down_block_types = ("DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D",),
             up_block_types = ("UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D",),
-            block_out_channels = (64, 64, 64,),
+            block_out_channels = (64, 128, 128,),
             layers_per_block = 1,
             act_fn = "silu",
             latent_channels= 4,
@@ -57,7 +57,7 @@ def main() :
             out_channels = 18,
             down_block_types = ("DownEncoderBlock2D", "DownEncoderBlock2D", "DownEncoderBlock2D",),
             up_block_types = ("UpDecoderBlock2D", "UpDecoderBlock2D", "UpDecoderBlock2D",),
-            block_out_channels = (64, 64, 64,),
+            block_out_channels = (64, 128, 128,),
             layers_per_block = 1,
             act_fn = "silu",
             latent_channels= 4,
@@ -66,17 +66,17 @@ def main() :
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(pytorch_total_params)
 
-    epochs = 100
+    epochs = 200 #100 for SSH
     loss_l1 = torch.nn.L1Loss().to('cuda')
     loss_mse = torch.nn.MSELoss().to('cuda')
     
     optimizer = torch.optim.AdamW(model.parameters(), lr = 1e-4) 
     lr_scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,
                                                   num_warmup_steps=0,
-                                                  num_training_steps=config.train_steps_by_epoch*epochs)
+                                                  num_training_steps=(1800/config.train_batch_size)*epochs) #### le chiffre 1800 est à vérifier
     
     losses = []
-    kl_weight = 1e-6
+    kl_weight = 1e-8
 
     model.train()
     
@@ -95,7 +95,7 @@ def main() :
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
-            print(loss_rec.item(), loss_kl.item())
+            print(loss_rec.item(), loss_kl.item(), lr_scheduler.get_last_lr()[0])
             #print(loss.item())
             running_loss += loss.item()
         losses.append(running_loss)

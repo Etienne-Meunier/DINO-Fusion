@@ -4,8 +4,8 @@
   "act_fn": "silu",
   "block_out_channels": [
     64,
-    64,
-    64
+    128,
+    128
   ],
   "down_block_types": [
     "DownEncoderBlock2D",

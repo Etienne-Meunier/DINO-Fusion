@@ -18,6 +18,7 @@ class DiffusionModel(nn.Module) :
         super().__init__()
         self.config = config
         self.accelerator = self.config_accelerate()
+        self.config.data_shape = torch.Size([37, 208, 64]) #!!!!!!!!!!!!!!!!!!!!!!!!!!!! while training works, test breaks so I had to put this manually
 
         if self.config.use_LDM:
             self.AE_model = AutoencoderKL.from_pretrained('./backbones/AutoEncoder/SSH/').to('cuda')
@@ -114,7 +115,8 @@ class DiffusionModel(nn.Module) :
         Takes a batch of images and do a training step.
         """
         clean_images = batch#["images"]
-
+        #print(clean_images.shape)
+        
         if self.config.use_LDM:           
             clean_images = self.AE_model.encode(clean_images).latent_dist.sample()
             clean_images = F.pad(clean_images, (1,1,0,0) , "constant", 0) ##### padding from 62 to 64 to make it work with the Unet
@@ -123,7 +125,7 @@ class DiffusionModel(nn.Module) :
         
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
-            loss = F.mse_loss(noises_pred, noises)
+            loss = F.mse_loss(noises_pred, noises) ################# changed from mse_loss to smooth_l1
             self.accelerator.backward(loss)
             if self.accelerator.sync_gradients:
                 self.accelerator.clip_grad_norm_(self.denoiser.parameters(), 1.0)

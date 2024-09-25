@@ -11,7 +11,7 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = SSHTrainingConfig()
+    config = TrainingConfig()
     print("Config loaded")
 
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)

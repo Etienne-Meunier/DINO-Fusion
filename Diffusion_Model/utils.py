@@ -16,6 +16,14 @@ import tarfile
 import collections
 import types
 
+def compute_laplacian(image):
+    # Compute gradients along x and y axis
+    grad_x = np.gradient(image, axis=0)
+    grad_y = np.gradient(image, axis=1)
+    
+    # Compute second derivatives
+    laplacian = np.gradient(grad_x, axis=0) + np.gradient(grad_y, axis=1)
+    return laplacian
 
 def save_images(images, output_path) :
     """
@@ -30,7 +38,7 @@ def save_images(images, output_path) :
         fig, axs = plt.subplots(3, min(len(images), 8), figsize=(15,15))
         for ci, c in enumerate([(0, 'surface_toce'), (8, 'surface_soce'), (-1, 'ssh')]) :
             for b in range(min(len(images), 8)) :
-                axs[ci, b].imshow(images[b, c[0]], origin='lower')
+                axs[ci, b].imshow(compute_laplacian(images[b, c[0]]), origin='lower', cmap='seismic', vmin=-0.05, vmax=0.05)
 
                 if b == 0 :
                     axs[ci, b].set_title(c[1])
@@ -48,7 +56,8 @@ class TransformFields :
             self.fields = fields
             self.get_infos(info_file)
             self.data_shape = None
-            self.padding =  {'xup' : 3, 'xdown' : 3, 'yup' : 1, 'ydown' : 2, 'val' : 0}
+            #self.padding =  {'xup' : 3, 'xdown' : 3, 'yup' : 1, 'ydown' : 2, 'val' : 0}
+            self.padding =  {'xup' : 1, 'xdown' : 1, 'yup' : 5, 'ydown' : 4, 'val' : 0}
 
 
         def __call__(self, sample) :
@@ -137,13 +146,13 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature] + 1e-8)
+            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8) ######## removed 2sigma
 
         def unstandardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample * (2*self.infos['std'][feature])) + self.infos['mean'][feature]
+            return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature] ######## removed 2sigma
 
         def replaceEdges(self,data,feature,val):
             """
