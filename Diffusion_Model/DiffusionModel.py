@@ -125,7 +125,7 @@ class DiffusionModel(nn.Module) :
         
         with self.accelerator.accumulate(self.denoiser) :
             noises_pred = self.denoiser(noisy_images, timesteps, return_dict=False)[0]
-            loss = F.mse_loss(noises_pred, noises) ################# changed from mse_loss to smooth_l1
+            loss = F.mse_loss(noises_pred, noises) 
             self.accelerator.backward(loss)
             if self.accelerator.sync_gradients:
                 self.accelerator.clip_grad_norm_(self.denoiser.parameters(), 1.0)
