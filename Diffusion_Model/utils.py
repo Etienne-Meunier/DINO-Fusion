@@ -15,6 +15,7 @@ import io
 import tarfile
 import collections
 import types
+from torch.nn.functional import interpolate
 
 
 def save_images(images, output_path) :
@@ -48,7 +49,7 @@ class TransformFields :
             self.fields = fields
             self.get_infos(info_file)
             self.data_shape = None
-            self.padding =  {'xup' : 3, 'xdown' : 3, 'yup' : 1, 'ydown' : 2, 'val' : 0}
+            self.padding =  {'xup' : 1, 'xdown' : 1, 'yup' : 5, 'ydown' : 4, 'val' : 0}
 
 
         def __call__(self, sample) :
@@ -75,6 +76,9 @@ class TransformFields :
                 array = sample[feature]
                 array = self.unpadData(array,**self.padding)
 
+                if array.shape[0] == 1 :
+                    array = array[0]
+
                 array = self.replaceEdges(array, feature, val=np.nan)
 
                 array = self.unstandardize_4D(array, feature)
@@ -86,21 +90,26 @@ class TransformFields :
         def stride_concat(self, sample) :
             return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
 
+        def un_stride_concat(self, data) :
+            idx = 0
+            sample = {}
+            for key in self.fields.keys() : 
+                oz = self.infos['shape'][key][0] # original z
+                levels = len(np.arange(oz)[self.fields[key]])
+                field =  data[idx:levels+idx]
+                idx += levels
+                sample[key] = interpolate(field[None, None], size=(oz, field.shape[1], field.shape[2]), mode='trilinear')[0,0]
+            return sample
+
+
         def get_data_shape(self) :
-            fake_data = {key : np.random.rand(*(self.infos[key]['shape'])) for key in self.fields.keys()}
+            fake_data = {key : np.random.rand(*(self.infos['shape'][key])) for key in self.fields.keys()}
             fake_data = self.stride_concat(fake_data)
             fake_data = self.padData(fake_data, **self.padding)
 
             return fake_data.shape
 
-        def un_stride_concat(self, data) :
-            assert self.step == 2, 'Only works for step=2 for now'
-            assert (len(data.shape) == 4), 'Only works for arrays like (b c h w) for now'
-            ranges = {'toce' : slice(0, 18), 'soce' : slice(18, 36), 'ssh' : slice(36,None)}
-            sample =  {key : data[:, val] for key, val in ranges.items()}
-            sample['toce'] = self.interpolate_double(sample['toce'])
-            sample['soce'] = self.interpolate_double(sample['soce'])
-            return sample
+        
 
 
         def interpolate_double(self, array) :
@@ -129,21 +138,21 @@ class TransformFields :
                     self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
                     max_return -= 1
 
-            self.infos['soce']['shape'] = (36, 797, 242)
-            self.infos['toce']['shape'] = (36, 797, 242)
-            self.infos['ssh']['shape'] = (1, 797, 242)
+            self.infos['shape']['soce'] = self.infos['mask']['toce'].shape
+            self.infos['shape']['toce'] = self.infos['mask']['soce'].shape
+            self.infos['shape']['ssh'] = self.infos['mask']['ssh'][None].shape
 
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (2*self.infos['std'][feature] + 1e-8)
+            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8)
 
         def unstandardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            return (sample * (2*self.infos['std'][feature])) + self.infos['mean'][feature]
+            return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature]
 
         def replaceEdges(self,data,feature,val):
             """
@@ -151,9 +160,6 @@ class TransformFields :
                 data : batch, depth, x, y
             """
             data[self.infos['mask'][feature]] = val
-
-            # Temporar : remove when using new tar
-            data = np.nan_to_num(data, val)
             return data
 
         def padData(self,dataset,xup,xdown,yup,ydown,val):
@@ -162,8 +168,8 @@ class TransformFields :
             """
             return np.pad(dataset, ((0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
 
-        def unpadData(self,dataset,xup,xdown,yup,ydown):
-            return dataset[:, :,yup:-ydown, xup:-xdown]
+        def unpadData(self,dataset,xup,xdown,yup,ydown,val):
+            return dataset[:,yup:-ydown, xup:-xdown]
 
 def get_data_shape(self) :
     return self.dataset.pipeline[-1].args[0].transforms[0].get_data_shape()

@@ -6,7 +6,7 @@ import os
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/1_4_degree_coarse_1_130924.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
+    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/dino_1_4_degree_coarse_130924.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
     # /lustre/fswork/projects/rech/omr/ufk69pe/
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
@@ -31,7 +31,7 @@ class TrainingConfig(BaseConfig):
     num_epochs: int = 1000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run
     logger = 'wandb'
-    fields : Dict = field(default_factory=lambda: ({'soce' : slice(0, -1, 5), 'toce' : slice(0, -1, 5), 'ssh' : slice(0, 1)}))
+    fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2), 'soce' : slice(0, -1, 2), 'ssh' : slice(0, 1)}))
 
 @dataclass
 class SSHTrainingConfig(TrainingConfig):
