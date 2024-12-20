@@ -172,13 +172,17 @@ class TransformFields :
             return dataset[:,yup:-ydown, xup:-xdown]
 
 def get_data_shape(self) :
-    return self.dataset.pipeline[-1].args[0].transforms[0].get_data_shape()
+    return self.get_transform().get_data_shape()
+
+def get_transform(self) : 
+    return self.dataset.pipeline[-1].args[0].transforms[0]
 
 def get_dataloader(tar_file, fields, batch_size=5) :
     transform = TransformFields(info_file=tar_file, fields=fields)
     composed = transforms.Compose([transform])
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).shuffle(100).decode().map(composed)
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
+    dl.get_transform = types.MethodType(get_transform, dl)
     dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
 
