@@ -177,13 +177,24 @@ def get_data_shape(self) :
 def get_transform(self) : 
     return self.dataset.pipeline[-1].args[0].transforms[0]
 
-def get_dataloader(tar_file, fields, batch_size=5) :
-    transform = TransformFields(info_file=tar_file, fields=fields)
-    composed = transforms.Compose([transform])
-    dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__']).shuffle(100).decode().map(composed)
-    dl = DataLoader(dataset=dataset, batch_size=batch_size)
-    dl.get_transform = types.MethodType(get_transform, dl)
-    dl.get_data_shape = types.MethodType(get_data_shape, dl)
+
+def get_dataloader(tar_file, fields, batch_size=5, transform=True, shuffle=True) :
+    dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
+
+    if shuffle : 
+        dataset=dataset.shuffle(100)
+    
+    dataset = dataset.decode()
+    
+    if transform :
+        tr = TransformFields(info_file=tar_file, fields=fields)
+        composed = transforms.Compose([tr])
+        dataset = dataset.map(composed)
+
+    dl = DataLoader(dataset=dataset, batch_size=batch_size)   
+    if transform : 
+        dl.get_transform = types.MethodType(get_transform, dl)
+        dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
 
 if __name__ == '__main__' :
