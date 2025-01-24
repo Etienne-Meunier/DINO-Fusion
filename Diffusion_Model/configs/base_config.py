@@ -6,10 +6,11 @@ import os
 @dataclass
 class BaseConfig:
     #check https://huggingface.co/docs/accelerate/concept_guides/performance
-    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/dino_1_4_degree_coarse_130924.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
+    data_file : str = os.environ['OCEANDATA']+'/Dino-Fusion/dino_1_4_degree_coarse_240125.tar' #'/home/meunier/Data/Dino-Fusion/dino_1_4_degree.tar',
     # /lustre/fswork/projects/rech/omr/ufk69pe/
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
+    normalisation = 'min-max'
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 0 #500
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision

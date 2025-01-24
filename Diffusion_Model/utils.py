@@ -45,12 +45,12 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, info_file, fields) :
+        def __init__(self, info_file, fields, normalisation='std') :
             self.fields = fields
             self.get_infos(info_file)
             self.data_shape = None
             self.padding =  {'xup' : 1, 'xdown' : 1, 'yup' : 5, 'ydown' : 4, 'val' : 0}
-
+            self.normalisation = normalisation
 
         def __call__(self, sample) :
             dico = {}
@@ -90,15 +90,18 @@ class TransformFields :
         def stride_concat(self, sample) :
             return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
 
-        def un_stride_concat(self, data) :
+        def un_stride_concat(self, data, interpolate=True) :
             idx = 0
             sample = {}
-            for key in self.fields.keys() : 
+            for key in self.fields.keys() :
                 oz = self.infos['shape'][key][0] # original z
                 levels = len(np.arange(oz)[self.fields[key]])
                 field =  data[idx:levels+idx]
                 idx += levels
-                sample[key] = interpolate(field[None, None], size=(oz, field.shape[1], field.shape[2]), mode='trilinear')[0,0]
+                if interpolate :
+                    sample[key] = interpolate(field[None, None], size=(oz, field.shape[1], field.shape[2]), mode='trilinear')[0,0]
+                else :
+                    sample[key] = field
             return sample
 
 
@@ -109,7 +112,7 @@ class TransformFields :
 
             return fake_data.shape
 
-        
+
 
 
         def interpolate_double(self, array) :
@@ -128,7 +131,7 @@ class TransformFields :
             tar = tarfile.open(info_file)
 
             target_path='infos/'
-            max_return = 9
+            max_return = 15
 
             self.infos = collections.defaultdict(dict)
             while max_return > 0 :
@@ -146,13 +149,26 @@ class TransformFields :
             """
                 Standardize the data given a mean and a std
             """
-            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8)
+            if self.normalisation == 'std' :
+                return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8)
 
-        def unstandardize_4D(self,sample,feature):
+            elif self.normalisation == 'min-max' :
+                return 2*(sample[f'{feature}'] - self.infos['min'][feature]) / (self.infos['max'][feature] - self.infos['min'][feature]) - 1
+
+        def unstandardize_4D(self, sample, feature):
             """
-                Standardize the data given a mean and a std
+            Unstandardize the data based on the normalization type used
+            Args:
+                sample: The normalized data to be unstandardized
+                feature: The feature name/key
+            Returns:
+                Unstandardized data
             """
-            return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature]
+            if self.normalisation == 'std':
+                return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature]
+
+            elif self.normalisation == 'min-max':
+                return (sample + 1) * (self.infos['max'][feature] - self.infos['min'][feature]) / 2 + self.infos['min'][feature]
 
         def replaceEdges(self,data,feature,val):
             """
@@ -174,25 +190,25 @@ class TransformFields :
 def get_data_shape(self) :
     return self.get_transform().get_data_shape()
 
-def get_transform(self) : 
+def get_transform(self) :
     return self.dataset.pipeline[-1].args[0].transforms[0]
 
 
-def get_dataloader(tar_file, fields, batch_size=5, transform=True, shuffle=True) :
+def get_dataloader(tar_file, fields, normalisation, batch_size=5, transform=True, shuffle=True) :
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
 
-    if shuffle : 
+    if shuffle :
         dataset=dataset.shuffle(100)
-    
+
     dataset = dataset.decode()
-    
+
     if transform :
-        tr = TransformFields(info_file=tar_file, fields=fields)
+        tr = TransformFields(info_file=tar_file, fields=fields, normalisation=normalisation)
         composed = transforms.Compose([tr])
         dataset = dataset.map(composed)
 
-    dl = DataLoader(dataset=dataset, batch_size=batch_size)   
-    if transform : 
+    dl = DataLoader(dataset=dataset, batch_size=batch_size)
+    if transform :
         dl.get_transform = types.MethodType(get_transform, dl)
         dl.get_data_shape = types.MethodType(get_data_shape, dl)
     return dl
@@ -200,7 +216,7 @@ def get_dataloader(tar_file, fields, batch_size=5, transform=True, shuffle=True)
 if __name__ == '__main__' :
     from configs.base_config import *
     config = TrainingConfig()
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, normalisation=config.normalisation)
     config.data_shape = train_dataloader.get_data_shape()
     idt = iter(train_dataloader)
     b = next(idt)
