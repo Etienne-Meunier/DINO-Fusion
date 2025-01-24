@@ -10,7 +10,6 @@ class BaseConfig:
     # /lustre/fswork/projects/rech/omr/ufk69pe/
     #image_size: List = field(default_factory=lambda: [800, 248])  # the generated image resolution
     gradient_accumulation_steps: int = 1
-    normalisation = 'min-max'
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 0 #500
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
@@ -20,7 +19,7 @@ class BaseConfig:
     base_output_dir : str = "../../diffModel_experiences" # Base dir for output model
     lr_schedule = 'cosine_schedule'
     st_path = None
-    generation_frequency : int = 10
+    generation_frequency : int = 50
 
 @dataclass
 class TrainingConfig(BaseConfig):
@@ -33,6 +32,7 @@ class TrainingConfig(BaseConfig):
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run
     logger = 'wandb'
     fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2), 'soce' : slice(0, -1, 2), 'ssh' : slice(0, 1)}))
+    normalisation = 'min-max'
 
 @dataclass
 class SSHTrainingConfig(TrainingConfig):
