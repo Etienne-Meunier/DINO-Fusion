@@ -15,7 +15,7 @@ class BaseConfig:
     lr_warmup_steps: int = 0 #500
     mixed_precision: str = "no" # "fp16"  # `no` for float32, `fp16` for automatic mixed precision
     seed: int = 0
-    use_LDM: bool = True # Latent diffusion Model, needs pretrained weights for VAEs, also needs to set the number of input/output channels of the UNET
+    use_LDM: bool = False # Latent diffusion Model, needs pretrained weights for VAEs, also needs to set the number of input/output channels of the UNET
     use_ema: bool = False
     base_output_dir : str = "../../diffModel_experiences" # Base dir for output model
     lr_schedule = 'cosine_schedule'

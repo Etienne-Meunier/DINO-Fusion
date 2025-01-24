@@ -1,9 +1,10 @@
+from torch.nn.modules import normalization
 from DiffusionModel import DiffusionModel
 from configs.base_config import *
 from torchvision import transforms
 from utils import get_dataloader
 from tqdm import tqdm
-import torch 
+import torch
 from ipdb import set_trace
 from utils import save_images
 import numpy as np
@@ -11,15 +12,15 @@ import numpy as np
 def main() :
     print("\n----------INITIALISATION----------\n")
     # Load config
-    config = SSHTrainingConfig()
+    config = TrainingConfig()
     print("Config loaded")
 
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, normalisation=config.normalisation)
     config.data_shape = train_dataloader.get_data_shape()
     #set_trace()
     print("Data loaded")
 
-    # Load Model 
+    # Load Model
     diffusion = DiffusionModel(config)
     print("Model loaded")
 
@@ -31,7 +32,7 @@ def main() :
     print("Accelerate setted")
 
     print("\n----------TRAINING----------\n")
-    for epoch in range(config.num_epochs) : 
+    for epoch in range(config.num_epochs) :
         progress_bar = tqdm(total=config.train_steps_by_epoch)
         progress_bar.set_description(f"Epoch {epoch}")
         for step, batch in enumerate(train_dataloader):
@@ -44,7 +45,7 @@ def main() :
             progress_bar.set_postfix(**logs)
             diffusion.accelerator.log(logs, step=global_step)
             global_step += 1
-        
+
         if epoch % config.generation_frequency == 0:
             print('Generate images ...')
             generated_images = diffusion.test_step()
@@ -53,7 +54,5 @@ def main() :
 
     diffusion.accelerator.end_training()
 
-if __name__ == '__main__' : 
+if __name__ == '__main__' :
     main()
-
-    
