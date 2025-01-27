@@ -11,7 +11,7 @@
 module purge
 #module load python
 conda init
-conda activate sc_dl
+conda activate diffusion
 export WANDB_MODE=online          # run wandb sync offline-run-XXXXXXX/ when you are on the head nodes with internet
 
 ## launch script on every node
