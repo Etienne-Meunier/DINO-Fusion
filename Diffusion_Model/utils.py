@@ -90,7 +90,7 @@ class TransformFields :
         def stride_concat(self, sample) :
             return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
 
-        def un_stride_concat(self, data, interpolate=True) :
+        def un_stride_concat(self, data, interpolation=True) :
             idx = 0
             sample = {}
             for key in self.fields.keys() :
@@ -98,7 +98,7 @@ class TransformFields :
                 levels = len(np.arange(oz)[self.fields[key]])
                 field =  data[idx:levels+idx]
                 idx += levels
-                if interpolate :
+                if interpolation :
                     sample[key] = interpolate(field[None, None], size=(oz, field.shape[1], field.shape[2]), mode='trilinear')[0,0]
                 else :
                     sample[key] = field
@@ -155,6 +155,10 @@ class TransformFields :
             elif self.normalisation == 'min-max' :
                 return 2*(sample[f'{feature}'] - self.infos['min'][feature]) / (self.infos['max'][feature] - self.infos['min'][feature]) - 1
 
+            elif self.normalisation == 'global-min-max' :
+                min, max = self.infos['min'][feature].min(), self.infos['max'][feature].max()
+                return 2*(sample[f'{feature}'] - min) / (max - min) - 1
+
         def unstandardize_4D(self, sample, feature):
             """
             Unstandardize the data based on the normalization type used
@@ -169,6 +173,10 @@ class TransformFields :
 
             elif self.normalisation == 'min-max':
                 return (sample + 1) * (self.infos['max'][feature] - self.infos['min'][feature]) / 2 + self.infos['min'][feature]
+
+            elif self.normalisation == 'global-min-max' :
+                min, max = self.infos['min'][feature].min(), self.infos['max'][feature].max()
+                return (sample + 1) * (max - min) / 2 + min
 
         def replaceEdges(self,data,feature,val):
             """

@@ -11,6 +11,7 @@ import os
 from ipdb import set_trace
 from pipelines.pipeline_tensor import DDPMPipeline_Tensor
 from diffusers.training_utils import EMAModel
+from dataclasses import asdict
 
 class DiffusionModel(nn.Module) :
 
@@ -23,6 +24,7 @@ class DiffusionModel(nn.Module) :
             self.AE_model = AutoencoderKL.from_pretrained('./backbones/AutoEncoder/SSH/').to('cuda')
             self.AE_model.requires_grad_(False)
             self.config.data_shape = torch.Size([4, 200, 64]) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
         self.denoiser = get_simple_unet(self.config.data_shape)
         self.noise_scheduler = DDPMScheduler(self.config.num_train_timesteps,
@@ -47,7 +49,8 @@ class DiffusionModel(nn.Module) :
                                   log_with=self.config.logger)
 
         if (self.config.logger == 'wandb') and accelerator.is_main_process:
-            accelerator.init_trackers('dino-fusion', config=vars(self.config))
+            #accelerator.init_trackers('dino-fusion', config=vars(self.config))
+            accelerator.init_trackers('dino-fusion', config=asdict(self.config))
             accelerator.trackers[0].run.log_code("../")
         if self.config.output_dir == 'wandb' :
             wandb_id = accelerator.trackers[0].run.id

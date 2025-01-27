@@ -32,7 +32,7 @@ class TrainingConfig(BaseConfig):
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run
     logger = 'wandb'
     fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2), 'soce' : slice(0, -1, 2), 'ssh' : slice(0, 1)}))
-    normalisation = 'min-max'
+    normalisation : str = 'global-min-max'
 
 @dataclass
 class SSHTrainingConfig(TrainingConfig):

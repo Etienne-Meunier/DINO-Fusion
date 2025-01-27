@@ -20,7 +20,7 @@ def get_raw_data(batch: dict) -> torch.Tensor:
     return batch
 
 def split(data, transform) :
-    sample = transform.un_stride_concat(data, interpolate=False)
+    sample = transform.un_stride_concat(data, interpolation=False)
     for feature in ["soce","toce","ssh"]:
         array = transform.unpadData(sample[feature], **transform.padding)
         if array.shape[0] == 1 :
@@ -31,9 +31,9 @@ def split(data, transform) :
     sample = {key+'.npy' : val for key, val in sample.items()}
     return sample
 
-def get_transformed_data(batch: torch.Tensor, transform) :
+def get_transformed_data(batch: torch.Tensor, function) :
     """Function to extract data from transformed batch"""
-    samples = [split(b, transform) for b in batch]
+    samples = [function(b) for b in batch] # split(b, transform)
     sc = concat_dict(samples)
     return sc
 
@@ -48,7 +48,7 @@ if __name__ =='__main__' :
     config = TrainingConfig()
 
     # %% Without normalisation
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, transform=False, shuffle=False)
+    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, transform=False, shuffle=False, normalisation=config.normalisation)
     extractor = get_raw_data
     idt = iter(train_dataloader)
     batch = next(idt)
@@ -56,11 +56,10 @@ if __name__ =='__main__' :
 
     # %% With normalisation
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size,
-                                                    fields=config.fields, transform=True, shuffle=False)
+                                                    fields=config.fields, transform=True, shuffle=False, normalisation=config.normalisation)
     idt = iter(train_dataloader)
 
     extractor = partial(get_transformed_data, transform=train_dataloader.get_transform())
-
 
     # %% Get global metrics
     keys = ['soce.npy', 'toce.npy', 'ssh.npy']
@@ -71,23 +70,15 @@ if __name__ =='__main__' :
     plot_area_distributions(averages, z_index=0, title='Data distribution')
 
     #%% With data from diffusion model
-    model_gen = 'z87envpm/epoch_4950.npy'
+    model_gen = 'hxdnrm4i/epoch_4950.npy'
     batch_diffusion = torch.tensor(np.load(os.environ['OCEANDATA'] + f'models/dino-fusion/{model_gen}'))
     averages = calculate_area_averages([batch_diffusion], keys, areas, data_extractor=extractor)
     plot_area_distributions(averages, z_index=0, title=f'Generated ({model_gen}) distribution')
 
+
+
+
+
     #%% Compute min-max over dataset
-    operations = {'max' : lambda x : x.nan_to_num(-torch.inf).amax((-2,-1)), 'min' : lambda x : x.nan_to_num(torch.inf).amin((-2,-1))}
-    op = operate_on_dataset(train_dataloader, operations, fields=keys, data_extractor=extractor)
-
-    for key in op.keys() :
-        print(f"{key} : {op[key]['min'].amin()} - {op[key]['max'].amax()}")
-
-
-    for key in ['toce', 'soce', 'ssh'] :
-        d = op[f'{key}.npy']['min'].amin(dim=0)[..., None, None].numpy()
-        np.save(f'add_infos/min.{key}.npy', d)
-
-        d = op[f'{key}.npy']['max'].amax(dim=0)[..., None, None].numpy()
-        np.save(f'add_infos/max.{key}.npy', d)
-np.load('add_infos/max.soce.npy').shape
+    #operations = {'max' : lambda x : x.nan_to_num(-torch.inf).amax((-2,-1)), 'min' : lambda x : x.nan_to_num(torch.inf).amin((-2,-1))}
+    #op = operate_on_dataset(train_dataloader, operations, fields=keys, data_extractor=extractor)
