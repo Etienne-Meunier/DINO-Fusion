@@ -22,6 +22,8 @@ def main() :
 
     # Load Model
     diffusion = DiffusionModel(config)
+    if config.pretrained_model_path is not None:
+        diffusion.load_model(config.pretrained_model_path)
     print("Model loaded")
 
     global_step = 0

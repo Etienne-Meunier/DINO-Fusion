@@ -74,7 +74,7 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
 
         for t in self.progress_bar(self.scheduler.timesteps):
             # 1. predict noise model_output
-            print(image.min(), image.max())
+            #print(image.min(), image.max())
             model_output = self.unet(image, t).sample
 
             # 2. compute previous image: x_t -> x_t-1
