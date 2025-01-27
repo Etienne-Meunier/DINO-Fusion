@@ -29,7 +29,7 @@ class TrainingConfig(BaseConfig):
     eval_batch_size: int = 8  # how many images to sample during evaluation
     num_train_timesteps: int = 1000  #for noise scheduler
     num_inference_steps: int = 1000  #for noise scheduler
-    num_epochs: int = 1000
+    num_epochs: int = 5000
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run
     logger = 'wandb'
     fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2), 'soce' : slice(0, -1, 2), 'ssh' : slice(0, 1)}))
