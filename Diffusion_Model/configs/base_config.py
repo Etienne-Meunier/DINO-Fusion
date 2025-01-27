@@ -17,9 +17,10 @@ class BaseConfig:
     use_LDM: bool = False # Latent diffusion Model, needs pretrained weights for VAEs, also needs to set the number of input/output channels of the UNET
     use_ema: bool = False
     base_output_dir : str = "../../diffModel_experiences" # Base dir for output model
-    lr_schedule = 'cosine_schedule'
-    st_path = None
+    lr_schedule: str = 'cosine_schedule'
+    st_path: str | None = None
     generation_frequency : int = 50
+    pretrained_model_path : str | None = None
 
 @dataclass
 class TrainingConfig(BaseConfig):
@@ -32,7 +33,7 @@ class TrainingConfig(BaseConfig):
     output_dir: str = "wandb"  #  wandb means the directory will be named with the id of the run
     logger = 'wandb'
     fields : Dict = field(default_factory=lambda: ({'toce' : slice(0, -1, 2), 'soce' : slice(0, -1, 2), 'ssh' : slice(0, 1)}))
-    normalisation : str = 'global-min-max'
+    normalisation : str = 'min-max'
 
 @dataclass
 class SSHTrainingConfig(TrainingConfig):

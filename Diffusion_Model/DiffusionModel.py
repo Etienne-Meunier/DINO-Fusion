@@ -168,5 +168,5 @@ class DiffusionModel(nn.Module) :
 
     def load_model(self, model_path) :
         print(f'Loading model : {model_path}')
-        pipeline = DDPMPipeline_Tensor.from_pretrained(model_path).to('cuda')
+        pipeline = DDPMPipeline_Tensor.from_pretrained(model_path)
         self.denoiser.load_state_dict(pipeline.unet.state_dict())

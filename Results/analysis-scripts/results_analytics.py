@@ -100,11 +100,6 @@ if FULL_GENERATION :
             plt.close()
 
 
-for k in range(18) :
-    plt.hist(generated_samples['toce.npy'][:, k].flatten(), bins=50, alpha=0.5)
-    plt.hist(samples['toce.npy'][:, k].flatten(), bins=50, alpha=0.5)
-    plt.show()
-
 # Comparison vertical profiles
 
 fig, axs = plt.subplots(1,2, figsize=(15,5))
