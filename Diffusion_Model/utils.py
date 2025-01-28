@@ -56,6 +56,7 @@ class TransformFields :
             dico = {}
             sample = {key.replace('.npy', '') : val for key, val in sample.items()}
             for feature in ["soce","toce","ssh"]:
+
                 #1. standardize
                 data = self.standardize_4D(sample,feature)
                 #2. replace padding and edges by 0
@@ -152,6 +153,12 @@ class TransformFields :
             if self.normalisation == 'std' :
                 return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8)
 
+            elif self.normalisation == '7-std' :
+                            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (7*self.infos['std'][feature] + 1e-8)
+
+            elif self.normalisation == '3-std' :
+                            return (sample[f'{feature}'] - self.infos['mean'][feature]) / (3*self.infos['std'][feature] + 1e-8)
+
             elif self.normalisation == 'min-max' :
                 return 2*(sample[f'{feature}'] - self.infos['min'][feature]) / (self.infos['max'][feature] - self.infos['min'][feature]) - 1
 
@@ -170,6 +177,12 @@ class TransformFields :
             """
             if self.normalisation == 'std':
                 return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature]
+
+            elif self.normalisation == '7-std' :
+                            return (sample * (7*self.infos['std'][feature])) + self.infos['mean'][feature]
+
+            elif self.normalisation == '3-std' :
+                            return (sample * (3*self.infos['std'][feature])) + self.infos['mean'][feature]
 
             elif self.normalisation == 'min-max':
                 return (sample + 1) * (self.infos['max'][feature] - self.infos['min'][feature]) / 2 + self.infos['min'][feature]
