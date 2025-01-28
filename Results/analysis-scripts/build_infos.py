@@ -1,24 +1,33 @@
-import tarfile, collections, numpy as np, io
+import sys, os
+sys.path.append('../../Diffusion_Model/')
+from utils import get_dataloader
+from configs.base_config import TrainingConfig
+os.environ['OCEANDATA'] = '/Volumes/LoCe/oceandata/'
+import numpy as np
 
-info_file='/Volumes/LoCe/oceandata/Dino-Fusion/dino_1_4_degree_coarse_130924.tar'
 
-tar = tarfile.open(info_file)
+config = TrainingConfig()
 
-target_path='infos/'
-max_return = 9
+train_dataloader = get_dataloader(config.data_file, batch_size=8,
+                                                fields=config.fields, normalisation=config.normalisation, transform=True, shuffle=True)
+transform = train_dataloader.get_transform()
+((transform.infos['max']['toce'] - transform.infos['mean']['toce'])/transform.infos['std']['toce'])[:-1].max()
 
-infos = collections.defaultdict(dict)
-while max_return > 0 :
-    member = tar.next()
-    if member.path.startswith(target_path):
-        feature, metric, _ = member.name.replace('infos/', '').split('.')
-        infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
-        max_return -= 1
+v1 = np.abs(transform.infos['min']['toce']) [:-1, 0, 0]
+v2 = transform.infos['max']['toce'][:-1, 0, 0]
+(np.maximum(v1, v2) - transform.infos['mean']['toce'][:-1, 0, 0])/ (6 * transform.infos['std']['toce'][:-1, 0, 0])
 
-# Add to existing tar
-with tarfile.open(info_file, 'a') as tar:
-    tar.add('add_infos/soce/min.npy', 'infos/min.soce.npy')
 
-# Clean up temp file
-import os
-os.remove('temp.npy')
+v1 = np.abs(transform.infos['min']['soce']) [:-1, 0, 0]
+v2 = transform.infos['max']['soce'][:-1, 0, 0]
+(np.maximum(v1, v2) - transform.infos['mean']['soce'][:-1, 0, 0])/ (7 * transform.infos['std']['soce'][:-1, 0, 0])
+v1 = np.abs(transform.infos['min']['ssh'])
+v2 = transform.infos['max']['ssh']
+(np.maximum(v1, v2) - transform.infos['mean']['ssh'])/ (7 * transform.infos['std']['ssh'])
+transform.infos['min']['ssh'].shape
+import matplotlib.pyplot as plt
+
+plt.plot(transform.infos['mean']['soce'][:,0,0])
+plt.plot()
+plt.plot(transform.infos['max']['soce'][:,0,0])
+transform.infos['min']['soce'].min()

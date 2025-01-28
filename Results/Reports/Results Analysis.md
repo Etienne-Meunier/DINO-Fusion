@@ -97,3 +97,41 @@ As expected generated fields never get above the max. We can see it in the non-n
 
 Although the issue is that we ar enoyt capturing the dynamic of the distribution well. 
 
+## 28-01-25 More training - ji71na3g 
+
+![image-20250128105623595](./images/image-20250128105623595.png)
+
+Finetuning our previous model over the same dataset it seems that we get slightly improve results
+
+## Issues with stratification : 
+
+![](./images/Zonal-integral-models.png)
+
+When we look at the different normalisation impact on the datas we see two stuff : 
+
+- Min-max kind of break the continuity creating very discontinous set
+- std tends to keep continuity bette although from the beginning doens't manage to solve the issue with the scaling
+
+![](./images/Normalisations-compare.png)
+
+
+
+# 29-01-25 alpha-std normalisation 
+
+
+
+We could implement a normalisation that would keep smoothness and at the same time keep dataset values between -1 and 1 : 
+$$
+\tilde x = \frac{x - \mu}{\alpha \sigma}  \quad \alpha\ \text{s.t}\ \tilde x_i \in [-1; 1]\ \forall i \in \mathcal D
+$$
+But what $\alpha$ to choose ? 
+
+If we plot the distribution of $\tilde x$ with $\alpha = 1$ we get : 
+
+![image-20250128194805399](./images/image-20250128194805399.png)
+
+- Choosing $\alpha=6$ will guarantee that we fit all the dataset between -1 and 1 
+- Choosing $\alpha = 3$ seems better given the distribution
+
+Let's run both : 
+
