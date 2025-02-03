@@ -27,7 +27,11 @@ v2 = transform.infos['max']['ssh']
 transform.infos['min']['ssh'].shape
 import matplotlib.pyplot as plt
 
-plt.plot(transform.infos['mean']['soce'][:,0,0])
-plt.plot()
-plt.plot(transform.infos['max']['soce'][:,0,0])
-transform.infos['min']['soce'].min()
+
+
+fig, axs = plt.subplots(1,2, figsize=(15,5))
+for i, key in enumerate(['soce', 'toce']) :
+    axs[i].set_title(f'{key} infos')
+    for info in ['mean', 'max', 'min', 'std'] :
+        axs[i].plot(transform.infos[info][key][:,0,0], label=info)
+fig.legend()

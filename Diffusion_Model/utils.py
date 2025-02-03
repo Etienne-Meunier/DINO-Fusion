@@ -215,7 +215,7 @@ def get_transform(self) :
     return self.dataset.pipeline[-1].args[0].transforms[0]
 
 
-def get_dataloader(tar_file, fields, normalisation, batch_size=5, transform=True, shuffle=True) :
+def get_dataloader(tar_file, fields=None, normalisation=None, batch_size=5, transform=True, shuffle=True) :
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
 
     if shuffle :
