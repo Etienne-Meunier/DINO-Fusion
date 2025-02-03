@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--model_path", type=str, help="path of the trained diffuser model")
     parser.add_argument("--batch", type=int, help="Number of generated states", default=8)
     parser.add_argument("--inf_steps", type=int, help="Number of inference steps", default=1000)
+    parser.add_argument("--seed", type=int, help="seed to use", default=0)
     parser.add_argument("--constraints", nargs="*", choices=AVAILABLE_CONSTRAINTS.keys(),
                           default=[], help="List of constraints to apply")
     args = parser.parse_args()
@@ -44,7 +45,10 @@ if __name__ == '__main__':
     pipeline.constraints =  get_constraints(args.constraints)
 
 
-    generator = torch.Generator(device).manual_seed(0)
+    generator = torch.Generator(device)
+    if args.seed != -1 :
+        print(f'initialise with seed : {args.seed}')
+        generator.manual_seed(args.seed)
 
     print(f"Image generation on {device}...")
     images = pipeline(
