@@ -14,6 +14,8 @@ from tqdm import tqdm
 from itertools import product
 import pandas as pd
 from dataclasses import dataclass
+import napari
+
 sys.path.append('../../Diffusion_Model/')
 from configs.base_config import TrainingConfig
 os.environ['OCEANDATA'] = '/Volumes/LoCe/oceandata/'
@@ -34,8 +36,10 @@ models  = {'std training' :  m('z87envpm/epoch_4950.npy', 'std'),
            'min-max' :  m('hxdnrm4i/epoch_4950.npy', 'min-max'),
            'global-min-max' :  m('0z2hm5m9/epoch_3350.npy', 'global-min-max'),
            'min-max ft' :  m('ji71na3g/epoch_3350.npy', 'min-max'),
-           'red' :  m('l5680eoz/epoch_4550.npy', 'min-max')}
-model = models['red']
+           'red' :  m('l5680eoz/epoch_4550.npy', 'min-max'),
+           '3-std' :  m('tav0h83b/epoch_4950.npy', '3-std'),
+           '7-std' :  m('wttzzdt9/epoch_4950.npy', '7-std')}
+model = models['3-std']
 
 
 config = TrainingConfig()
@@ -46,8 +50,16 @@ train_dataloader = get_dataloader(config.data_file, batch_size=8,
 idt = iter(train_dataloader)
 batch = next(idt)
 
-model_path = os.environ['OCEANDATA'] + f'models/dino-fusion/{model.path}'
+batch.shape
+
+#model_path = os.environ['OCEANDATA'] + f'models/dino-fusion/{model.path}'
+model_path = '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
+
 generated_batch = torch.tensor(np.load(model_path)) #
+
+RE_CENTER_GENERATED = False
+if RE_CENTER_GENERATED :
+    generated_batch -= generated_batch.mean(axis=(-2, -1), keepdim=True)
 
 #%% Un-normalisation : turn the batch to a dict
 
@@ -104,14 +116,14 @@ def profile_comparison(samples, generated_samples, key, z, b=0) :
     plt.legend()
     plt.title(f'Distribution Comparison of Data vs Generated ({model}) Samples for z={z} {key} (over a batch)')
     return fig
-profile_comparison(samples, generated_samples, 'toce.npy', 0, b=0);
+profile_comparison(samples, generated_samples, 'soce.npy', 10, b=0);
 
 FULL_GENERATION  = False # Generate images for the full profile
 
 if FULL_GENERATION :
     for key, z in tqdm(product(['toce.npy', 'soce.npy'], range(36))):
             fig = profile_comparison(samples, generated_samples, key, z, 0);
-            save_fig(fig, f'{model_path.replace('.npy', '')}/{key}_z={z}.png')
+            save_fig(fig, f'{model_path.replace(".npy", "")}_{config.normalisation}/{key}_z={z}_renormalised={RENORMALISATION}_recentered={RE_CENTER_GENERATED}.png')
             plt.close()
 
 # Comparison vertical profiles
@@ -123,13 +135,6 @@ for i, key in enumerate(['toce.npy', 'soce.npy']) :
     axs[i].set_xlabel('Depth')
     axs[i].plot(samples[key].nanmean(axis=(-2, -1)).T, label='data', c='blue')
     axs[i].plot(generated_samples[key].nanmean(axis=(-2, -1)).T, label='generation', c='orange')
-
-
-plt.plot(samples['toce.npy'][0,:-1, 10, 10])
-
-plt.plot(generated_samples['toce.npy'][0,:-1, 10, 10])
-
-np.diff(samples['toce.npy'][0,:-1, 10, 10], 1)
 
 
 # Check max values from "info" file
@@ -146,3 +151,21 @@ im0 = axs[1].imshow(generated_samples[key][0].nanmean(axis=(-1)))
 plt.colorbar(im0, ax=axs[1])
 axs[1].invert_yaxis()
 axs[1].set_title(f'{model}')
+
+
+
+
+SAVE_CLEAN = True
+if SAVE_CLEAN :
+    # Deal with bottom boundary
+    generated_samples['toce.npy'][:,:,1, :] = generated_samples['toce.npy'][:,:,2, :]
+    generated_samples['soce.npy'][:,:,1, :] = generated_samples['soce.npy'][:,:,2, :]
+    generated_samples['ssh.npy'][:,1, :] = generated_samples['ssh.npy'][:,2, :]
+
+    save_dir = model_path.replace('.npy', '_clean/')
+    Path(save_dir).mkdir(exist_ok=True)
+
+    np.save(save_dir + 'toce.npy', generated_samples['toce.npy'].numpy())
+    np.save(save_dir + 'soce.npy', generated_samples['soce.npy'].numpy())
+    np.save(save_dir + 'ssh.npy', generated_samples['ssh.npy'][:, None].numpy())
+    print(f'Saved clean to : {save_dir}')

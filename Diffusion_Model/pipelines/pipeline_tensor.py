@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 import numpy as np
-
+from ipdb import set_trace
 
 from diffusers.utils.torch_utils import randn_tensor
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
@@ -62,12 +62,13 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
         else:
             image_shape = (batch_size, self.unet.config.in_channels, *self.unet.config.sample_size)
 
-        if self.device.type == "mps":
-            # randn does not work reproducibly on mps
-            image = randn_tensor(image_shape, generator=generator)
-            image = image.to(self.device)
-        else:
-            image = randn_tensor(image_shape, generator=generator, device=self.device)
+
+        # if self.device.type == "mps":
+        #     # randn does not work reproducibly on mps
+        #     image = randn_tensor(image_shape, generator=generator)
+        #     image = image.to(self.device)
+        # else:
+        image = randn_tensor(image_shape, generator=generator, device=self.device)
 
         # set step values
         self.scheduler.set_timesteps(num_inference_steps)
@@ -79,6 +80,10 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
 
             # 2. compute previous image: x_t -> x_t-1
             image = self.scheduler.step(model_output, t, image, generator=generator).prev_sample
+
+            # 3. Apply constraints
+            for constraint in self.constraints:
+                image = constraint.apply(image, t)
 
         #print(image.min(), image.max())
         if not return_dict:

@@ -135,3 +135,19 @@ If we plot the distribution of $\tilde x$ with $\alpha = 1$ we get :
 
 Let's run both : 
 
+![](images/figures-std.png)
+
+The idea is tha variation of the average value is way stronger in the 3-std setting as we multiply by 3 times std deviation. 
+
+# 31-01-25 : Guidance & First version of the state 
+
+
+
+We can deal with the stratification problem using "Guidance" 
+
+
+
+
+
+
+
