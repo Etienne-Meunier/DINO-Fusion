@@ -44,6 +44,7 @@ model = models['3-std']
 
 config = TrainingConfig()
 config.normalisation = model.normalisation
+config.data_file = '/Users/emeunier/Documents/dino_1_4_degree_coarse_240125.tar'
 
 train_dataloader = get_dataloader(config.data_file, batch_size=8,
                                                 fields=config.fields, normalisation=config.normalisation, transform=True, shuffle=True)
@@ -53,8 +54,10 @@ batch = next(idt)
 batch.shape
 
 #model_path = os.environ['OCEANDATA'] + f'models/dino-fusion/{model.path}'
-model_path = '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
-
+#Large, no constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
+#Large, constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_border_zero_gradient_zero_mean/20250203-175158.npy'
+home='/Users/emeunier/Documents/tav0h83b/'
+model_path = f'{home}/inference/infesteps_1000/constraints_no_constraints/20250203-141645.npy'
 generated_batch = torch.tensor(np.load(model_path)) #
 
 RE_CENTER_GENERATED = False

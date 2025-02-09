@@ -219,7 +219,7 @@ def get_dataloader(tar_file, fields=None, normalisation=None, batch_size=5, tran
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
 
     if shuffle :
-        dataset=dataset.shuffle(100)
+        dataset=dataset.shuffle(1000)
 
     dataset = dataset.decode()
 

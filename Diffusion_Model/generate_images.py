@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch", type=int, help="Number of generated states", default=8)
     parser.add_argument("--inf_steps", type=int, help="Number of inference steps", default=1000)
     parser.add_argument("--seed", type=int, help="seed to use", default=0)
+    parser.add_argument('--beta', type='float', default=0.001)
     parser.add_argument("--constraints", nargs="*", choices=AVAILABLE_CONSTRAINTS.keys(),
                           default=[], help="List of constraints to apply")
     args = parser.parse_args()
@@ -43,7 +44,6 @@ if __name__ == '__main__':
     pipeline = DDPMPipeline_Tensor.from_pretrained(args.model_path).to(device)
 
     pipeline.constraints =  get_constraints(args.constraints)
-
 
     generator = torch.Generator(device)
     if args.seed != -1 :
