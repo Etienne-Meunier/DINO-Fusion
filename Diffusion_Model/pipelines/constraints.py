@@ -54,12 +54,3 @@ class GradientZeroMeanConstraint(DiffusionConstraint):
     def get_beta(self, t, k=20, l=40):
         # Example: stronger constraint at the end of sampling
         return self.beta + l*self.beta * torch.exp((1-t/1000) * k - k)
-
-
-def get_beta(beta, t, k=20, l=40):
-    # Example: stronger constraint at the end of sampling
-    return beta + l*beta * torch.exp((1-t/1000) * k - k)
- beta + l*beta * torch.exp((1-t/1000) * k - k)
-
-
- (1-t/1000) * k - k
