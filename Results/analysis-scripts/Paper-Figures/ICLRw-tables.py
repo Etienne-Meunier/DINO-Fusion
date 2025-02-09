@@ -141,7 +141,7 @@ sns.histplot(data=stats.query('(metric == "density_errors") & (field=="density")
 
 stats.query('(metric == "density_errors") & (field=="density")')
 
-stats.query('(metric == "density_errors") & (field=="density")').groupby('source')['value'].mean()
+stats.query('(metric == "density_errors") & (field=="density")').groupby('source')['value'].std()
 
 def create_pivot_with_stats(stats_df):
     mean_pivot = pd.pivot_table(stats_df,
