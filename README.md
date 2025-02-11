@@ -4,7 +4,7 @@ Companion code to :
 
 Meunier, E., Kamm, D., Gachon, G., Lguensat, R., & Deshayes, J. (2025). Learning to generate physical ocean states: Towards hybrid climate modeling. arXiv preprint arXiv:2502.02499.
 
-![pipeline](images/pipeline.png)
+![pipeline](./images/pipeline.png)
 
 ## Features
 
