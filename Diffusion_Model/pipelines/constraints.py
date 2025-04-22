@@ -28,6 +28,42 @@ class BorderZeroConstraint(DiffusionConstraint) :
         return x
 
 
+class ConditionalGeneration_SSHLow(DiffusionConstraint) :
+    def __init__(self, field='pipelines/ssh_low.npy') :
+        self.field =  torch.tensor(np.load(field))
+
+    def apply(self, x, t=None) :
+        x[:, -1] = self.field
+        return x
+
+class ConditionalGeneration_SSHHigh(DiffusionConstraint) :
+    def __init__(self, field='pipelines/ssh_high.npy') :
+        self.field =  torch.tensor(np.load(field))
+
+    def apply(self, x, t=None) :
+        x[:, -1] = self.field
+        return x
+
+
+class ConditionalGeneration_STempLow(DiffusionConstraint) :
+    def __init__(self, field='pipelines/surface_temp_low.npy') :
+        self.field =  torch.tensor(np.load(field))
+
+    def apply(self, x, t=None) :
+        x[:, 0] = self.field
+        return x
+
+class ConditionalGeneration_STempHigh(DiffusionConstraint) :
+    def __init__(self, field='pipelines/surface_temp_high.npy') :
+        self.field =  torch.tensor(np.load(field))
+
+    def apply(self, x, t=None) :
+        x[:, 0] = self.field
+        return x
+
+
+
+
 class GradientZeroMeanConstraint(DiffusionConstraint):
     def __init__(self, beta=0.001, dims=[-1, -2]):
         super().__init__()

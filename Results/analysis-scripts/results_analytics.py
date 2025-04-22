@@ -51,14 +51,13 @@ train_dataloader = get_dataloader(config.data_file, batch_size=8,
 idt = iter(train_dataloader)
 batch = next(idt)
 
-batch.shape
-
 #model_path = os.environ['OCEANDATA'] + f'models/dino-fusion/{model.path}'
 #Large, no constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
 #Large, constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_border_zero_gradient_zero_mean/20250203-175158.npy'
-home='/Users/emeunier/Documents/tav0h83b/'
-model_path = f'{home}/inference/infesteps_1000/constraints_no_constraints/20250203-141645.npy'
-generated_batch = torch.tensor(np.load(model_path)) #
+home='/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/'
+#model_path = f'{home}/inference/infesteps_1000/constraints_no_constraints/20250203-141645.npy'
+model_path = '/inference/infesteps_1000/constraints_gradient_zero_mean_conditional_generation_sshhigh/20250318-172822.npy'
+generated_batch = torch.tensor(np.load(f'{home}/{model_path}')) #
 
 RE_CENTER_GENERATED = False
 if RE_CENTER_GENERATED :
@@ -67,7 +66,7 @@ if RE_CENTER_GENERATED :
 #%% Un-normalisation : turn the batch to a dict
 
 # Re-normalisation : bring back the data to it's initial scal
-RENORMALISATION = True
+RENORMALISATION = False
 
 # Without re-normalisation
 
@@ -98,7 +97,7 @@ def profile_comparison(samples, generated_samples, key, z, b=0) :
     im1 = ax1.imshow(samples[key][b,z], vmin=min, vmax=max)
     ax1.set_title(f'Data {key} (z={z})')
     im2 = ax2.imshow(generated_samples[key][0,z], vmin=min, vmax=max)
-    ax2.set_title(f'Generated ({model}) \n {key} (z={z})')
+    ax2.set_title(f'Generated ({model_path}) \n {key} (z={z})')
     fig.colorbar(im1, ax=ax2)
 
     ax2b.set_title('North-south profile')
@@ -119,14 +118,14 @@ def profile_comparison(samples, generated_samples, key, z, b=0) :
     plt.legend()
     plt.title(f'Distribution Comparison of Data vs Generated ({model}) Samples for z={z} {key} (over a batch)')
     return fig
-profile_comparison(samples, generated_samples, 'soce.npy', 10, b=0);
+profile_comparison(samples, generated_samples, 'toce.npy', 10, b=0);
 
 FULL_GENERATION  = False # Generate images for the full profile
 
 if FULL_GENERATION :
     for key, z in tqdm(product(['toce.npy', 'soce.npy'], range(36))):
             fig = profile_comparison(samples, generated_samples, key, z, 0);
-            save_fig(fig, f'{model_path.replace(".npy", "")}_{config.normalisation}/{key}_z={z}_renormalised={RENORMALISATION}_recentered={RE_CENTER_GENERATED}.png')
+            save_fig(fig, f'{home}/{model_path.replace(".npy", "")}_{config.normalisation}/{key}_z={z}_renormalised={RENORMALISATION}_recentered={RE_CENTER_GENERATED}.png')
             plt.close()
 
 # Comparison vertical profiles
@@ -158,6 +157,19 @@ axs[1].set_title(f'{model}')
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 SAVE_CLEAN = True
 if SAVE_CLEAN :
     # Deal with bottom boundary
@@ -165,7 +177,7 @@ if SAVE_CLEAN :
     generated_samples['soce.npy'][:,:,1, :] = generated_samples['soce.npy'][:,:,2, :]
     generated_samples['ssh.npy'][:,1, :] = generated_samples['ssh.npy'][:,2, :]
 
-    save_dir = model_path.replace('.npy', '_clean/')
+    save_dir = home/model_path.replace('.npy', '_clean/')
     Path(save_dir).mkdir(exist_ok=True)
 
     np.save(save_dir + 'toce.npy', generated_samples['toce.npy'].numpy())

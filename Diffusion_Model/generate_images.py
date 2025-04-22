@@ -13,7 +13,11 @@ from pipelines.constraints import *
 AVAILABLE_CONSTRAINTS = {
     'zero_mean': ZeroMeanConstraint,
     'gradient_zero_mean': GradientZeroMeanConstraint,
-    'border_zero' : BorderZeroConstraint
+    'border_zero' : BorderZeroConstraint,
+    'conditional_generation_sshlow' : ConditionalGeneration_SSHLow,
+    'conditional_generation_sshhigh' : ConditionalGeneration_SSHHigh,
+    'conditional_generation_stemplow' : ConditionalGeneration_STempLow,
+    'conditional_generation_stemphigh' : ConditionalGeneration_STempHigh
 }
 
 def get_constraints(constraint_names):
@@ -31,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch", type=int, help="Number of generated states", default=8)
     parser.add_argument("--inf_steps", type=int, help="Number of inference steps", default=1000)
     parser.add_argument("--seed", type=int, help="seed to use", default=0)
-    parser.add_argument('--beta', type='float', default=0.001)
+    parser.add_argument('--beta', type=float, default=0.001)
     parser.add_argument("--constraints", nargs="*", choices=AVAILABLE_CONSTRAINTS.keys(),
                           default=[], help="List of constraints to apply")
     args = parser.parse_args()

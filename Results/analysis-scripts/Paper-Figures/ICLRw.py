@@ -32,9 +32,6 @@ batch = next(idt)
 for k in ['toce', 'soce', 'ssh'] :
     batch[k] = batch.pop(f'{k}.npy')
 
-plt.imshow(batch[field][0,id], vmin=min, vmax=max)
-plt.contour(batch[field][0,id], vmin=min, vmax=max, colors='black', alpha=0.7, linewidths=0.5)
-
 def show(f, ax, min, max, cmap='viridis', title='') :
       ax.set_title(title)
       im = ax.imshow(f, cmap=cmap, vmin=min, vmax=max)
