@@ -2,7 +2,7 @@ from pipelines.pipeline_tensor import DDPMPipeline_Tensor
 import argparse
 import numpy as np
 import torch
-from utils import save_images
+from utils import *
 from pathlib import Path
 import time
 from ipdb import set_trace
@@ -13,6 +13,7 @@ from pipelines.constraints import *
 AVAILABLE_CONSTRAINTS = {
     'zero_mean': ZeroMeanConstraint,
     'gradient_zero_mean': GradientZeroMeanConstraint,
+    'gradient_zero_mean_density': GradientZeroMeanDensityConstraint,
     'border_zero': BorderZeroConstraint,
     'conditional_generation_sshlow': ConditionalGeneration_SSHLow,
     'conditional_generation_sshhigh': ConditionalGeneration_SSHHigh,
@@ -26,7 +27,7 @@ def get_constraints(constraint_names, **kwargs):
     for name in constraint_names:
         if name not in AVAILABLE_CONSTRAINTS:
             raise ValueError(f"Unknown constraint: {name}. Available constraints: {list(AVAILABLE_CONSTRAINTS.keys())}")
-        if name == 'gradient_zero_mean':
+        if name == 'gradient_zero_mean' or name == 'gradient_zero_mean_density':
             constraints.append(AVAILABLE_CONSTRAINTS[name](**kwargs))
         else: 
             constraints.append(AVAILABLE_CONSTRAINTS[name]())
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     print("Import pipeline")
     pipeline = DDPMPipeline_Tensor.from_pretrained(args.model_path).to(device)
 
-    pipeline.constraints = get_constraints(args.constraints, beta=args.beta, beta_type=args.beta_type)
+    pipeline.constraints = get_constraints(args.constraints, beta=args.beta, beta_type=args.beta_type, accelerator=accelerator)
 
     generator = torch.Generator(device)
     if args.seed != -1 :
