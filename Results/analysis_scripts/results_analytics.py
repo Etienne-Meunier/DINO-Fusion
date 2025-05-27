@@ -1,3 +1,4 @@
+#%%
 import profile
 from ipywidgets.widgets.widget_string import Label
 import numpy as np
@@ -14,11 +15,12 @@ from tqdm import tqdm
 from itertools import product
 import pandas as pd
 from dataclasses import dataclass
-import napari
+#import napari
 
 sys.path.append('../../Diffusion_Model/')
 from configs.base_config import TrainingConfig
 os.environ['OCEANDATA'] = '/Volumes/LoCe/oceandata/'
+
 
 def save_fig(fig, path) :
     Path(path).parent.mkdir(exist_ok=True, parents=True)
@@ -44,7 +46,7 @@ model = models['3-std']
 
 config = TrainingConfig()
 config.normalisation = model.normalisation
-config.data_file = '/Users/emeunier/Documents/dino_1_4_degree_coarse_240125.tar'
+config.data_file = '../../../DATA_DINOFusion/dino_1_4_degree_coarse_240125.tar'
 
 train_dataloader = get_dataloader(config.data_file, batch_size=8,
                                                 fields=config.fields, normalisation=config.normalisation, transform=True, shuffle=True)
@@ -54,9 +56,10 @@ batch = next(idt)
 #model_path = os.environ['OCEANDATA'] + f'models/dino-fusion/{model.path}'
 #Large, no constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
 #Large, constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_border_zero_gradient_zero_mean/20250203-175158.npy'
-home='/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/'
+home='../../../test-generate-img'
 #model_path = f'{home}/inference/infesteps_1000/constraints_no_constraints/20250203-141645.npy'
-model_path = '/inference/infesteps_1000/constraints_gradient_zero_mean_conditional_generation_sshhigh/20250318-172822.npy'
+#model_path = 'inference/infesteps_1000/constraints_no_constraints/20250507-172217.npy'
+model_path ='ablation/infesteps_1000/constraints_gradient_zero_mean/beta_1_20250514-140557.npy'
 generated_batch = torch.tensor(np.load(f'{home}/{model_path}')) #
 
 RE_CENTER_GENERATED = False
@@ -66,7 +69,7 @@ if RE_CENTER_GENERATED :
 #%% Un-normalisation : turn the batch to a dict
 
 # Re-normalisation : bring back the data to it's initial scal
-RENORMALISATION = False
+RENORMALISATION = True
 
 # Without re-normalisation
 
@@ -161,26 +164,19 @@ axs[1].set_title(f'{model}')
 
 
 
-
-
-
-
-
-
-
-
-
-SAVE_CLEAN = True
+SAVE_CLEAN = False
 if SAVE_CLEAN :
     # Deal with bottom boundary
     generated_samples['toce.npy'][:,:,1, :] = generated_samples['toce.npy'][:,:,2, :]
     generated_samples['soce.npy'][:,:,1, :] = generated_samples['soce.npy'][:,:,2, :]
     generated_samples['ssh.npy'][:,1, :] = generated_samples['ssh.npy'][:,2, :]
 
-    save_dir = home/model_path.replace('.npy', '_clean/')
+    save_dir = (home +'/'+ model_path).replace('.npy', '_clean/')
     Path(save_dir).mkdir(exist_ok=True)
 
     np.save(save_dir + 'toce.npy', generated_samples['toce.npy'].numpy())
     np.save(save_dir + 'soce.npy', generated_samples['soce.npy'].numpy())
     np.save(save_dir + 'ssh.npy', generated_samples['ssh.npy'][:, None].numpy())
     print(f'Saved clean to : {save_dir}')
+
+# %%

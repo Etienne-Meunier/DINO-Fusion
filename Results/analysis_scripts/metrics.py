@@ -318,3 +318,23 @@ def get_density_at_surface(thetao, so, tmask):
 
     rhop = zn0 * ztm  # potential density referenced at the surface
     return rhop
+
+def compute_density(batch, file_mask_LR):
+    """
+        Take a batch with toce (b, z, h, w) and soce along with the maks
+        and return the corresponding density 
+    """
+    bsize = batch['soce'].shape[0]
+
+    data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})
+    soce = data.copy()
+    soce[:] = batch['soce']
+    toce = data.copy()
+    toce[:] = batch['toce']
+
+    tmask = data.copy()
+    tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
+
+    density = get_density_at_surface(toce, soce, tmask)
+
+    return density

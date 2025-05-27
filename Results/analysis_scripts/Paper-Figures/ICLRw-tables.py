@@ -1,3 +1,4 @@
+#%%
 import xarray as xr
 from pathlib import Path
 import numpy as np
@@ -18,8 +19,8 @@ mpl.rcParams['image.origin'] = 'lower'
 from utils import get_dataloader
 
 # 1. Data load
-home = '/Users/emeunier/Documents/'#/Volumes/LoCe/oceandata/models/dino-fusion/'
-model_path = f'{home}/tav0h83b/'
+home = '../../../../'#'/Users/emeunier/Documents/'#/Volumes/LoCe/oceandata/models/dino-fusion/'
+model_path = f'{home}/test-generate-img'#f'{home}/tav0h83b/'
 
 #Small generations
 # path = {
@@ -29,8 +30,8 @@ model_path = f'{home}/tav0h83b/'
 
 # # Large generations
 path = {
-    'constraint' : f'{model_path}/inference/infesteps_1000/constraints_border_zero_gradient_zero_mean/20250203-175158_clean',
-    'no_constraint' : f'{model_path}/inference/infesteps_1000/constraints_no_constraints/20250203-141645_clean'
+    'constraint' : f'{model_path}/inference/infesteps_1000/constraints_zero_mean_gradient_zero_mean/20250507-162633_clean',
+    'no_constraint' : f'{model_path}/inference/infesteps_1000/constraints_no_constraints/20250507-172217_clean'
     }
 
 bg = {'constraint' : [], 'no_constraint' : []}
@@ -40,8 +41,8 @@ for key, p in path.items() :
                  'soce' : np.load(p + '/soce.npy'),
                  'toce' : np.load(p + '/toce.npy')}
 
-data_file = '/Users/emeunier/Documents/dino_1_4_degree_coarse_240125.tar'
-train_dataloader = get_dataloader(data_file, batch_size=200, transform=False, shuffle=True)
+data_file = f'{home}/DATA_DinoFusion/dino_1_4_degree_coarse_240125.tar'
+train_dataloader = get_dataloader(data_file, batch_size=8, transform=False, shuffle=True) #batch_size=200
 idt = iter(train_dataloader)
 batch = next(idt)
 
@@ -218,3 +219,5 @@ def create_latex_table(mean_df, std_df):
 mean_pivot, std_pivot = create_pivot_with_stats(stats)
 latex_table = create_latex_table(mean_pivot, std_pivot)
 print(latex_table)
+
+# %%
