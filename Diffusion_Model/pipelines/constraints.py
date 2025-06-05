@@ -189,7 +189,7 @@ class GradientDensityConstraint(DiffusionConstraint):
     def format_density(self, density):
         #replace nan values 
         density[self.mask_infos.repeat(self.batch,1,1,1)] = 0
-        #add correct padding
+        #add padding
         padding = (1, 1, 5, 4)
         density_padded = F.pad(density, padding, mode='constant', value=0)
         #reshape levels and concatenate (zero for ssh layer)
@@ -215,5 +215,5 @@ class GradientDensityConstraint(DiffusionConstraint):
         ssh_layer = torch.zeros([self.batch,1,h,w], device=self.device)
         grad_all = torch.cat([grad, grad, ssh_layer], dim=1)
         
-        x -= beta * grad_all
+        x -= beta * torch.max(grad_all, torch.tensor(0.0))
         return x
