@@ -15,7 +15,9 @@ import io
 import tarfile
 import collections
 import types
-from torch.nn.functional import interpolate
+import torch.nn.functional as F
+from tensordict.tensordict import TensorDict
+from einops import rearrange
 
 
 def save_images(images, output_path) :
@@ -45,18 +47,20 @@ def save_images(images, output_path) :
 
 class TransformFields :
 
-        def __init__(self, info_file, fields, normalisation='std') :
+        def __init__(self, info_file, fields, normalisation='std', device='cpu'):
             self.fields = fields
+            self.device = torch.device(device)
             self.get_infos(info_file)
             self.data_shape = None
-            self.padding =  {'xup' : 1, 'xdown' : 1, 'yup' : 5, 'ydown' : 4, 'val' : 0}
+            self.padding = {'xup' : 1, 'xdown' : 1, 'yup' : 5, 'ydown' : 4, 'val' : 0}
             self.normalisation = normalisation
 
         def __call__(self, sample) :
             dico = {}
             sample = {key.replace('.npy', '') : val for key, val in sample.items()}
             for feature in ["soce","toce","ssh"]:
-
+                #0. move to gpu
+                sample = TensorDict.from_dict(sample, device=self.device)
                 #1. standardize
                 data = self.standardize_4D(sample,feature)
                 #2. replace padding and edges by 0
@@ -84,23 +88,26 @@ class TransformFields :
 
                 array = self.unstandardize_4D(array, feature)
                 sample[feature] =  array
-            sample = {key+'.npy' : val for key, val in sample.items()}
+            # a re-modifier pour que le script data_analytics fonctionne
+            #sample = {key+'.npy' : val for key, val in sample.items()}
             return sample
 
-
+ 
         def stride_concat(self, sample) :
-            return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
+            return torch.cat([sample[key][sl] for key, sl in self.fields.items()], dim=0) #torch version
+            #return np.concatenate([sample[key][sl] for key, sl in self.fields.items()])
 
         def un_stride_concat(self, data, interpolation=True) :
             idx = 0
             sample = {}
             for key in self.fields.keys() :
                 oz = self.infos['shape'][key][0] # original z
-                levels = len(np.arange(oz)[self.fields[key]])
+                levels = len(torch.arange(oz)[self.fields[key]]) #torch version
                 field =  data[idx:levels+idx]
                 idx += levels
                 if interpolation :
-                    sample[key] = interpolate(field[None, None], size=(oz, field.shape[1], field.shape[2]), mode='trilinear')[0,0]
+                    interp_field = F.interpolate(rearrange(field, 'z x y -> x y z'), size=(oz), mode='linear')
+                    sample[key] = rearrange(interp_field, 'x y z -> z x y')
                 else :
                     sample[key] = field
             return sample
@@ -139,7 +146,14 @@ class TransformFields :
                 member = tar.next()
                 if member.path.startswith(target_path):
                     feature, metric, _ = member.name.replace('infos/', '').split('.')
-                    self.infos[feature][metric] = np.load(io.BytesIO(tar.extractfile(member).read()))
+                    data = np.load(io.BytesIO(tar.extractfile(member).read()))
+                    if self.device != torch.device('cpu'):
+                        if feature == 'mask':
+                            self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.bool)
+                        else: 
+                            self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.float32)
+                    else:
+                        self.infos[feature][metric] = data
                     max_return -= 1
 
             self.infos['shape']['soce'] = self.infos['mask']['toce'].shape
@@ -203,7 +217,9 @@ class TransformFields :
             """
                 pad data on axis x and y
             """
-            return np.pad(dataset, ((0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
+            padding = (xup, xdown, yup, ydown)
+            return F.pad(dataset, padding, mode='constant', value=val) #torch version
+            #return np.pad(dataset, ((0, 0), (yup, ydown), (xup, xdown)), mode='constant',constant_values=val)
 
         def unpadData(self,dataset,xup,xdown,yup,ydown,val):
             return dataset[:,yup:-ydown, xup:-xdown]
@@ -215,7 +231,7 @@ def get_transform(self) :
     return self.dataset.pipeline[-1].args[0].transforms[0]
 
 
-def get_dataloader(tar_file, fields=None, normalisation=None, batch_size=5, transform=True, shuffle=True) :
+def get_dataloader(tar_file, fields=None, normalisation=None, batch_size=5, transform=True, shuffle=True, device='cpu') :
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
 
     if shuffle :
@@ -224,7 +240,7 @@ def get_dataloader(tar_file, fields=None, normalisation=None, batch_size=5, tran
     dataset = dataset.decode()
 
     if transform :
-        tr = TransformFields(info_file=tar_file, fields=fields, normalisation=normalisation)
+        tr = TransformFields(info_file=tar_file, fields=fields, normalisation=normalisation, device=device)
         composed = transforms.Compose([tr])
         dataset = dataset.map(composed)
 
