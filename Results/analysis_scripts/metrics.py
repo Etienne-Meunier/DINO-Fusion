@@ -326,15 +326,15 @@ def compute_density(batch, file_mask_LR):
         Take a batch with toce (b, z, h, w) and soce along with the maks
         and return the corresponding density 
     """
-    bsize = batch['soce'].shape[0]
-    device = batch["soce"].device
-    dtype = batch["soce"].dtype
+    bsize = batch['soce.npy'].shape[0]
+    device = batch["soce.npy"].device
+    dtype = batch["soce.npy"].dtype
 
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})
     soce = data.copy()
-    soce[:] = batch['soce'].cpu().numpy()
+    soce[:] = batch['soce.npy'].cpu().numpy()
     toce = data.copy()
-    toce[:] = batch['toce'].cpu().numpy()
+    toce[:] = batch['toce.npy'].cpu().numpy()
 
     tmask = data.copy()
     tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
@@ -423,6 +423,8 @@ def get_density_at_surface_tensor(thetao, so, tmask):
     zs = torch.sqrt(torch.abs(so + rdeltaS) * r1_S0)  # square root salinity
     ztm = tmask.squeeze()
 
+    
+
     zn3 = EOS013 * zt + EOS103 * zs + EOS003
     zn2 = ((EOS022 * zt + EOS112 * zs + EOS012) * zt + (EOS202 * zs + EOS102) * zs + EOS002)
     zn1 = (((((EOS041 * zt + EOS131 * zs + EOS031) * zt + (EOS221 * zs + EOS121) * zs + EOS021) * zt
@@ -435,7 +437,6 @@ def get_density_at_surface_tensor(thetao, so, tmask):
               + ((((EOS600 * zs + EOS500) * zs + EOS400) * zs + EOS300) * zs + EOS200) * zs + EOS100) * zs + EOS000)
 
     rhop = zn0 * ztm  # potential density referenced at the surface
-    #print(zn0)
     return rhop
 
 def compute_density_tensor(batch, file_mask_LR):
@@ -456,14 +457,14 @@ def compute_density_tensor(batch, file_mask_LR):
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})  
 
     #pass to tensor
-    data = torch.tensor(data.values, device=device, dtype=dtype)
-    soce = data.clone()
-    soce[:] = batch["soce"]
-    toce = data.clone()
-    toce[:] = batch["toce"]
+    #data = torch.tensor(data.values, device=device, dtype=dtype)
+    #soce = data.clone()
+    soce = batch["soce"]
+    #toce = data.clone()
+    toce = batch["toce"]
 
-    tmask = data.clone()
-    tmask[:] = torch.tensor(np.repeat(file_mask_LR.tmask.values[None], bsize, 0))
+    #tmask = data.clone()
+    tmask = torch.tensor(np.repeat(file_mask_LR.tmask.values[None], bsize, 0), device=device, dtype=dtype)
     #print(tmask)
 
     # Compute density
@@ -491,6 +492,54 @@ if __name__ =='__main__' :
 #%%
     density = compute_density_tensor(batch_norm, mask)
     #density= compute_density(batch_norm, mask)
-    grad = density.mean(dim=[-1, -2], keepdim=True)
+    #grad = density.mean(dim=[-1, -2], keepdim=True)
+    density[density != density] = 0
+
+    vertical_grad = density - torch.roll(density, -1, dims=1)
+    dz = torch.tensor(mask.e3t_0.values, device='mps', dtype=torch.float32)
+    vertical_grad = vertical_grad/dz
+    vertical_grad[:,-1,:,:] = torch.zeros([8,vertical_grad.shape[2],vertical_grad.shape[3]], device='mps')
 
 
+
+#%%
+
+    #compute mean density per z level for the training dataset
+    density_training = torch.zeros([1,36], device='mps')
+    nan_count = torch.zeros([1,36], device='mps')
+    BATCH_SIZE = 8
+    num_elt = 0
+    
+    for step, batch in enumerate(train_dataloader):
+        batch_norm = get_transformed_data(batch, function=extractor)
+        density = compute_density_tensor(batch_norm, mask)
+        density_training = density_training + torch.nansum(density, dim=[0,2,3])
+        num_elt += BATCH_SIZE
+        if step ==0:
+            nan_count = torch.isnan(density[0,:,:,:]).sum(dim=(1,2))
+
+    N =  num_elt * 199 * 62 * torch.ones([1,36], device='mps') - nan_count * num_elt
+
+    mean_density_train = density_training / N
+    mean_density_train[0, -1]= 0.0 #remove nan
+
+    mean_dens = mean_density_train.cpu().numpy()
+
+    plt.figure(figsize=(6, 8))
+    scatter = plt.scatter(np.zeros_like(mask.e3t_0.depth[:-1]), mask.e3t_0.depth[:-1], c=mean_dens[0, :-1], cmap="viridis", label="Mean Density")
+    #plt.scatter(mean_dens[0, :-1], , label="Mean Density")
+    plt.gca().invert_yaxis()  
+    plt.xlabel("Mean Density")
+    #plt.ylabel("Depth")
+    plt.title("Mean Density vs Depth")
+    plt.colorbar(scatter, label="Mean Density")
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+
+
+#%%
+# Save to text file
+    np.savetxt('mean_density_train.txt', mean_dens, fmt='%.6f')
+
+
+# %%

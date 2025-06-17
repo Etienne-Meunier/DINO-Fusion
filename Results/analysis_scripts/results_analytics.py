@@ -15,6 +15,8 @@ from tqdm import tqdm
 from itertools import product
 import pandas as pd
 from dataclasses import dataclass
+from metrics import compute_density
+import xarray as xr
 #import napari
 
 sys.path.append('../../Diffusion_Model/')
@@ -57,9 +59,9 @@ batch = next(idt)
 #Large, no constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120.npy'
 #Large, constraint : '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_border_zero_gradient_zero_mean/20250203-175158.npy'
 home='../../../test-generate-img'
-#model_path = f'{home}/inference/infesteps_1000/constraints_no_constraints/20250203-141645.npy'
 #model_path = 'inference/infesteps_1000/constraints_no_constraints/20250507-172217.npy'
-model_path ='ablation/infesteps_1000/constraints_gradient_zero_mean/beta_1_20250514-140557.npy'
+model_path = 'inference/infesteps_1000/constraints_border_zero_gradient_zero_mean_density/beta_0.001_20250617-160000.npy'#beta_0.0001_20250617-151556.npy'#beta_dec_1e-06_20250606-162830.npy'#beta_dec_1e-05_20250606-161414.npy'#beta_1e-06_20250606-160212.npy'#beta_1e-05_20250605-171146.npy'
+#model_path ='inference/infesteps_1000/constraints_border_zero_gradient_density/beta_1e-05_20250612-133150.npy'
 generated_batch = torch.tensor(np.load(f'{home}/{model_path}')) #
 
 RE_CENTER_GENERATED = False
@@ -88,7 +90,7 @@ else :
 # Figure
 
 def profile_comparison(samples, generated_samples, key, z, b=0) :
-    fig = plt.figure(figsize=(12, 10))
+    fig = plt.figure(figsize=(12, 10), dpi=300)
     gs = gridspec.GridSpec(2, 3, figure=fig)
 
     ax1 = fig.add_subplot(gs[0, 0])
@@ -98,9 +100,11 @@ def profile_comparison(samples, generated_samples, key, z, b=0) :
 
     min, max = samples[key][b,z].nan_to_num(np.inf).amin(), samples[key][0,0].nan_to_num(-np.inf).amax()
     im1 = ax1.imshow(samples[key][b,z], vmin=min, vmax=max)
-    ax1.set_title(f'Data {key} (z={z})')
+    ax1.set_title(f'Data temperature field [ºC] (z={z})')
+    #ax1.set_title(f'Data {key} (z={z})')
     im2 = ax2.imshow(generated_samples[key][0,z], vmin=min, vmax=max)
-    ax2.set_title(f'Generated ({model_path}) \n {key} (z={z})')
+    #ax2.set_title(f'Generated ({model_path}) \n {key} (z={z})')
+    ax2.set_title(f'Generated temperature field [ºC] (z={z})')
     fig.colorbar(im1, ax=ax2)
 
     ax2b.set_title('North-south profile')
@@ -113,7 +117,7 @@ def profile_comparison(samples, generated_samples, key, z, b=0) :
     df = pd.concat([df_sample, df_gen]).reset_index()
 
     sns.lineplot(data=df, y='height', x='value', hue='type', orient='y', ax=ax2b)
-    plt.title(f'N-S profile {key} ({model})')
+    plt.title(f'N-S profile {key} ºC') #({model})
 
 
     sns.histplot(data=samples[key][:,z].flatten(), label='Data', color='blue', alpha=0.5, ax=ax3)
@@ -141,6 +145,26 @@ for i, key in enumerate(['toce.npy', 'soce.npy']) :
     axs[i].plot(samples[key].nanmean(axis=(-2, -1)).T, label='data', c='blue')
     axs[i].plot(generated_samples[key].nanmean(axis=(-2, -1)).T, label='generation', c='orange')
 
+## Std and mean of vertical profiles 
+fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+fig.suptitle(f'vertical profiles blue : data orange : {model}')
+
+for i, key in enumerate(['toce.npy', 'soce.npy']):
+    axs[i].set_title(f'{key}')
+    axs[i].set_xlabel('Depth')
+
+    data_mean = samples[key].nanmean(axis=(-2, -1)).mean(axis=0)
+    data_std = samples[key].nanmean(axis=(-2, -1)).std(axis=0)
+    gen_mean = generated_samples[key].nanmean(axis=(-2, -1)).mean(axis=0)
+    gen_std = generated_samples[key].nanmean(axis=(-2, -1)).std(axis=0)
+
+    axs[i].plot(data_mean.T, label='data mean', c='blue')
+    axs[i].plot(gen_mean.T, label='generation mean', c='orange')
+
+    axs[i].fill_between(range(data_mean.shape[0]), (data_mean - data_std), (data_mean + data_std), color='blue', alpha=0.2)
+    axs[i].fill_between(range(gen_mean.shape[0]), (gen_mean - gen_std), (gen_mean + gen_std), color='orange', alpha=0.2)
+
+    axs[i].legend()
 
 # Check max values from "info" file
 key = 'toce.npy'
@@ -156,13 +180,43 @@ im0 = axs[1].imshow(generated_samples[key][0].nanmean(axis=(-1)))
 plt.colorbar(im0, ax=axs[1])
 axs[1].invert_yaxis()
 axs[1].set_title(f'{model}')
+#%%
+import xarray as xr
+from metrics import compute_density
+
+# Plot density of the profil
+file_mask_LR = xr.open_dataset("data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
+mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
+
+density_samples = compute_density(samples, mask)
+density_gen_samples = compute_density(generated_samples, mask)
+
+plt.imshow(density_gen_samples[0, :, :, 10])
 
 
 
+## Std and mean of vertical profiles 
+fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+fig.suptitle(f'vertical profiles blue : data orange : {model}')
 
+for i, key in enumerate(['toce.npy', 'soce.npy']):
+    axs[i].set_title('Density')
+    axs[i].set_xlabel('Depth')
 
+    data_mean = density_samples.nanmean(axis=(-2, -1)).mean(axis=0)
+    data_std = density_samples.nanmean(axis=(-2, -1)).std(axis=0)
+    gen_mean = density_gen_samples.nanmean(axis=(-2, -1)).mean(axis=0)
+    gen_std = density_gen_samples.nanmean(axis=(-2, -1)).std(axis=0)
 
+    axs[i].plot(data_mean.T, label='data mean', c='blue')
+    axs[i].plot(gen_mean.T, label='generation mean', c='orange')
 
+    axs[i].fill_between(range(data_mean.shape[0]), (data_mean - data_std), (data_mean + data_std), color='blue', alpha=0.2)
+    axs[i].fill_between(range(gen_mean.shape[0]), (gen_mean - gen_std), (gen_mean + gen_std), color='orange', alpha=0.2)
+
+    axs[i].legend()
+
+#%%
 
 SAVE_CLEAN = False
 if SAVE_CLEAN :
