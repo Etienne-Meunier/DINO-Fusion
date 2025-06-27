@@ -13,7 +13,7 @@ from torch.nn.functional import interpolate
 from glob import glob
 import xarray as xr
 import numpy as np
-
+from ipdb import set_trace
 
 # Metrics implementated by G. Gachon (IPSL)
 
@@ -317,7 +317,6 @@ def get_density_at_surface(thetao, so, tmask):
         * zs
         + EOS000
     )
-
     rhop = zn0 * ztm  # potential density referenced at the surface
     return rhop
 
@@ -331,15 +330,15 @@ def compute_density(batch, file_mask_LR):
     dtype = batch["soce.npy"].dtype
 
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})
-    soce = data.copy()
+    soce = data.copy().astype(np.float32)
     soce[:] = batch['soce.npy'].cpu().numpy()
-    toce = data.copy()
+    toce = data.copy().astype(np.float32)
     toce[:] = batch['toce.npy'].cpu().numpy()
 
-    tmask = data.copy()
+    tmask = data.copy().astype(np.float32)
     tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
 
-    density = get_density_at_surface(toce, soce, tmask)
+    density= get_density_at_surface(toce, soce, tmask)
 
     density = torch.tensor(density.values, device=device, dtype=dtype)
 
@@ -430,12 +429,36 @@ def get_density_at_surface_tensor(thetao, so, tmask):
     zn1 = (((((EOS041 * zt + EOS131 * zs + EOS031) * zt + (EOS221 * zs + EOS121) * zs + EOS021) * zt
             + ((EOS311 * zs + EOS211) * zs + EOS111) * zs + EOS011) * zt
             + (((EOS401 * zs + EOS301) * zs + EOS201) * zs + EOS101) * zs + EOS001))
-    zn0 = (((((((EOS060 * zt + EOS150 * zs + EOS050) * zt + (EOS240 * zs + EOS140) * zs + EOS040) * zt
-              + ((EOS330 * zs + EOS230) * zs + EOS130) * zs + EOS030) * zt
-              + (((EOS420 * zs + EOS320) * zs + EOS220) * zs + EOS120) * zs + EOS020) * zt
-              + ((((EOS510 * zs + EOS410) * zs + EOS310) * zs + EOS210) * zs + EOS110) * zs + EOS010) * zt
-              + ((((EOS600 * zs + EOS500) * zs + EOS400) * zs + EOS300) * zs + EOS200) * zs + EOS100) * zs + EOS000)
-
+    zn0 = (
+        (
+            (
+                (
+                    (
+                        (EOS060 * zt + EOS150 * zs + EOS050) * zt
+                        + (EOS240 * zs + EOS140) * zs
+                        + EOS040
+                    )
+                    * zt
+                    + ((EOS330 * zs + EOS230) * zs + EOS130) * zs
+                    + EOS030
+                )
+                * zt
+                + (((EOS420 * zs + EOS320) * zs + EOS220) * zs + EOS120) * zs
+                + EOS020
+            )
+            * zt
+            + ((((EOS510 * zs + EOS410) * zs + EOS310) * zs + EOS210) * zs + EOS110)
+            * zs
+            + EOS010
+        )
+        * zt
+        + (
+            ((((EOS600 * zs + EOS500) * zs + EOS400) * zs + EOS300) * zs + EOS200) * zs
+            + EOS100
+        )
+        * zs
+        + EOS000
+    )
     rhop = zn0 * ztm  # potential density referenced at the surface
     return rhop
 
@@ -450,39 +473,39 @@ def compute_density_tensor(batch, file_mask_LR):
     Returns:
         torch.Tensor: Computed density.
     """
-    bsize = batch["soce"].shape[0]
-    device = batch["soce"].device
-    dtype = batch["soce"].dtype
+    bsize = batch["soce.npy"].shape[0]
+    device = batch["soce.npy"].device
+    dtype = batch["soce.npy"].dtype
 
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})  
 
     #pass to tensor
     #data = torch.tensor(data.values, device=device, dtype=dtype)
     #soce = data.clone()
-    soce = batch["soce"]
+    soce = batch["soce.npy"]
     #toce = data.clone()
-    toce = batch["toce"]
+    toce = batch["toce.npy"]
 
     #tmask = data.clone()
     tmask = torch.tensor(np.repeat(file_mask_LR.tmask.values[None], bsize, 0), device=device, dtype=dtype)
-    #print(tmask)
 
     # Compute density
-    density = get_density_at_surface_tensor(toce, soce, tmask)
+    density= get_density_at_surface_tensor(toce, soce, tmask)
     return density
 
+#%%
 if __name__ =='__main__' :
 
     config = TrainingConfig()
     config.normalisation = '3-std'
     config.data_file = '../../../DATA_DINOFusion/dino_1_4_degree_coarse_240125.tar'
-    train_dataloader = get_dataloader(config.data_file, batch_size=8,
-                                                fields=config.fields, normalisation='3-std', transform=True, shuffle=True, device='mps')
+    train_dataloader = get_dataloader(config.data_file, batch_size=50,
+                                                fields=config.fields, normalisation='3-std', transform=True, shuffle=False, device='mps')
     extractor = train_dataloader.get_transform().uncall
 
     idt = iter(train_dataloader)
     batch = next(idt)
-    print(batch.shape)
+    #print(batch.shape)
 
     file_mask_LR = xr.open_dataset("data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
     mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
@@ -490,30 +513,30 @@ if __name__ =='__main__' :
     batch_norm = get_transformed_data(batch, function=extractor)
 
 #%%
-    density = compute_density_tensor(batch_norm, mask)
-    #density= compute_density(batch_norm, mask)
+    density, zn0 = compute_density_tensor(batch_norm, mask)
+    density_np, zn0_np= compute_density(batch_norm, mask)
     #grad = density.mean(dim=[-1, -2], keepdim=True)
-    density[density != density] = 0
+    #density[density != density] = 0
 
-    vertical_grad = density - torch.roll(density, -1, dims=1)
-    dz = torch.tensor(mask.e3t_0.values, device='mps', dtype=torch.float32)
-    vertical_grad = vertical_grad/dz
-    vertical_grad[:,-1,:,:] = torch.zeros([8,vertical_grad.shape[2],vertical_grad.shape[3]], device='mps')
+    #vertical_grad = density - torch.roll(density, -1, dims=1)
+    #dz = torch.tensor(mask.e3t_0.values, device='mps', dtype=torch.float32)
+    #vertical_grad = vertical_grad/dz
+    #vertical_grad[:,-1,:,:] = torch.zeros([8,vertical_grad.shape[2],vertical_grad.shape[3]], device='mps')
 
 
 
 #%%
-
     #compute mean density per z level for the training dataset
     density_training = torch.zeros([1,36], device='mps')
     nan_count = torch.zeros([1,36], device='mps')
-    BATCH_SIZE = 8
+    BATCH_SIZE = 50
     num_elt = 0
     
     for step, batch in enumerate(train_dataloader):
         batch_norm = get_transformed_data(batch, function=extractor)
         density = compute_density_tensor(batch_norm, mask)
-        density_training = density_training + torch.nansum(density, dim=[0,2,3])
+        print(density.nanmean(dim=[0, -1,-2])[0])
+        density_training = density_training + torch.nansum(density, dim=[0,-1, -2])
         num_elt += BATCH_SIZE
         if step ==0:
             nan_count = torch.isnan(density[0,:,:,:]).sum(dim=(1,2))
