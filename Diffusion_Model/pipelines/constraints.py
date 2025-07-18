@@ -90,9 +90,14 @@ class Beta:
         else:
             raise ValueError(f"Unknown beta type: {self.beta_type}. Available beta type: constant, decreasing ")
         
-    def update(self, esp, eta=0.001):
-        self.beta = self.beta + eta * esp
-        
+    def update(self, esp, eta=0.001, type='eq'):
+        if type=='eq':
+            self.beta = self.beta + eta * esp
+        elif type=='ineq':
+            self.beta = torch.nn.functional.relu(self.beta + eta * esp)
+        else: 
+            raise ValueError(f"Unknown type. Available types: 'ineq' for inequality constraints and 'eq' for equality constraints")
+
 
 
 class GradientZeroMeanConstraint(DiffusionConstraint):
@@ -180,7 +185,7 @@ class GradientZeroMeanDensityConstraint(DiffusionConstraint):
 
         rho = 0.001
         eps = 0.00001
-        tau = #?
+        tau = 0#?
         eta = 0.001
 
         #update on x 
@@ -238,6 +243,7 @@ class GradientDensityConstraint(DiffusionConstraint):
         file_mask_LR = xr.open_dataset("Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
         self.mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
 
+        self.relu = torch.nn.functional.relu
 
     def apply(self, x, t=None, n_iter=1): 
         
@@ -260,17 +266,20 @@ class GradientDensityConstraint(DiffusionConstraint):
                 dz = torch.tensor(self.mask.e3t_0.values, device=self.device, dtype=torch.float32)
                 grad_density = (density[:,:-1,:,:] - density[:,1:,:,:]) / dz[:-1,:,:]
 
-                loss = torch.sum(torch.nn.functional.relu(grad_density))
+                loss = torch.sum(grad_density)
 
             loss.backward()
-            
+
             grad = x.grad
         
             beta = self.beta.get_beta(t) if t is not None else self.beta
             print(f'apply constraint {beta}: {grad[0, :, 100,30]}')
 
+            #x -= beta * self.relu(grad)
             x -= beta * grad
+            set_trace()
 
-        self.beta.update(esp=torch.mean(torch.nansum(torch.nn.functional.relu(grad_density), dim=-1)), eta=0.0001)
+        update = F.pad(grad_density, (1,1,5,4, 0,2), mode='constant', value=0)
+        self.beta.update(esp=torch.mean(update, dim=0), eta=0.0001, type='ineq')
 
         return x.detach()
