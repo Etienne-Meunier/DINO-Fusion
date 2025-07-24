@@ -14,6 +14,7 @@ AVAILABLE_CONSTRAINTS = {
     'zero_mean': ZeroMeanConstraint,
     'gradient_zero_mean': GradientZeroMeanConstraint,
     'gradient_zero_mean_density': GradientZeroMeanDensityConstraint,
+    'mean_gradient_density': MeanGradientDensityConstraint,
     'gradient_density': GradientDensityConstraint,
     'border_zero': BorderZeroConstraint,
     'conditional_generation_sshlow': ConditionalGeneration_SSHLow,
@@ -28,7 +29,7 @@ def get_constraints(constraint_names, **kwargs):
     for name in constraint_names:
         if name not in AVAILABLE_CONSTRAINTS:
             raise ValueError(f"Unknown constraint: {name}. Available constraints: {list(AVAILABLE_CONSTRAINTS.keys())}")
-        if 'gradient' in name: #name == 'gradient_zero_mean' or name == 'gradient_zero_mean_density':
+        if 'gradient' in name: #name == 'gradient_zero_mean' or name == 'gradient_zero_mean_density' or name == 'mean_gradient_density':
             constraints.append(AVAILABLE_CONSTRAINTS[name](**kwargs))
         else: 
             constraints.append(AVAILABLE_CONSTRAINTS[name]())

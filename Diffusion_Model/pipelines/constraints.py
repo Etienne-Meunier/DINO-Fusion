@@ -94,7 +94,7 @@ class Beta:
         if type=='eq':
             self.beta = self.beta + eta * esp
         elif type=='ineq':
-            self.beta = torch.nn.functional.relu(self.beta + eta * esp)
+            self.beta = torch.max(torch.tensor(0), self.beta + eta * esp)
         else: 
             raise ValueError(f"Unknown type. Available types: 'ineq' for inequality constraints and 'eq' for equality constraints")
 
@@ -176,7 +176,7 @@ class GradientZeroMeanDensityConstraint(DiffusionConstraint):
 
             x -= beta * grad
 
-        self.beta.update(esp=torch.mean(torch.nansum(diff, dim=-1)), eta=0.0001)
+        self.beta.update(esp=torch.mean(torch.nansum(diff, dim=-1)), eta=0.001)
 
         return x.detach()
     
@@ -223,6 +223,70 @@ class GradientZeroMeanDensityConstraint(DiffusionConstraint):
         return x, z, mu
 
 
+class MeanGradientDensityConstraint(DiffusionConstraint):
+    def __init__(self, beta, beta_type='constant', dims=[-1, -2], batch=8):
+        super().__init__()
+        self.beta = Beta(beta=beta, beta_type=beta_type)
+        self.dims = dims
+        self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        self.batch = batch
+        
+        # get the extractor function to unnormalise the data
+        config = TrainingConfig()
+        config.normalisation = '3-std'
+        config.data_file = '../DATA_DINOFusion/dino_1_4_degree_coarse_240125.tar'
+        train_dataloader = get_dataloader(config.data_file, batch_size=batch,
+                                                fields=config.fields, normalisation='3-std', transform=True, shuffle=True, device=self.device)
+        self.extractor = train_dataloader.get_transform().uncall
+        #mask for density metric
+        file_mask_LR = xr.open_dataset("Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
+        self.mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
+
+        #mean density of the training set
+        self.mean_density = torch.tensor(np.loadtxt('././Results/analysis_scripts/mean_density_train.txt'), device='mps', dtype=torch.float32)
+
+
+    def apply(self, x, t=None, n_iter=1): 
+
+        for i in range(n_iter):
+            #detach to remove gradients
+            x = x.detach()
+
+            with torch.enable_grad():
+                if x.grad is not None:
+                    x.grad.zero_()
+                x.requires_grad =True
+                samples = get_transformed_data(x, function=self.extractor)
+                set_trace()
+                #compute density
+                tmask = torch.tensor(self.mask.tmask.values, device=self.device, dtype=torch.float32).repeat(self.batch, 1, 1, 1)
+                density = get_density_at_surface_tensor(samples['toce'], samples['soce'], tmask)
+
+                mean_density = self.mean_density[None, :].expand(self.batch, -1)
+                grad_mean_density = mean_density[:, :-1] - mean_density[:, 1:]
+                grad_mean_density[:, -1] = torch.zeros_like(grad_mean_density[:, -1])
+
+                #compute density vertical gradient
+                grad_density = (density[:,:-1,:,:] - density[:,1:,:,:])
+                grad_density[:, -1,:,:]= torch.zeros_like(grad_density[:, -1,:,:])
+
+                diff = (grad_mean_density - grad_density.nanmean(dim=self.dims))**2
+                loss = torch.nansum(diff)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+
+                loss.backward()
+
+                grad = x.grad
+
+            beta = self.beta.get_beta(t) if t is not None else self.beta
+            print(f'apply constraint {beta}: {grad[0, :, 10,10]}')
+
+            x -= beta * grad
+
+        self.beta.update(esp=torch.mean(torch.nansum(diff, dim=-1)), eta=0.001)
+
+        return x.detach()
+
+
 class GradientDensityConstraint(DiffusionConstraint):
     def __init__(self, beta, beta_type='constant', dims=[-1, -2], batch=8):
         super().__init__()
@@ -245,6 +309,11 @@ class GradientDensityConstraint(DiffusionConstraint):
 
         self.relu = torch.nn.functional.relu
 
+        #mean density of the training set
+        self.mean_density = torch.tensor(np.loadtxt('././Results/analysis_scripts/mean_density_train.txt'), device='mps', dtype=torch.float32)
+
+
+
     def apply(self, x, t=None, n_iter=1): 
         
         for i in range(n_iter):
@@ -254,30 +323,37 @@ class GradientDensityConstraint(DiffusionConstraint):
             with torch.enable_grad():
                 x.requires_grad =True
                 samples = get_transformed_data(x, function=self.extractor)
-
+                set_trace()
                 #compute density
                 tmask = torch.tensor(self.mask.tmask.values, device=self.device, dtype=torch.float32).repeat(self.batch, 1, 1, 1)
                 density = get_density_at_surface_tensor(samples['toce'], samples['soce'], tmask)
-
-                #remove nan 
-                density[density != density] = 0
+                #density.retain_grad() 
 
                 #compute density vertical gradient
                 dz = torch.tensor(self.mask.e3t_0.values, device=self.device, dtype=torch.float32)
                 grad_density = (density[:,:-1,:,:] - density[:,1:,:,:]) / dz[:-1,:,:]
+                grad_density[:, -1,:,:]= torch.zeros_like(grad_density[:, -1,:,:])
 
-                loss = torch.sum(grad_density)
+                #mean_d = self.mean_density.view(1, 36, 1, 1).expand(8, 36, 199, 62).clone()
+                #mean_d.requires_grad =True
+                #mean_d.retain_grad() 
+                #grad_density = (mean_d[:,:-1,:,:] - mean_d[:,1:,:,:]) / dz[:-1,:,:]
+                #grad_density[:,-1,:,:]= torch.zeros_like(grad_density[:, -1,:,:])
 
-            loss.backward()
+                loss = torch.sum(self.relu(grad_density))
+
+            loss.backward()#(retain_graph=True)
 
             grad = x.grad
+
+            #grad[grad!=grad]=0
         
             beta = self.beta.get_beta(t) if t is not None else self.beta
             print(f'apply constraint {beta}: {grad[0, :, 100,30]}')
 
-            #x -= beta * self.relu(grad)
             x -= beta * grad
-            set_trace()
+            #x -= beta * grad
+
 
         update = F.pad(grad_density, (1,1,5,4, 0,2), mode='constant', value=0)
         self.beta.update(esp=torch.mean(update, dim=0), eta=0.0001, type='ineq')
