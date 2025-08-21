@@ -1,3 +1,6 @@
 [submodule "Diffusion_Model/notebooks/dino-analysis"]
 	path = Diffusion_Model/notebooks/dino-analysis
 	url = git@github.com:vopikamm/dino-analysis.git
+[submodule "Results/notebooks/dinostics"]
+	path = Results/notebooks/dinostics
+	url = git@github.com:Etienne-Meunier/dinostics.git
