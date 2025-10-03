@@ -8,8 +8,7 @@ import sys
 import torch.nn.functional as F
 from einops import rearrange
 
-
-# adding Folder_2 to the system path
+#adding folder to system path
 sys.path.insert(0, 'Results/analysis_scripts/')
 sys.path.insert(0, 'Diffusion_ Model')
 
@@ -60,7 +59,7 @@ class ConditionalGeneration_SSHHigh(DiffusionConstraint):
 
 
 class ConditionalGeneration_STempLow(DiffusionConstraint):
-    def __init__(self, field='pipelines/surface_temp_low.npy'):
+    def __init__(self, field='Diffusion_Model/pipelines/surface_temp_low.npy'):
         self.field = torch.tensor(np.load(field))
 
     def apply(self, x, t=None):
@@ -68,7 +67,7 @@ class ConditionalGeneration_STempLow(DiffusionConstraint):
         return x
 
 class ConditionalGeneration_STempHigh(DiffusionConstraint):
-    def __init__(self, field='pipelines/surface_temp_high.npy'):
+    def __init__(self, field='Diffusion_Model/pipelines/surface_temp_high.npy'):
         self.field = torch.tensor(np.load(field))
 
     def apply(self, x, t=None):
@@ -121,6 +120,8 @@ class GradientZeroMeanConstraint(DiffusionConstraint):
             x[..., interior[0], interior[1]] -= beta * grad
         else:
             x -= beta * grad
+
+            self.beta.update(esp=torch.mean(torch.nansum(grad**2, dim=-1)), eta=0.001)
         return x
 
 class GradientZeroMeanDensityConstraint(DiffusionConstraint):
@@ -185,7 +186,7 @@ class GradientZeroMeanDensityConstraint(DiffusionConstraint):
 
         rho = 0.001
         eps = 0.00001
-        tau = 0#?
+        tau = 0.5 # a verifier
         eta = 0.001
 
         #update on x 
@@ -257,7 +258,6 @@ class MeanGradientDensityConstraint(DiffusionConstraint):
                     x.grad.zero_()
                 x.requires_grad =True
                 samples = get_transformed_data(x, function=self.extractor)
-                set_trace()
                 #compute density
                 tmask = torch.tensor(self.mask.tmask.values, device=self.device, dtype=torch.float32).repeat(self.batch, 1, 1, 1)
                 density = get_density_at_surface_tensor(samples['toce'], samples['soce'], tmask)
@@ -282,8 +282,7 @@ class MeanGradientDensityConstraint(DiffusionConstraint):
 
             x -= beta * grad
 
-        self.beta.update(esp=torch.mean(torch.nansum(diff, dim=-1)), eta=0.001)
-
+        self.beta.update(esp=torch.mean(torch.nansum(diff, dim=-1)), eta=0.0001)
         return x.detach()
 
 
@@ -345,14 +344,11 @@ class GradientDensityConstraint(DiffusionConstraint):
             loss.backward()#(retain_graph=True)
 
             grad = x.grad
-
-            #grad[grad!=grad]=0
         
             beta = self.beta.get_beta(t) if t is not None else self.beta
             print(f'apply constraint {beta}: {grad[0, :, 100,30]}')
 
             x -= beta * grad
-            #x -= beta * grad
 
 
         update = F.pad(grad_density, (1,1,5,4, 0,2), mode='constant', value=0)
