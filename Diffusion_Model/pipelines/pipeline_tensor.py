@@ -25,6 +25,7 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
     def __init__(self, unet, scheduler):
         super().__init__()
         self.register_modules(unet=unet, scheduler=scheduler)
+        self.constraints = []
 
     @torch.no_grad()
     def __call__(
