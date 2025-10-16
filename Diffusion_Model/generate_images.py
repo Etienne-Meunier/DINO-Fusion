@@ -1,3 +1,6 @@
+from __init__ import PRP; import sys
+sys.path.append(PRP)
+
 from pipelines.pipeline_tensor import DDPMPipeline_Tensor
 import argparse
 import numpy as np

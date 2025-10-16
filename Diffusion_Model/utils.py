@@ -58,6 +58,8 @@ class TransformFields :
         def __call__(self, sample) :
             dico = {}
             sample = {key.replace('.npy', '') : val for key, val in sample.items()}
+            sample = {k : sample[k] for k in ['soce', 'toce', 'ssh']}
+            sample = TensorDict.from_dict(sample, device=self.device)
             for feature in ["soce","toce","ssh"]:
                 #0. move to gpu
                 sample = TensorDict.from_dict(sample, device=self.device)
@@ -89,7 +91,7 @@ class TransformFields :
                 array = self.unstandardize_4D(array, feature)
                 sample[feature] =  array
             # a re-modifier pour que le script data_analytics fonctionne
-            #sample = {key+'.npy' : val for key, val in sample.items()}
+            sample = {key+'.npy' : val for key, val in sample.items()}
             return sample
 
  
@@ -254,6 +256,6 @@ if __name__ == '__main__' :
     from configs.base_config import *
     config = TrainingConfig()
     train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, normalisation=config.normalisation)
-    config.data_shape = train_dataloader.get_data_shape()
+    #config.data_shape = train_dataloader.get_data_shape()
     idt = iter(train_dataloader)
     b = next(idt)

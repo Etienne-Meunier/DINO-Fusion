@@ -49,7 +49,7 @@ model = models['summer']
 
 config = TrainingConfig()
 config.normalisation = model.normalisation
-config.data_file = f'{os.environ["OCEANDATA"]}/Dino-Fusion/dino_1_4_degree_coarse_240125_summer.tar'
+config.data_file = f'{os.environ["OCEANDATA"]}/Dino-Fusion/dino_1_4_degree_coarse_240125.tar'
 
 train_dataloader = get_dataloader(config.data_file, batch_size=8,
                                                 fields=config.fields, normalisation=config.normalisation, transform=True, shuffle=True)
@@ -57,12 +57,6 @@ idt = iter(train_dataloader)
 
 # %%
 batch = next(idt)
-
-# %%
-b
-
-# %% [markdown]
-# ## Load predictions
 
 # %%
 home = os.environ['OCEANDATA'] + '/models/dino-fusion/'
@@ -75,6 +69,9 @@ if RE_CENTER_GENERATED :
     generated_batch -= generated_batch.mean(axis=(-2, -1), keepdim=True)
 
 # %%
+
+# %% Un-normalisation : turn the batch to a dict
+
 # Re-normalisation : bring back the data to it's initial scal
 RENORMALISATION = True
 
@@ -91,10 +88,6 @@ else :
     # Manual mask application
     for k in samples.keys() :
         generated_samples[k][samples[k].isnan()]  = torch.nan
-
-
-# %% Un-normalisation : turn the batch to a dict
-
 
 # Figure
 
