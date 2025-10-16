@@ -9,8 +9,9 @@ import torch.nn.functional as F
 from einops import rearrange
 
 #adding folder to system path
-sys.path.insert(0, 'Results/analysis_scripts/')
-sys.path.insert(0, 'Diffusion_ Model')
+from __init__ import PRP; import sys
+sys.path.append(f'{PRP}/Results/analysis_scripts/')
+sys.path.append(f'{PRP}/Diffusion_Model/')
 
 from data_analytics import get_transformed_data
 from metrics import get_density_at_surface_tensor

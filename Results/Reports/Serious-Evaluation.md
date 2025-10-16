@@ -10,10 +10,6 @@ Run without constraint : `tav0h83b/inference/infesteps_1000/constraints_no_const
 
 
 
-
-
-
-
 ### The constraint : 
 
 ![image-20250131105844577](./images/image-20250131105844577.png)
