@@ -346,7 +346,7 @@ def compute_density(batch, file_mask_LR):
 
 import torch
 
-def get_density_at_surface_tensor(thetao, so, tmask):
+def get_density_at_surface_tensor(thetao, so, tmask=None):
     """
     Compute potential density referenced at the surface using PyTorch tensors.
 
@@ -358,6 +358,9 @@ def get_density_at_surface_tensor(thetao, so, tmask):
     Returns:
         torch.Tensor: Potential density referenced at the surface.
     """
+    if tmask is None : 
+        tmask = torch.ones_like(thetao)
+
     # Constants
     rdeltaS = 32.0
     r1_S0 = 0.875 / 35.16504

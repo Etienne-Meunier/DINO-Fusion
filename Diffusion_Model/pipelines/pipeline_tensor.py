@@ -92,3 +92,9 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
             return (image,)
 
         return {'arrays':image}
+
+    def __str__(self):
+        s = 'constraints:'
+        for c in self.constraints : 
+            s += f'|| {c} ||'
+        return s

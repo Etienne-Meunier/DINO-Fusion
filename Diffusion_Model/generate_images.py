@@ -16,9 +16,9 @@ from pipelines.constraints import *
 AVAILABLE_CONSTRAINTS = {
     'zero_mean': ZeroMeanConstraint,
     'gradient_zero_mean': GradientZeroMeanConstraint,
-    'gradient_zero_mean_density': GradientZeroMeanDensityConstraint,
-    'mean_gradient_density': MeanGradientDensityConstraint,
-    'gradient_density': GradientDensityConstraint,
+    # 'gradient_zero_mean_density': GradientZeroMeanDensityConstraint,
+    # 'mean_gradient_density': MeanGradientDensityConstraint,
+    # 'gradient_density': GradientDensityConstraint,
     'border_zero': BorderZeroConstraint,
     'conditional_generation_sshlow': ConditionalGeneration_SSHLow,
     'conditional_generation_sshhigh': ConditionalGeneration_SSHHigh,

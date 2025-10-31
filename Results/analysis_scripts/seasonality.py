@@ -1,3 +1,4 @@
+#%%
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,13 +6,16 @@ import matplotlib as mpl
 import seaborn as sns
 import sys
 import torch
-sys.path.append('../../Diffusion_Model/')
+from __init__ import PRP; sys.path.append(PRP)
+
+sys.path.append(PRP + '/Diffusion_Model/')
 
 from configs.base_config import TrainingConfig
 
 from utils import get_dataloader
 mpl.rcParams['image.origin'] = 'lower'
 
+#%%
 # 1. Data load
 config = TrainingConfig()
 config.normalisation = '3-std'
@@ -30,6 +34,8 @@ axs[2].set_title('surface temperature (south) [:40]')
 axs[2].plot(batch[:, 0,   :40].mean(axis=(-2, -1)))
 plt.legend()
 batch.shape
+
+#%%
 
 idx_key, idx_name = (0, 'surface_temp')
 fields = {}
@@ -54,6 +60,8 @@ for i in range(5) :
     sns.histplot(fields['surface_temp_high'][i, s:-s, s:-s].flatten(), ax=axs[i], label='Data(High surface temp)'  if i ==0 else None)
 fig.legend()
 
+#%%
+
 # See results
 stemplow = np.load('/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_gradient_zero_mean_conditional_generation_stemplow/20250318-191341.npy')
 stemphigh = np.load('/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference/infesteps_1000/constraints_gradient_zero_mean_conditional_generation_stemphigh/20250318-191709.npy')
@@ -74,9 +82,7 @@ for b in range(37) :
     im1 = axs[0, b].imshow(sshlow_gen[0,b], vmin=-1, vmax=1)
     axs[1, b].imshow(sshhigh_gen[0, b], vmin=-1, vmax=1)
 
-import napari
-v = napari.Viewer()
-sshlow_gen[0].shape
+#%%
 
 plt.plot(stemphigh[0].mean(axis=(-2, -1)).T)
 plt.plot(stemplow[0].mean(axis=(-2, -1)).T)

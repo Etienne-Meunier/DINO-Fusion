@@ -149,24 +149,28 @@ class TransformFields :
                 if member.path.startswith(target_path):
                     feature, metric, _ = member.name.replace('infos/', '').split('.')
                     data = np.load(io.BytesIO(tar.extractfile(member).read()))
-                    if self.device != torch.device('cpu'):
-                        if feature == 'mask':
-                            self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.bool)
-                        else: 
-                            self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.float32)
-                    else:
-                        self.infos[feature][metric] = data
+                    if feature == 'mask':
+                        self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.bool)
+                    else: 
+                        self.infos[feature][metric] = torch.tensor(data, device=self.device, dtype=torch.float32)
+ 
                     max_return -= 1
 
             self.infos['shape']['soce'] = self.infos['mask']['toce'].shape
             self.infos['shape']['toce'] = self.infos['mask']['soce'].shape
             self.infos['shape']['ssh'] = self.infos['mask']['ssh'][None].shape
 
+            self.infos = TensorDict(self.infos, batch_size=[])
+
         def standardize_4D(self,sample,feature):
             """
                 Standardize the data given a mean and a std
             """
-            if self.normalisation == 'std' :
+            self.infos = self.infos.to(sample.device)
+            if self.normalisation == '' :
+                return sample[f'{feature}']
+            
+            elif self.normalisation == 'std' :
                 return (sample[f'{feature}'] - self.infos['mean'][feature]) / (self.infos['std'][feature] + 1e-8)
 
             elif self.normalisation == '7-std' :
@@ -191,7 +195,10 @@ class TransformFields :
             Returns:
                 Unstandardized data
             """
-            if self.normalisation == 'std':
+            self.infos = self.infos.to(sample.device)
+            if self.normalisation == '':
+                return sample
+            elif self.normalisation == 'std':
                 return (sample * (self.infos['std'][feature])) + self.infos['mean'][feature]
 
             elif self.normalisation == '7-std' :
