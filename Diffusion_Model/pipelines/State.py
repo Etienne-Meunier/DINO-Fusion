@@ -30,23 +30,23 @@ class Observer:
         samples = [function(g) for g in batch]
         return torch.stack(samples, dim=0)
         
-    def density(self, normalized) : 
-        unnormalized = self.unnormalized(normalized)
+    def density(self, normalized, result=None) : 
+        unnormalized = self.unnormalized(normalized, result)
         density = get_density_at_surface_tensor(unnormalized['toce'], unnormalized['soce'],
                                                  tmask=None)
         return density
 
-    def density_profile(self, normalized) : 
-        density = self.density(normalized)
+    def density_profile(self, normalized, result=None) : 
+        density = self.density(normalized, result)
         return density.nanmean(axis=(-2,-1)) # Spatial mean density -> (N, Z)
 
     
-    def density_gradient(self, normalized) : 
-        density = self.density(normalized)
+    def density_gradient(self, normalized, result=None) : 
+        density = self.density(normalized, result)
         gradient_density = density[:, :-1] -  density[:, 1:]
         return gradient_density
     
-    def density_gradient_profile(self, normalized) : 
-        density_gradient = self.density_gradient(normalized)
+    def density_gradient_profile(self, normalized, result=None) : 
+        density_gradient = self.density_gradient(normalized, result)
         return density_gradient.nanmean(axis=(-2,-1)) # Spatial mean density -> (N, Z)
     

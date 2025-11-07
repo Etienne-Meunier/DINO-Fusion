@@ -23,11 +23,11 @@ class Beta:
                 pass # Never change beta if constant
             case 'decreasing':
                 l, k, n = self.prb['l'], self.prb['k'], self.prb['max_iter']
-                self.beta += l*self.beta * torch.exp(((1-t/n) - 1)*k)
+                self.value += l*self.beta * torch.exp(((1-t/n) - 1)*k)
             case 'eq' :
-                self.beta += self.prb['eta'] * esp
+                self.value += self.prb['eta'] * esp
             case 'ineq':
-                self.beta = (self.beta + self.prb['eta'] * esp).clamp(0.0)
+                self.value = (self.value + self.prb['eta'] * esp).clamp(0.0)
             case _:
                 raise NameError(f'{self.beta_type} not known')
 
@@ -106,7 +106,7 @@ class LossAD(FunctionGradient) :
             field.grad = None
             l = self.loss(field)
             l.backward()
-            return field
+            return field.grad
         
 
 class OptimProjection(Projection) :
@@ -141,13 +141,14 @@ class OptimProjection(Projection) :
 class MeanDensityProfile(Loss) : 
     def __init__(self, profile=\
                         np.loadtxt(f'{PRP}/Results/analysis_scripts/mean_density_train.txt'),
+                        result='file',
                         **kwargs) : 
         super().__init__(**kwargs)
         self.mean_density = torch.tensor(profile)
-        self.mean_density[-1] = torch.nan
+        self.result = result
 
     def __call__(self, field):
-        density_profile = self.observer.density(field).nanmean(dim=self.dims)
+        density_profile = self.observer.density_profile(field, result=self.result)
         self.mean_density = self.mean_density.to(density_profile)
         loss = torch.nansum((self.mean_density[None, :] - density_profile)**2)
         return loss
@@ -189,13 +190,13 @@ class NegativeGradDensityProfile(Loss) :
 ## --- Projections ---
 
 class BorderZero(Projection):
-    def __init__(self, mask=f'{PRP}/Diffusion_Model/pipelines/border_mask.npy'):
-        self.mask_path = mask
-        self.mask = torch.tensor(np.load(mask))
+    def __init__(self, observer):
+        self.observer = observer
 
     def __call__(self, field):
-        field[:, self.mask] = 0.0
-        return field
+        g = self.observer.unnormalized(field, 'masked')
+        g[:, self.observer.normalizer.masker.mask] = 0.0
+        return self.observer.normalizer.padder(g)
 
     def __str__(self):
         return f'BorderZeroConstraint - mask : {self.mask_path}'

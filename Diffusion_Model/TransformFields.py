@@ -43,6 +43,10 @@ class Strider :
 
         field = F.interpolate(rearrange(strided_field, 'z x y -> x y z'), size=(self.field_len), mode='linear')
         field = rearrange(field, 'x y z -> z x y')
+        field = field.contiguous() # Necessary with MPS for some reason
+        mask = field.isnan()
+        field = torch.where(mask, torch.nan, field) # Cut the grad from the graph
+
         assert field.shape[0] == self.field_len, f'After Unstride ({self.name=}) : {field.shape[0]=} != {self.field_len=}'
         return field
 

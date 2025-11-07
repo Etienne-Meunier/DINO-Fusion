@@ -49,7 +49,7 @@ plt.show()
 fields.keys()
 
 
-plt.imshow(fields['surface_temp_high'][i, 7:-7, 7:-7] > 0.4)
+#plt.imshow(fields['surface_temp_high'][i, 7:-7, 7:-7] > 0.4)
 
 s = 7
 fig, axs = plt.subplots(1, 5, figsize=(25, 5))
