@@ -81,6 +81,13 @@ for gen in ['no_constraint', 'constraint', 'data'] :
         for bi, b in  enumerate(batch_raw[field]) :
             data = file_mask_LR.e3t_0.copy()
             data[:] = b
+            data = data.assign_coords(
+                {
+                    "nav_lat": (("nav_lat", "nav_lon"), file_mask_LR["nav_lat"].values),
+                    "nav_lon": (("nav_lat", "nav_lon"), file_mask_LR["nav_lon"].values),
+                }
+            )
+
             base = {'source' : gen, 'index' : bi, 'field' : field}
             for key, f in metrics.items() :
                 stats.append(base | {'metric' : key , 'value' : f(data, file_mask_LR).item()})
