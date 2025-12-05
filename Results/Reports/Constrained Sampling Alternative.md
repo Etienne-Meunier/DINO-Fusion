@@ -17,6 +17,14 @@ u(x, z, \mu) = f(x) + X_c(z) + \rho \mu^T(g(x)-z)  + \frac{\rho}{2}||g(x)-z||^2
 $$
 Where $x \in \R^n$,  $\mu \in \R^m$ , $z\in \R^m$ and $\rho \in \R$ . 
 
+> [!NOTE]
+>
+> This correspond to the same problem but with a different set of constraint : 
+>$$
+>\min_x f(x) \text{ s.t } \{g(x) = z \text{ and } C(z) = 0\}
+>$$
+
+
 We can compute the update from ADMM (where $J_g : \R^n \to \R^{n\times m}$ is the jacobian of $g$)  : 
 
 1. Update w.r.t $x$ :
