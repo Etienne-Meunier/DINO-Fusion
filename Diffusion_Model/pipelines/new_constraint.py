@@ -6,7 +6,8 @@ from collections.abc import Callable
 import torch
 import numpy as np
 import abc
-
+from ShapeChecker import ShapeCheck
+import einops
 from ipdb import set_trace
 
 ## --- STRUCTURE ----
@@ -201,3 +202,39 @@ class BorderZero(Projection):
     def __str__(self):
         return f'BorderZeroConstraint - mask : {self.mask_path}'
 
+class MeanDensityProfileProjection(Projection) :
+    """
+        Project the density profile on the mean density profile
+    """ 
+    def __init__(self, profile=\
+                        np.loadtxt(f'{PRP}/Results/analysis_scripts/mean_density_train_strided.txt'),
+                        **kwargs) : 
+        super().__init__(**kwargs)
+        self.mean_density = torch.tensor(profile) # (Z)
+
+    def __call__(self, density_profile) : 
+        """
+            density profile : (B, Z, *)  where * can be spatial (I, J) or even nothing
+        """ 
+        self.mean_density = self.mean_density.to(density_profile)
+        return self.mean_density[None, :, *((density_profile.ndim-2)*[None])] * torch.ones_like(density_profile)
+    
+
+class IsotonicDensity(Projection) :
+    """
+        Project the density profile on the mean density profile
+    """ 
+    def __init__(self, **kwargs) : 
+        super().__init__(**kwargs)
+        from scipy.optimize import isotonic_regression
+        self.isof = isotonic_regression
+
+    def __call__(self, density_profile) : 
+        """
+            density profile : (B, Z, *)  where * can be spatial (I, J) or even nothing
+        """ 
+        r = np.apply_along_axis(lambda o : self.isof(o).x, axis=1, arr=density_profile.detach().cpu().numpy())
+        return torch.tensor(r).to(density_profile)
+    
+
+    
