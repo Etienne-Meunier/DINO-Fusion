@@ -80,7 +80,15 @@ for gen in ['no_constraint', 'constraint', 'data'] :
     for field in ['toce', 'soce'] :
         for bi, b in  enumerate(batch_raw[field]) :
             data = file_mask_LR.e3t_0.copy()
+
+            # Assign coordinates to data xr.DataArray from file_mask_LR xr.Dataset
+            data = data.assign_coords(
+                nav_lat = file_mask_LR['nav_lat'],
+                nav_lon = file_mask_LR['nav_lon'],
+            )
+            
             data[:] = b
+
             base = {'source' : gen, 'index' : bi, 'field' : field}
             for key, f in metrics.items() :
                 stats.append(base | {'metric' : key , 'value' : f(data, file_mask_LR).item()})
