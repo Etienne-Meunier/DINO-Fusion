@@ -3,3 +3,4 @@
 *.pyc
 # miniveros: raw Veros run outputs (129 GB of .npz), never commit
 full_state/
+compute.md
