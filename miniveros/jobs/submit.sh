@@ -11,6 +11,7 @@ source "$HERE/jz_env.sh"
 JOB=$1; shift || true
 mkdir -p "$MV_WORK/logs" "$MV_WORK/runs" "$MV_WORK/data"
 export MV_ARGS="$*"
+export MV_GIT_HASH=$(git -C "$MV_CODE" rev-parse --short HEAD 2>/dev/null || echo unknown)   # compute nodes may lack git
 case "$JOB" in
   extract)
     sbatch --account="$MV_ACCOUNT_CPU" --qos="$MV_QOS_CPU" --partition="$MV_CPU_PARTITION" \

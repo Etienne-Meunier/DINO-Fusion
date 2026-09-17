@@ -65,6 +65,9 @@ Any `Config` field can be overridden with `--set key=value`. Re-running `train.p
 
 ## Cluster
 
+Compute nodes have no `git` and no `module` function unless inherited from a login shell, so `submit.sh`
+records the commit hash at submission time and the environment recipe sources the module init files itself.
+
 `jobs/` holds SLURM templates with only generic resources in the `#SBATCH` headers. Account, QoS,
 constraint, paths and the environment activation come from `jobs/jz_env.sh`, which is gitignored:
 copy `jz_env.example.sh`, fill it in on the cluster, then
@@ -79,8 +82,9 @@ jobs/submit.sh generate_eval $MV_WORK/runs/full_anomaly 8
 
 On the hold-out runs, against the true time-mean state over the last 20 years, water cells only:
 RMSE of the ensemble mean and of single samples, domain-mean bias, per-level RMSE profile,
-ensemble spread against the true within-window spread, salinity error, and the fraction of statically
-unstable interfaces (temperature decreasing upward, since salinity is constant). Baselines: the mean
+ensemble spread against the true within-window spread, salinity error, and the fraction of interfaces with
+temperature decreasing upward, compared with the same fraction in the truth (the true states do contain such
+inversions in the cold southern region, so this is a distributional check, not an absolute stability test). Baselines: the mean
 training state, the nearest training run in log-parameter space, and the average of the axis-neighbour
 training runs on the grid. With `--grid-samples`, the 10 x 10 map of domain-mean temperature is compared
 with the truth.

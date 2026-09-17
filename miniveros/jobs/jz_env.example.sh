@@ -11,4 +11,6 @@ export MV_QOS_CPU=qos_cpu-dev
 export MV_QOS_GPU=qos_gpu_a100-dev
 export MV_GPU_CONSTRAINT=a100
 export MV_CPU_PARTITION=cpu_p1
-export MV_ENV_SETUP='module purge; module load python; conda activate MLenv'
+# Sourcing the module init makes this work from any shell (a plain `ssh host cmd` has no `module` function);
+# `conda shell.bash hook` defines conda without relying on the user's rc files.
+export MV_ENV_SETUP='source /etc/profile.d/modules.sh 2>/dev/null; source /etc/profile.d/z_modules.sh 2>/dev/null; module purge; module load python; eval "$(conda shell.bash hook)"; conda activate MLenv'

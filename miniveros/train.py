@@ -41,11 +41,16 @@ def atomic_save(obj, path: Path) -> None:
 
 
 def git_hash() -> str:
+    """Commit hash of the code: from git if available, else from MV_GIT_HASH (set by jobs/submit.sh on the
+    login node, because compute nodes may not have git)."""
     try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10,
-                              cwd=Path(__file__).parent).stdout.strip()
+        h = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10,
+                           cwd=Path(__file__).parent).stdout.strip()
+        if h:
+            return h
     except Exception:
-        return "unknown"
+        pass
+    return os.environ.get("MV_GIT_HASH", "unknown")
 
 
 def save_weights(model, ema, run_dir: Path) -> None:

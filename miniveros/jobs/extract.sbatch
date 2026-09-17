@@ -6,7 +6,7 @@ set -eo pipefail
 export HDF5_USE_FILE_LOCKING=FALSE
 eval "$MV_ENV_SETUP"
 cd "$MV_CODE"
-echo "job $SLURM_JOB_ID on $(hostname) | git $(git rev-parse --short HEAD 2>/dev/null || echo '?') | $(date)"
+echo "job $SLURM_JOB_ID on $(hostname) | git ${MV_GIT_HASH:-?} | $(date)"
 echo "raw: $MV_RAW_DIR -> out: $MV_DATA | extra args: $MV_ARGS"
 python extract_data.py --raw-dir "$MV_RAW_DIR" --out "$MV_DATA" $MV_ARGS
 echo "done $(date)"

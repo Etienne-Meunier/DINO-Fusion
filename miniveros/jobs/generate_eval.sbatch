@@ -6,7 +6,7 @@ set -eo pipefail
 export HDF5_USE_FILE_LOCKING=FALSE
 eval "$MV_ENV_SETUP"
 cd "$MV_CODE"
-echo "job $SLURM_JOB_ID on $(hostname) | git $(git rev-parse --short HEAD 2>/dev/null || echo '?') | $(date)"
+echo "job $SLURM_JOB_ID on $(hostname) | git ${MV_GIT_HASH:-?} | $(date)"
 echo "run_dir: $MV_RUN_DIR | n_samples: $MV_NSAMPLES"
 python generate.py --run-dir "$MV_RUN_DIR" --holdout --n-samples "$MV_NSAMPLES"
 python generate.py --run-dir "$MV_RUN_DIR" --grid    --n-samples 4

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -21,9 +22,10 @@ def rmse(a, b, w):
     return float(np.sqrt(np.mean((a[..., w] - b[..., w]) ** 2)))
 
 
-def stability_violation_fraction(T, water, tol=1e-3):
-    """Fraction of water interfaces where temperature decreases upward (Z index 0 = bottom). With constant
-    salinity this is the fraction of statically unstable interfaces."""
+def temp_inversion_fraction(T, water, tol=1e-3):
+    """Fraction of water interfaces where temperature decreases upward (Z index 0 = bottom).
+    NOT an absolute stability test: the true states show inversions in the cold southern region (pressure
+    effects in the equation of state), so compare the generated fraction with the truth's."""
     both = water[:-1] & water[1:]
     dT = T[..., 1:, :, :] - T[..., :-1, :, :]                 # upper minus lower
     viol = (dT < -tol) & both
@@ -37,6 +39,7 @@ def main(argv=None):
     p.add_argument("--grid-samples", default=None)
     p.add_argument("--out-dir", default=None)
     a = p.parse_args(argv)
+    warnings.filterwarnings("ignore", category=RuntimeWarning)   # nanmean over all-NaN land columns is expected
     out_dir = Path(a.out_dir) if a.out_dir else Path(a.samples).parent.parent / "eval"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -55,7 +58,7 @@ def main(argv=None):
     tstd = np.stack([temp_all[run_id == r].std(0) for r in range(len(run_ck))])
     train_mean_state = tmean[sorted(train_runs)].mean(0)
     lc, le = np.log(run_ck), np.log(run_eps)
-    zc = np.stack([(lc - lc.mean()) / lc.std(), (le - le.mean()) / le.std()], 1)
+    zc = np.stack([(lc - lc.mean()) / (lc.std() + 1e-12), (le - le.mean()) / (le.std() + 1e-12)], 1)
 
     def nearest_train(r):
         d = np.linalg.norm(zc - zc[r], axis=1); d[r] = np.inf
@@ -86,8 +89,8 @@ def main(argv=None):
         add(r, "diffusion", "spread_K", gen.std(0)[water].mean())
         add(r, "truth", "spread_K", tstd[r][water].mean())
         add(r, "diffusion", "salt_max_abs_err", np.nanmax(np.abs(gS[k][:, water] - SALT_REF)))
-        add(r, "diffusion", "unstable_interface_frac", np.mean([stability_violation_fraction(g, water) for g in gen]))
-        add(r, "truth", "unstable_interface_frac", stability_violation_fraction(truth, water))
+        add(r, "diffusion", "temp_inversion_frac", np.mean([temp_inversion_fraction(g, water) for g in gen]))
+        add(r, "truth", "temp_inversion_frac", temp_inversion_fraction(truth, water))
         add(r, "neighbour_avg", "n_neighbours", n_nb)
 
     with open(out_dir / "metrics.csv", "w", newline="") as f:
@@ -103,7 +106,7 @@ def main(argv=None):
         mu, sd = agg(m, "rmse_K"); bias = np.mean([abs(x[3]) for x in rows if x[1] == m and x[2] == "bias_domain_mean_K"]) if m != "diffusion_sample" else np.nan
         lines.append(f"{m:<18}{mu:>14.4f} ± {sd:<6.4f}{bias:>12.4f}")
     lines += ["", f"ensemble spread (K): generated {agg('diffusion', 'spread_K')[0]:.4f} vs truth-in-window {agg('truth', 'spread_K')[0]:.4f}",
-              f"unstable interfaces: generated {100 * agg('diffusion', 'unstable_interface_frac')[0]:.3f}% vs truth {100 * agg('truth', 'unstable_interface_frac')[0]:.3f}%",
+              f"interfaces with T decreasing upward: generated {100 * agg('diffusion', 'temp_inversion_frac')[0]:.3f}% vs truth {100 * agg('truth', 'temp_inversion_frac')[0]:.3f}% (truth has real inversions; compare, do not expect 0)",
               f"salinity max |S-35| over water: {agg('diffusion', 'salt_max_abs_err')[0]:.2e}"]
     (out_dir / "summary.txt").write_text("\n".join(lines) + "\n"); print("\n".join(lines))
 
@@ -149,8 +152,9 @@ def main(argv=None):
                 ax.plot(ieps[r], ick[r], "rx", ms=6)
             plt.colorbar(im, ax=ax, fraction=0.046)
         fig.suptitle("red x = hold-out runs"); fig.tight_layout(); fig.savefig(out_dir / "grid_domain_mean.png", dpi=120); plt.close(fig)
-        print(f"grid map: RMSE of domain-mean T over all runs {np.sqrt(np.nanmean((dm_gen - dm_truth) ** 2)):.4f} K, "
-              f"hold-out only {np.sqrt(np.nanmean(((dm_gen - dm_truth)[ick[np.asarray(ds['holdout_runs'])], ieps[np.asarray(ds['holdout_runs'])]]) ** 2)):.4f} K")
+        hr = np.asarray(ds["holdout_runs"])
+        ho = np.sqrt(np.nanmean(((dm_gen - dm_truth)[ick[hr], ieps[hr]]) ** 2)) if len(hr) else float("nan")
+        print(f"grid map: RMSE of domain-mean T over all runs {np.sqrt(np.nanmean((dm_gen - dm_truth) ** 2)):.4f} K, hold-out only {ho:.4f} K")
     print(f"outputs in {out_dir}")
 
 
