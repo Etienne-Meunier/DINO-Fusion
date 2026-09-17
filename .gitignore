@@ -4,3 +4,9 @@
 # miniveros: raw Veros run outputs (129 GB of .npz), never commit
 full_state/
 compute.md
+
+# miniveros package: site config, converted data, runs
+miniveros/jobs/jz_env.sh
+miniveros/data/
+miniveros/runs/
+__pycache__/
