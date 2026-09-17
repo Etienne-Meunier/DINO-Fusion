@@ -32,7 +32,12 @@ def _member(zf: zipfile.ZipFile, name: str):
     assert info.compress_type == zipfile.ZIP_STORED, f"{name} is compressed; seeking needs ZIP_STORED"
     fh = zf.open(name)
     ver = npf.read_magic(fh)
-    shape, _, dtype = npf._read_array_header(fh, ver)
+    if ver == (1, 0):                       # public API only: the private _read_array_header vanished in numpy 2.4
+        shape, _, dtype = npf.read_array_header_1_0(fh)
+    elif ver == (2, 0):
+        shape, _, dtype = npf.read_array_header_2_0(fh)
+    else:
+        raise ValueError(f"{name}: unsupported .npy format version {ver}")
     return fh, tuple(shape), np.dtype(dtype), fh.tell()
 
 
