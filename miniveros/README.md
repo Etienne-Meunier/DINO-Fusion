@@ -76,6 +76,7 @@ copy `jz_env.example.sh`, fill it in on the cluster, then
 jobs/submit.sh extract
 jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/full_anomaly
 jobs/submit.sh generate_eval $MV_WORK/runs/full_anomaly 8
+jobs/campaign.sh anomaly 3-std      # or the whole chain at once: extract -> train per mode -> generate_eval
 ```
 
 ## Evaluation
