@@ -67,7 +67,8 @@ class Config:
 
     @classmethod
     def load(cls, path: str | Path) -> "Config":
-        return cls(**_coerce_all(json.loads(Path(path).read_text())))
+        """Load a saved config; keys that no longer exist in Config (older runs) are dropped with a note."""
+        return cls(**_coerce_all(json.loads(Path(path).read_text()), strict=False))
 
 
 PRESETS: dict[str, dict[str, Any]] = {
@@ -95,13 +96,17 @@ def _coerce(value: Any, ftype: Any) -> Any:
     return value
 
 
-def _coerce_all(d: dict[str, Any]) -> dict[str, Any]:
+def _coerce_all(d: dict[str, Any], strict: bool = True) -> dict[str, Any]:
+    """strict=True (CLI overrides): unknown keys are an error. strict=False (saved configs): they are dropped."""
     types = {f.name: f.type for f in fields(Config)}
     # dataclass field types may be strings under `from __future__ import annotations`
     resolved = {}
     for k, v in d.items():
         if k not in types:
-            raise KeyError(f"unknown config key: {k}. Known keys: {sorted(types)}")
+            if strict:
+                raise KeyError(f"unknown config key: {k}. Known keys: {sorted(types)}")
+            print(f"config: ignoring legacy key {k!r}")
+            continue
         t = types[k]
         if isinstance(t, str):
             t = eval(t, {"tuple": tuple, "int": int, "float": float, "str": str, "bool": bool})  # noqa: S307
