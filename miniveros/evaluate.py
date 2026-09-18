@@ -141,20 +141,30 @@ def main(argv=None):
         for k, r in enumerate(grid_rid):
             dm_truth[ick[r], ieps[r]] = tmean[r][water].mean()
             dm_gen[ick[r], ieps[r]] = np.nanmean(gg["temp"][k], 0)[water].mean()
-        fig, axs = plt.subplots(1, 3, figsize=(16, 4.6))
+        hr = np.asarray(ds["holdout_runs"]); tr_ = np.asarray(ds["train_runs"])
+        ho = np.sqrt(np.nanmean(((dm_gen - dm_truth)[ick[hr], ieps[hr]]) ** 2)) if len(hr) else float("nan")
+        al = np.sqrt(np.nanmean((dm_gen - dm_truth) ** 2))
+        # numbers behind the figure, so it can be re-plotted without the samples
+        with open(out_dir / "grid_domain_mean.csv", "w", newline="") as f:
+            w = csv.writer(f); w.writerow(["run", "ck", "eps", "ick", "ieps", "holdout", "dm_truth_K", "dm_gen_K"])
+            for r in grid_rid:
+                w.writerow([run_names[r], run_ck[r], run_eps[r], ick[r], ieps[r], int(r in set(hr.tolist())),
+                            f"{dm_truth[ick[r], ieps[r]]:.5f}", f"{dm_gen[ick[r], ieps[r]]:.5f}"])
+        fig, axs = plt.subplots(1, 3, figsize=(16, 4.8))
         for ax, A, title, cmap, lim in [(axs[0], dm_truth, "truth", "viridis", None), (axs[1], dm_gen, "generated", "viridis", None),
                                         (axs[2], dm_gen - dm_truth, "generated - truth", "RdBu_r", 0.2)]:
             kw = dict(vmin=-lim, vmax=lim) if lim else dict(vmin=np.nanmin(dm_truth), vmax=np.nanmax(dm_truth))
             im = ax.imshow(A, origin="lower", cmap=cmap, aspect="auto", **kw); ax.set_title(f"domain-mean T (°C): {title}")
             ax.set_xticks(range(len(epss))); ax.set_xticklabels([f"{e:g}" for e in epss], rotation=60, fontsize=7)
             ax.set_yticks(range(len(cks))); ax.set_yticklabels([f"{c:g}" for c in cks], fontsize=7); ax.set_xlabel("c_eps"); ax.set_ylabel("c_k")
-            for r in np.asarray(ds["holdout_runs"]):
-                ax.plot(ieps[r], ick[r], "rx", ms=6)
+            ax.plot(ieps[tr_], ick[tr_], "o", ms=3, mfc="white", mec="black", mew=0.6, label="training run")
+            if len(hr):
+                ax.plot(ieps[hr], ick[hr], "x", ms=7, mew=1.8, color="red", label="hold-out run")
             plt.colorbar(im, ax=ax, fraction=0.046)
-        fig.suptitle("red x = hold-out runs"); fig.tight_layout(); fig.savefig(out_dir / "grid_domain_mean.png", dpi=120); plt.close(fig)
-        hr = np.asarray(ds["holdout_runs"])
-        ho = np.sqrt(np.nanmean(((dm_gen - dm_truth)[ick[hr], ieps[hr]]) ** 2)) if len(hr) else float("nan")
-        print(f"grid map: RMSE of domain-mean T over all runs {np.sqrt(np.nanmean((dm_gen - dm_truth) ** 2)):.4f} K, hold-out only {ho:.4f} K")
+        axs[0].legend(loc="lower right", fontsize=7, framealpha=0.9)
+        fig.suptitle(f"{gs['norm_mode']} normalisation | RMSE of domain-mean T: hold-out {ho:.3f} K, all runs {al:.3f} K")
+        fig.tight_layout(); fig.savefig(out_dir / "grid_domain_mean.png", dpi=120); plt.close(fig)
+        print(f"grid map: RMSE of domain-mean T over all runs {al:.4f} K, hold-out only {ho:.4f} K")
     print(f"outputs in {out_dir}")
 
 
