@@ -11,7 +11,7 @@
 \setlength{\parskip}{4pt}
 
 \title{A conditional diffusion emulator of Veros ACC equilibrium states:\\first end-to-end results}
-\author{Redouane Lguensat}
+\author{}
 \date{18 September 2026}
 
 \begin{document}
@@ -102,16 +102,17 @@ Baselines are identical in both columns because they do not depend on the model.
         2\,\% of the spatial structure in the upper ocean, so under per-level scaling the conditional
         model sees almost no signal and reproduces the training mean; its parameter map is flat and noisy.
         Per-cell anomaly scaling makes the signal order one everywhere and the model follows the parameters,
-        including the warm high-$c_k$, low-$c_\epsilon$ corner.
+        including the warm high-$c_k$, low-$c_\epsilon$ corner (Figure~\ref{fig:grid}).
   \item \textbf{Better than the nearest run, not yet better than grid interpolation.} The ensemble mean
         reaches \SI{0.030}{K} against \SI{0.020}{K} for the neighbour average. Single samples are
         1.6 times more dispersed than the true within-window variability.
-  \item \textbf{The error sits below \SI{1200}{m}}, as a warm bias of one to two tenths of a kelvin in the
+  \item \textbf{The error sits below \SI{1200}{m}} (Figure~\ref{fig:profile}), as a warm bias of one to two tenths of a kelvin in the
         deepest layers, where the anomaly distribution has the heaviest tails and about 2\,\% of training
         values fall outside the clipping range. The cold bias at the extreme corner run is the regime change
         at the edge of the training set.
   \item \textbf{Plumbing checks pass.} Salinity returns within \SI{0.03}{psu} of 35 without any constraint,
-        land is exact, and the fraction of temperature inversions matches the truth.
+        land is exact, and the fraction of temperature inversions matches the truth. Figure~\ref{fig:samples} shows
+        random samples next to the true state at three depths.
 \end{enumerate}
 
 \begin{figure}[H]
@@ -121,6 +122,7 @@ Baselines are identical in both columns because they do not depend on the model.
 \caption{Domain-mean temperature over the parameter grid: truth, generated, and difference.
 Top: anomaly normalisation. Bottom: per-level normalisation. White dots mark training runs, red crosses
 the held-out runs.}
+\label{fig:grid}
 \end{figure}
 
 \begin{figure}[H]
@@ -128,6 +130,19 @@ the held-out runs.}
 \includegraphics[width=0.28\textwidth]{../full_anomaly/rmse_profile.png}
 \caption{Anomaly normalisation: RMSE against the truth by depth, mean over the held-out runs, for the
 diffusion ensemble mean and the three baselines.}
+\label{fig:profile}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../full_anomaly/samples_levels.png}
+\caption{Visual check for one held-out condition ($c_k=0.2$, $c_\epsilon=2.222$, anomaly model): the true
+20-year mean state (left column) and three random samples at the surface, at about \SI{650}{m} and at the
+bottom, for temperature (top three rows) and salinity (bottom three rows). Surface and mid-depth samples are
+indistinguishable from the truth; one sample departs visibly at the bottom, where the RMSE and the spread are
+largest. Salinity is \SI{35}{psu} everywhere in the truth; the salinity panels show the residual noise of the
+generator on a colour scale of a few hundredths of a psu. Grey is land.}
+\label{fig:samples}
 \end{figure}
 
 \section{Next steps}

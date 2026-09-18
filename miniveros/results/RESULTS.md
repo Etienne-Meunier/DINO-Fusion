@@ -61,3 +61,6 @@ Extraction 2.5 min on 8 CPU cores. Training 22 min per run on one A100. Generati
 
 `full_anomaly/`: `grid_domain_mean.png`, `sections_holdout.png`, `rmse_profile.png`, `samples_final.png`.
 `full_3std/`: same set. Raw metrics in `metrics.csv`, training curves in `train_log.csv`.
+`full_anomaly/samples_levels.png`: true state and three random samples of T and S at three depths for one
+hold-out condition (made with `plot_samples.py` from the hold-out samples and the raw runs).
+`report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).
