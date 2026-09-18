@@ -2,7 +2,7 @@
 # Submit a miniveros job.  usage:
 #   jobs/submit.sh extract        [extra extract_data.py args]
 #   jobs/submit.sh train          <train.py args, e.g. --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/x>
-#   jobs/submit.sh generate_eval  <run_dir> [n_samples]
+#   jobs/submit.sh generate_eval  <run_dir> [n_samples, default 32]
 # Account / QoS / constraint / log paths come from jz_env.sh next to this file (never from the tracked files).
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -20,7 +20,7 @@ case "$JOB" in
     sbatch --account="$MV_ACCOUNT_GPU" --qos="$MV_QOS_GPU" --constraint="$MV_GPU_CONSTRAINT" \
            --output="$MV_WORK/logs/train_%j.out" --error="$MV_WORK/logs/train_%j.out" --export=ALL "$HERE/train.sbatch" ;;
   generate_eval)
-    export MV_RUN_DIR="$1"; export MV_NSAMPLES="${2:-8}"
+    export MV_RUN_DIR="$1"; export MV_NSAMPLES="${2:-32}"
     sbatch --account="$MV_ACCOUNT_GPU" --qos="$MV_QOS_GPU" --constraint="$MV_GPU_CONSTRAINT" \
            --output="$MV_WORK/logs/geneval_%j.out" --error="$MV_WORK/logs/geneval_%j.out" --export=ALL "$HERE/generate_eval.sbatch" ;;
   *) echo "unknown job '$JOB' (extract|train|generate_eval)" >&2; exit 1 ;;

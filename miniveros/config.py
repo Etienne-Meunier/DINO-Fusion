@@ -58,7 +58,7 @@ class Config:
     seed: int = 0
 
     # ---- sampling / evaluation
-    n_samples: int = 8           # samples per condition
+    n_samples: int = 32          # samples per condition (evaluation uses their ensemble mean; 32 halves the Monte-Carlo noise of 8)
     guidance_scale: float = 1.0  # 1.0 = plain conditional sampling
 
     def save(self, path: str | Path) -> None:

@@ -46,6 +46,19 @@ Data range under this normalisation: with k = 3, 99.4 % of the training temperat
 sampler's clip range [-1, 1]; the exceptions are the cold southern boundary between 650 and 1400 m and the
 bottom two levels, whose extremes are clipped at sampling. Salinity is exactly 0 everywhere.
 
+## Samples per condition: 8 versus 32 (same model, same hold-out runs)
+
+| | 8 samples | 32 samples |
+|---|---|---|
+| diffusion ensemble mean / RMSE (K) | 0.154 ± 0.018 | 0.150 ± 0.007 |
+| diffusion single sample / RMSE (K) | 0.188 | 0.186 |
+| diffusion / ensemble spread (K)    | 0.105 | 0.110 |
+
+More samples remove only the Monte-Carlo noise of the ensemble mean (the predicted 0.004 K), not the bias
+or the collapse toward the mean state. Generating 320 samples took 86 s on one A100, so 32 samples per
+condition is now the default (`n_samples` in the config, `submit.sh` and `campaign.sh`); the grid map keeps
+4 samples per condition.
+
 ## Cost
 
 Extraction 2.5 min on 8 CPU cores. Training 22 min on one A100. Generation of 80 hold-out and 400 grid

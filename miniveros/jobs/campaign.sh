@@ -31,7 +31,7 @@ for MODE in "${MODES[@]}"; do
   export MV_ARGS="--preset full --set data_file=$MV_DATA run_dir=$RUN norm_mode=$MODE"
   J_TRAIN=$(sb --dependency=afterok:"$J_EXTRACT" "${GPU[@]}" \
                --output="$MV_WORK/logs/train_${TAG}_%j.out" --error="$MV_WORK/logs/train_${TAG}_%j.out" "$HERE/train.sbatch")
-  export MV_RUN_DIR="$RUN" MV_NSAMPLES=8
+  export MV_RUN_DIR="$RUN" MV_NSAMPLES=32
   J_EVAL=$(sb --dependency=afterok:"$J_TRAIN" "${GPU[@]}" \
               --output="$MV_WORK/logs/geneval_${TAG}_%j.out" --error="$MV_WORK/logs/geneval_${TAG}_%j.out" "$HERE/generate_eval.sbatch")
   echo "$MODE: train job $J_TRAIN -> generate_eval job $J_EVAL   run_dir $RUN"

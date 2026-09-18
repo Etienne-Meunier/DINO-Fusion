@@ -54,7 +54,7 @@ python extract_data.py --raw-dir <raw> --out data/veros_acc_TS.npz          # on
 python -m tests.test_roundtrip [data/veros_acc_TS.npz]                     # seconds, CPU
 python train.py --preset dev  --set data_file=data/veros_acc_TS.npz run_dir=runs/dev
 python train.py --preset full --set data_file=... run_dir=runs/full_3std
-python generate.py --run-dir runs/full_3std --holdout --n-samples 8
+python generate.py --run-dir runs/full_3std --holdout            # 32 samples per condition by default
 python generate.py --run-dir runs/full_3std --grid --n-samples 4
 python evaluate.py --data-file ... --samples runs/full_3std/samples/holdout_*.npz --grid-samples runs/full_3std/samples/grid_*.npz
 ```
@@ -74,7 +74,7 @@ copy `jz_env.example.sh`, fill it in on the cluster, then
 ```bash
 jobs/submit.sh extract
 jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/full_3std
-jobs/submit.sh generate_eval $MV_WORK/runs/full_3std 8
+jobs/submit.sh generate_eval $MV_WORK/runs/full_3std      # 32 samples per hold-out condition by default
 jobs/campaign.sh 3-std              # or the whole chain at once: extract -> train -> generate_eval
 ```
 
