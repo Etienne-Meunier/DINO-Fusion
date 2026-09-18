@@ -24,7 +24,7 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
 | `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
 | `holdout_runs`, `train_runs` | | the split, chosen before statistics |
-| `lvl_mean/std` `(2, 15)`, `cell_mean/std` `(2, 15, 42, 30)` | | normalisation statistics, train split only |
+| `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics, train split only |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
 
 Salinity is exactly 35 in every water cell of every run. It is carried through the whole pipeline
@@ -36,10 +36,9 @@ so the code handles two active fields, but it contains no information in this da
 fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0--> --pad--> (30,48,32)
 ```
 
-* **Normalisation** (`norm_mode`): `anomaly` = per grid cell `(x - mean_cell) / (k * std_cell)`;
-  `3-std` = per level, DINO's choice. Both floor the std (`std_floor`) so salinity maps to exactly 0.
-  Run-to-run differences are a few percent of the spatial structure in the upper ocean, so `anomaly`
-  is the default; both are evaluated.
+* **Normalisation** (`norm_mode`, `"<k>-std"`): per vertical level, `(x - mean_z) / (k * std_z)`, as in
+  DINO-Fusion, with statistics from the training runs only. The std is floored (`std_floor`) so the
+  constant salinity maps to exactly 0.
 * **Padding**: zeros, `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
   four times. Padding equals the land value.
 * **Model**: diffusers `UNet2DModel` (64, 64, 128, 128), plus an MLP that maps the standardised
@@ -54,10 +53,10 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
 python extract_data.py --raw-dir <raw> --out data/veros_acc_TS.npz          # once, CPU
 python -m tests.test_roundtrip [data/veros_acc_TS.npz]                     # seconds, CPU
 python train.py --preset dev  --set data_file=data/veros_acc_TS.npz run_dir=runs/dev
-python train.py --preset full --set data_file=... run_dir=runs/full_anomaly norm_mode=anomaly
-python generate.py --run-dir runs/full_anomaly --holdout --n-samples 8
-python generate.py --run-dir runs/full_anomaly --grid --n-samples 4
-python evaluate.py --data-file ... --samples runs/full_anomaly/samples/holdout_*.npz --grid-samples runs/full_anomaly/samples/grid_*.npz
+python train.py --preset full --set data_file=... run_dir=runs/full_3std
+python generate.py --run-dir runs/full_3std --holdout --n-samples 8
+python generate.py --run-dir runs/full_3std --grid --n-samples 4
+python evaluate.py --data-file ... --samples runs/full_3std/samples/holdout_*.npz --grid-samples runs/full_3std/samples/grid_*.npz
 ```
 
 Any `Config` field can be overridden with `--set key=value`. Re-running `train.py` with the same
@@ -74,9 +73,9 @@ copy `jz_env.example.sh`, fill it in on the cluster, then
 
 ```bash
 jobs/submit.sh extract
-jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/full_anomaly
-jobs/submit.sh generate_eval $MV_WORK/runs/full_anomaly 8
-jobs/campaign.sh anomaly 3-std      # or the whole chain at once: extract -> train per mode -> generate_eval
+jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/full_3std
+jobs/submit.sh generate_eval $MV_WORK/runs/full_3std 8
+jobs/campaign.sh 3-std              # or the whole chain at once: extract -> train -> generate_eval
 ```
 
 ## Evaluation

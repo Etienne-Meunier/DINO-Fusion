@@ -4,7 +4,7 @@ Input : ``<raw_dir>/ck<ck>_eps<eps>.npz`` files, one per run. Each holds arrays 
         (t, x, y, z) including 2 ghost cells on each horizontal side, plus ``time`` (s), ``zt`` (m).
 Output: one uncompressed npz with, for every kept snapshot of every run,
         temp/salt as float32 (N, Z, Y, X) on the interior grid, the run parameters, the land mask,
-        the train/hold-out split, and the normalisation statistics computed on the TRAIN split only.
+        the train/hold-out split, and the per-level normalisation statistics computed on the TRAIN split only.
 
 Only T and S are read (by seeking inside the zip, the other variables are never touched).
 """
@@ -156,7 +156,6 @@ def main(argv=None):
     # ---- normalisation statistics on TRAIN samples only (float64 accumulation, chunked)
     F = len(fields)
     lvl_mean, lvl_std = np.zeros((F, nz)), np.zeros((F, nz))
-    cell_mean, cell_std = np.zeros((F, nz, ny, nx)), np.ones((F, nz, ny, nx))
     tr_idx = np.where(is_train)[0]
     for fi, name in enumerate(fields):
         s1 = np.zeros((nz, ny, nx)); s2 = np.zeros((nz, ny, nx))
@@ -164,8 +163,6 @@ def main(argv=None):
             blk = data[name][tr_idx[c:c + 2000]].astype(np.float64)
             s1 += blk.sum(0); s2 += (blk ** 2).sum(0)
         n = len(tr_idx)
-        mu = s1 / n; var = np.maximum(s2 / n - mu ** 2, 0.0)
-        cell_mean[fi] = np.where(water, mu, 0.0); cell_std[fi] = np.where(water, np.sqrt(var), 1.0)
         for z in range(nz):
             w = water[z]
             if w.any():
@@ -187,7 +184,7 @@ def main(argv=None):
              ck=run_ck[run_id].astype(np.float32), eps=run_eps[run_id].astype(np.float32),
              run_names=np.array(run_names), run_ck=run_ck, run_eps=run_eps,
              mask_land=land_mask, zt=zt, holdout_runs=holdout, train_runs=train_runs,
-             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std, cell_mean=cell_mean, cell_std=cell_std,
+             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std,
              cond_keys=cond_keys, cond_mean=cond_mean, cond_std=cond_std, meta=json.dumps(meta))
     os.replace(tmp, args.out)
 
@@ -197,11 +194,9 @@ def main(argv=None):
     for fi, name in enumerate(fields):
         x = data[name][tr_idx[::max(1, len(tr_idx) // 2000)]]                    # subsample for the range check
         lvl = np.abs(x - lvl_mean[fi][:, None, None]) / (3 * np.maximum(lvl_std[fi], 0.05)[:, None, None])
-        ano = np.abs(x - cell_mean[fi]) / (3 * np.maximum(cell_std[fi], 0.05))
         print(f"{name}: per-level mean range [{lvl_mean[fi].min():.3f}, {lvl_mean[fi].max():.3f}], "
               f"std range [{lvl_std[fi].min():.4f}, {lvl_std[fi].max():.4f}] | "
-              f"fraction of water values outside [-1,1] with k=3: per-level {float(lvl[:, water].__gt__(1).mean()):.4f}, "
-              f"anomaly {float(ano[:, water].__gt__(1).mean()):.4f}")
+              f"fraction of water values outside [-1,1] with 3-std: {float(lvl[:, water].__gt__(1).mean()):.4f}")
 
 
 if __name__ == "__main__":

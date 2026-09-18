@@ -24,9 +24,8 @@ class Config:
     paddings: tuple[int, int, int, int] = (1, 1, 3, 3)  # zeros added (x_left, x_right, y_low, y_high): 42x30 -> 48x32
 
     # ---- normalisation
-    norm_mode: str = "anomaly"   # "anomaly": per-cell (x-mean_cell)/(k*std_cell)  |  "<k>-std": per-level, DINO style
-    k_std: float = 3.0           # the k in both modes; 3 keeps the training data inside [-1, 1] for clip_sample
-    std_floor: float = 0.05      # std is floored before dividing: constant cells (salinity) would otherwise divide by ~0
+    norm_mode: str = "3-std"     # "<k>-std": per vertical level, (x - mean_z) / (k * std_z), as in DINO-Fusion
+    std_floor: float = 0.05      # std is floored before dividing: constant fields (salinity) would otherwise divide by ~0
 
     # ---- conditioning
     cond_keys: tuple[str, ...] = ("log_ck", "log_eps")

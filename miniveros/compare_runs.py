@@ -1,6 +1,6 @@
 """Side-by-side table of evaluation metrics for several runs.
 
-    python compare_runs.py results/full_anomaly results/full_3std
+    python compare_runs.py results/full_3std results/full_6std
 Each argument is a folder holding an evaluate.py ``metrics.csv``. Prints a markdown table of the
 mean over hold-out runs for every (method, metric) pair, one column per run.
 """

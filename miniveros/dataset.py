@@ -78,5 +78,5 @@ class VerosTSDataset(Dataset):
 
 def build_transform(data_file: str, cfg, device="cpu") -> FieldTransform:
     ds = np.load(data_file, allow_pickle=False)
-    return FieldTransform.from_dataset(ds, tuple(cfg.fields), cfg.norm_mode, cfg.k_std, cfg.std_floor,
+    return FieldTransform.from_dataset(ds, tuple(cfg.fields), cfg.norm_mode, cfg.std_floor,
                                        tuple(cfg.paddings), device=device)

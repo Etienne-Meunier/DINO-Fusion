@@ -5,12 +5,8 @@ Backward (``denormalise``): (..., C, Yp, Xp) -> unpad -> land to NaN -> un-norma
 
 Everything is batch-agnostic: leading dimensions are preserved.
 
-Two normalisation modes (see README):
-  * ``"<k>-std"``: per vertical level, ``(x - mean_z) / (k * std_z)`` - DINO-Fusion's choice.
-  * ``"anomaly"``: per grid cell,     ``(x - mean_cell) / (k * std_cell)`` - makes the across-run
-    signal O(1) everywhere, which matters here because the run-to-run differences are a few
-    percent of the spatial structure in the upper ocean.
-In both modes std is floored (``std_floor``) so constant fields (salinity == 35) map to exactly 0.
+Normalisation (``"<k>-std"``): per vertical level, ``(x - mean_z) / (k * std_z)``, as in DINO-Fusion.
+The std is floored (``std_floor``) so constant fields (salinity == 35) map to exactly 0.
 """
 from __future__ import annotations
 
@@ -42,7 +38,7 @@ class Concatener:
 
 class Normaliser:
     def __init__(self, mean: torch.Tensor, std: torch.Tensor, k: float, std_floor: float):
-        """mean/std: (C, 1, 1) for per-level mode or (C, Y, X) for per-cell mode."""
+        """mean/std: (C, 1, 1), one value per channel (= per field and level)."""
         self.mean = mean
         self.std = std.clamp_min(std_floor)
         self.k = k
@@ -105,7 +101,7 @@ class FieldTransform:
     # ------------------------------------------------------------------ construction
     @classmethod
     def from_dataset(cls, ds: dict | np.lib.npyio.NpzFile, fields: tuple[str, ...], norm_mode: str,
-                     k_std: float, std_floor: float, paddings: tuple[int, int, int, int],
+                     std_floor: float, paddings: tuple[int, int, int, int],
                      device: str | torch.device = "cpu") -> "FieldTransform":
         """``ds`` is the converted-dataset npz (see extract_data.py); stats were computed on the train split."""
         stats_fields = [str(f) for f in ds["stats_fields"]]
@@ -114,16 +110,11 @@ class FieldTransform:
         nz = land.shape[0]
         field_levels = {f: nz for f in fields}
         m = re.fullmatch(r"(\d+(?:\.\d+)?)-std", norm_mode)
-        if norm_mode == "anomaly":
-            mean = torch.as_tensor(np.asarray(ds["cell_mean"])[idx]).reshape(-1, *land.shape[-2:])   # (C, Y, X)
-            std = torch.as_tensor(np.asarray(ds["cell_std"])[idx]).reshape(-1, *land.shape[-2:])
-            k = k_std
-        elif m:
-            mean = torch.as_tensor(np.asarray(ds["lvl_mean"])[idx]).reshape(-1, 1, 1)               # (C, 1, 1)
-            std = torch.as_tensor(np.asarray(ds["lvl_std"])[idx]).reshape(-1, 1, 1)
-            k = float(m.group(1))
-        else:
-            raise ValueError(f"norm_mode must be 'anomaly' or '<k>-std', got {norm_mode!r}")
+        if not m:
+            raise ValueError(f"norm_mode must be '<k>-std' (e.g. '3-std'), got {norm_mode!r}")
+        mean = torch.as_tensor(np.asarray(ds["lvl_mean"])[idx]).reshape(-1, 1, 1)                   # (C, 1, 1)
+        std = torch.as_tensor(np.asarray(ds["lvl_std"])[idx]).reshape(-1, 1, 1)
+        k = float(m.group(1))
         land_c = land.repeat(len(fields), 1, 1)                                                         # (C, Y, X)
         return cls(field_levels, mean.float(), std.float(), land_c, k, std_floor, paddings, device)
 

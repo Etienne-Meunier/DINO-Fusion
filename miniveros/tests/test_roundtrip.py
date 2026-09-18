@@ -43,8 +43,6 @@ def synthetic_dataset(path: str, n_runs=4, n_snap=3, Z=15, Y=42, X=30, seed=0) -
              run_names=np.array([f"ck{c}_eps{e}" for c, e in zip(run_ck, run_eps)]), run_ck=run_ck, run_eps=run_eps,
              mask_land=mask, zt=np.linspace(-1942, -14, Z), holdout_runs=np.array([3]), train_runs=np.array([0, 1, 2]),
              stats_fields=np.array(["temp", "salt"]), lvl_mean=np.stack([tm, sm]), lvl_std=np.stack([ts, ss]),
-             cell_mean=np.stack([np.where(water, temp.mean(0), 0), np.where(water, salt.mean(0), 0)]),
-             cell_std=np.stack([np.where(water, temp.std(0), 1), np.where(water, salt.std(0), 1)]),
              cond_keys=np.array(["log_ck", "log_eps"]), cond_mean=cond.mean(0), cond_std=cond.std(0) + 1e-12,
              meta=json.dumps({"synthetic": True}))
     return path
@@ -53,9 +51,9 @@ def synthetic_dataset(path: str, n_runs=4, n_snap=3, Z=15, Y=42, X=30, seed=0) -
 def test_transforms(data_file: str):
     ds = np.load(data_file, allow_pickle=False)
     land = torch.as_tensor(ds["mask_land"])
-    for mode in ("anomaly", "3-std"):
+    for mode in ("3-std", "6-std"):
         cfg = Config(norm_mode=mode)
-        tr = FieldTransform.from_dataset(ds, ("temp", "salt"), mode, cfg.k_std, cfg.std_floor, cfg.paddings)
+        tr = FieldTransform.from_dataset(ds, ("temp", "salt"), mode, cfg.std_floor, cfg.paddings)
         temp = torch.as_tensor(ds["temp"][:5]); salt = torch.as_tensor(ds["salt"][:5])       # batch of 5
         x = tr.normalise({"temp": temp, "salt": salt})
         assert x.shape == (5, 30, 48, 32), x.shape

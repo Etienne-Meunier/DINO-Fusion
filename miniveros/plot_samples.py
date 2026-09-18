@@ -1,6 +1,6 @@
 """Visual check: random generated T and S states at three depth levels, next to the true time-mean state.
 
-    python plot_samples.py --samples runs/full_anomaly/samples/holdout_n8_s1000_ema.npz \
+    python plot_samples.py --samples runs/full_3std/samples/holdout_n8_s1000_ema.npz \
         (--data-file data/veros_acc_TS.npz | --raw-dir <raw runs>) [--run ck0.126_eps0.5556] [--n-samples 3] --out fig.png
 Rows: temperature then salinity at the chosen levels (default surface, ~650 m, bottom); columns: truth, then samples.
 """

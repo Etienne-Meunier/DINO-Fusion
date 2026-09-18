@@ -1,14 +1,14 @@
 #!/bin/bash
 # Submit the whole miniveros campaign as a SLURM dependency chain (all dev QoS, every job < 2 h):
 #     extract  ->  train (one job per normalisation mode)  ->  generate_eval (one per training run)
-# usage:  jobs/campaign.sh [norm_mode ...]        default modes: anomaly 3-std
+# usage:  jobs/campaign.sh [norm_mode ...]        default: 3-std   (modes are "<k>-std" variants)
 # Preconditions checked here: all raw runs present on SCRATCH with one identical file size.
 # Each job exits non-zero on failure (set -e), so dependants never start on garbage.
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 [ -f "$HERE/jz_env.sh" ] || { echo "missing $HERE/jz_env.sh" >&2; exit 1; }
 source "$HERE/jz_env.sh"
-MODES=("$@"); [ ${#MODES[@]} -gt 0 ] || MODES=(anomaly 3-std)
+MODES=("$@"); [ ${#MODES[@]} -gt 0 ] || MODES=(3-std)
 
 N=$(ls "$MV_RAW_DIR"/ck*_eps*.npz 2>/dev/null | wc -l)
 NSIZES=$(stat -c %s "$MV_RAW_DIR"/ck*_eps*.npz 2>/dev/null | sort -u | wc -l)
