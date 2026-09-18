@@ -1,0 +1,146 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\captionsetup{font=small}
+\setlength{\parskip}{4pt}
+
+\title{A conditional diffusion emulator of Veros ACC equilibrium states:\\first end-to-end results}
+\author{Redouane Lguensat}
+\date{18 September 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Summary}
+We trained a conditional denoising diffusion model to generate the post-spin-up temperature and salinity
+state of the Veros ACC channel configuration directly from the two coefficients of its eddy-kinetic-energy
+closure, $c_k$ and $c_\epsilon$. On ten held-out parameter pairs the eight-sample ensemble mean has an RMSE
+of \SI{0.030}{K} against the true 20-year mean state, with a domain-mean bias below \SI{1}{mK}, and the
+generated response over the full $10\times10$ parameter grid reproduces the true one. The choice of
+normalisation decides whether conditioning works at all: DINO-Fusion's per-level scaling makes the model
+collapse to the mean state (\SI{0.154}{K}), per-cell anomaly scaling does not. The emulator beats the nearest
+training run (\SI{0.037}{K}) but not yet the average of the four neighbouring runs on the grid
+(\SI{0.020}{K}). The full chain costs under one A100 hour.
+
+\section{Data}
+One hundred Veros ACC runs on a complete $10\times10$ log-spaced grid, $c_k\in[0.0125,\,0.8]$ and
+$c_\epsilon\in[0.0875,\,5.6]$, 100 years each with 30-day output on a $30\times42\times15$ interior grid
+(zonal, meridional, vertical). We keep temperature and salinity for the last 20 years of every run
+(241 snapshots per run). Three properties of the ensemble shape the problem:
+\begin{itemize}\itemsep1pt
+  \item Salinity is exactly \SI{35}{psu} in every water cell of every run; it is carried through the
+        pipeline as a second field but contains no information.
+  \item The end states are nearly deterministic: after removing the residual drift, the grid-point
+        temporal standard deviation is \SI{0.002}{K}, against \SI{0.05}{K} between neighbouring runs on
+        the grid and up to \SI{1.5}{K} between extremes. The runs still drift by 0.03 to \SI{0.12}{K}
+        in domain-mean temperature over the last 20 years, so the target is the state at year 100
+        rather than a true equilibrium.
+  \item The two parameters act almost as one: $\log c_k - 1.05\log c_\epsilon$ explains 99\,\% of the
+        variance of the domain-mean temperature, and the low-$c_k/c_\epsilon$ part of the grid saturates
+        to one state. The response lives between 600 and \SI{800}{m} and near the bottom, not at the
+        restored surface.
+\end{itemize}
+Ten interior grid points were held out at random before any statistic was computed; the remaining 90 runs
+(21\,690 snapshots) form the training set.
+
+\section{Method}
+The pipeline is a fork of the DINO-Fusion diffusion code adapted to a parameter ensemble.
+Temperature and salinity are stacked into 30 channels, normalised, set to zero on the fixed land mask, and
+zero-padded from $42\times30$ to $48\times32$ so the UNet can halve the grid four times. Two normalisations
+were trained with otherwise identical settings:
+\begin{align*}
+  \text{per level (DINO):}\quad & x' = (x-\mu_z)/(3\sigma_z), \\
+  \text{per cell (anomaly):}\quad & x' = (x-\mu_{zyx})/(3\max(\sigma_{zyx},\,0.05)),
+\end{align*}
+with statistics from the training runs only. The floor keeps the constant salinity at exactly zero.
+The denoiser is a four-level UNet2DModel (64, 64, 128, 128 channels, 6.9\,M parameters). The standardised
+$(\log c_k,\log c_\epsilon)$ pair passes through a small MLP whose output is added to the timestep
+embedding. Training is the standard DDPM $\epsilon$-prediction objective with 1000 steps, a squared-cosine
+schedule, sample clipping, AdamW at $10^{-4}$ with cosine decay, batch 32, 20\,000 steps and an EMA of the
+weights. Sampling runs the 1000-step DDPM loop with the EMA weights and re-imposes zeros on land and padding
+after every step.
+
+\section{Evaluation}
+For each held-out run we draw eight samples at its $(c_k,c_\epsilon)$ and compare, on water cells, with the
+true time-mean state of the last 20 years. Baselines: the mean training state, the nearest training run in
+standardised log-parameter space, and the average of the axis-neighbour training runs on the grid.
+We also generate four samples for every one of the 100 grid points to compare the map of domain-mean
+temperature with the truth.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrr}
+\toprule
+ & anomaly & per level \\
+\midrule
+diffusion, ensemble mean of 8: RMSE (K) & $0.030 \pm 0.009$ & $0.154 \pm 0.018$ \\
+diffusion, single sample: RMSE (K) & 0.072 & 0.188 \\
+neighbour average: RMSE (K) & $0.020 \pm 0.011$ & $0.020 \pm 0.011$ \\
+nearest training run: RMSE (K) & $0.037 \pm 0.027$ & $0.037 \pm 0.027$ \\
+mean training state: RMSE (K) & $0.155 \pm 0.030$ & $0.155 \pm 0.030$ \\
+diffusion: domain-mean bias (K) & $-0.0002$ & $-0.028$ \\
+ensemble spread / true within-window spread (K) & 0.049 / 0.031 & 0.105 / 0.031 \\
+interfaces with $T$ decreasing upward, generated / truth & 8.4\,\% / 7.7\,\% & 9.5\,\% / 7.7\,\% \\
+max salinity error (psu) & 0.028 & 0.010 \\
+domain-mean $T$ map, RMSE on hold-out / all runs (K) & 0.012 / 0.045 & 0.030 / 0.049 \\
+\bottomrule
+\end{tabular}
+\caption{Hold-out metrics, mean $\pm$ standard deviation over the ten held-out runs, water cells only.
+Baselines are identical in both columns because they do not depend on the model.}
+\end{table}
+
+
+\section{Findings}
+\begin{enumerate}\itemsep1pt
+  \item \textbf{Normalisation decides whether conditioning works.} The run-to-run signal is about
+        2\,\% of the spatial structure in the upper ocean, so under per-level scaling the conditional
+        model sees almost no signal and reproduces the training mean; its parameter map is flat and noisy.
+        Per-cell anomaly scaling makes the signal order one everywhere and the model follows the parameters,
+        including the warm high-$c_k$, low-$c_\epsilon$ corner.
+  \item \textbf{Better than the nearest run, not yet better than grid interpolation.} The ensemble mean
+        reaches \SI{0.030}{K} against \SI{0.020}{K} for the neighbour average. Single samples are
+        1.6 times more dispersed than the true within-window variability.
+  \item \textbf{The error sits below \SI{1200}{m}}, as a warm bias of one to two tenths of a kelvin in the
+        deepest layers, where the anomaly distribution has the heaviest tails and about 2\,\% of training
+        values fall outside the clipping range. The cold bias at the extreme corner run is the regime change
+        at the edge of the training set.
+  \item \textbf{Plumbing checks pass.} Salinity returns within \SI{0.03}{psu} of 35 without any constraint,
+        land is exact, and the fraction of temperature inversions matches the truth.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{../full_anomaly/grid_domain_mean.png}\\[4pt]
+\includegraphics[width=0.86\textwidth]{../full_3std/grid_domain_mean.png}
+\caption{Domain-mean temperature over the parameter grid: truth, generated, and difference.
+Top: anomaly normalisation. Bottom: per-level normalisation. White dots mark training runs, red crosses
+the held-out runs.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.28\textwidth]{../full_anomaly/rmse_profile.png}
+\caption{Anomaly normalisation: RMSE against the truth by depth, mean over the held-out runs, for the
+diffusion ensemble mean and the three baselines.}
+\end{figure}
+
+\section{Next steps}
+Raise the anomaly scale to four standard deviations or disable clipping; draw 32 samples per condition,
+since the ensemble mean is what competes with the baselines; hold out the whole $c_k=0.8$ row to test the
+regime corner; try classifier-free guidance to sharpen a small conditioning signal; and add the year as a
+third condition to absorb the residual drift. The longer-term target is the same pipeline on a global Veros
+configuration, where active salinity, seasonal forcing and multi-century spin-up make the generative
+formulation and the density constraints of DINO-Fusion relevant.
+
+\paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}, commit
+\texttt{f912e66} for the runs reported here. Extraction takes 2.5 minutes on 8 CPU cores, each training
+22 minutes on one A100, generation and evaluation 3.5 minutes per run; the whole dependency chain ran on the
+development queue in under one GPU hour.
+
+\end{document}
