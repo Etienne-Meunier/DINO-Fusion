@@ -159,13 +159,14 @@ $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
   \item Stronger conditioning: classifier-free guidance; year as a third condition (drift of \SI{0.45}{K}
         at the bottom inside the window).
   \item Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread--skill).
-  \item Larger clip range or scale factor where extrapolation matters.
+  \item For extrapolation, a range limit that does not loosen the clip: per-level clip bounds from the data range
+        instead of a single wider range.
   \item Then: same pipeline on a global Veros configuration (active $S$, seasonal cycle, multi-century spin-up).
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package
 \texttt{miniveros/}; commit \texttt{5fdcf01} for the three runs reported here (training at \texttt{2b542aa}, sampling with the clip range of \texttt{5fdcf01}). Extraction
-\SI{2.5}{min} (8 cores), training \SI{22}{min} (one A100), generation + evaluation \SI{3.5}{min}.
+\SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation + evaluation \SI{3.5}{min}.
 
 \begin{figure}[!htb]
 \centering
