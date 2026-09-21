@@ -9,7 +9,7 @@ cd "$MV_CODE"
 echo "job $SLURM_JOB_ID on $(hostname) | git ${MV_GIT_HASH:-?} | $(date)"
 echo "run_dir: $MV_RUN_DIR | n_samples: $MV_NSAMPLES"
 python generate.py --run-dir "$MV_RUN_DIR" --holdout --n-samples "$MV_NSAMPLES"
-python generate.py --run-dir "$MV_RUN_DIR" --grid    --n-samples 4
+python generate.py --run-dir "$MV_RUN_DIR" --grid    --n-samples "$MV_NSAMPLES"
 HOLD=$(ls -t "$MV_RUN_DIR"/samples/holdout_*.npz | head -1); GRID=$(ls -t "$MV_RUN_DIR"/samples/grid_*.npz | head -1)
 python evaluate.py --data-file "$MV_DATA" --samples "$HOLD" --grid-samples "$GRID" --out-dir "$MV_RUN_DIR/eval"
 echo "done $(date)"
