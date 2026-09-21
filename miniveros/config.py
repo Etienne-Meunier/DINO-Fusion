@@ -41,7 +41,8 @@ class Config:
     num_inference_steps: int = 1000
     beta_schedule: str = "squaredcos_cap_v2"
     clip_sample: bool = True
-    clip_sample_range: float = 3.0   # in normalised units; 3 = never clips a real state (max |x'| is 2.6), only sampler excursions
+    clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
+                                     # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
 
     # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)
