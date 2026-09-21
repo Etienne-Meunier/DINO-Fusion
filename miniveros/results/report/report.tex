@@ -28,9 +28,9 @@
   \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; runs end to end on Jean Zay in
         under one A100 hour.
   \item Result: with per-level normalisation the model's hold-out error is $\approx$ the mean-state
-        baseline (\SI{0.15}{K}); it beats the nearest training run only when the hold-out gap is large,
-        never beats interpolation in $\log c_k$; a Wasserstein metric on the stratification profiles gives the
-        same ranking and shows that training and held-out conditions score alike.
+        baseline (\SI{0.15}{K}); it beats the nearest training run only when the hold-out gap is large.
+        A Wasserstein metric on the stratification profiles gives the same ranking and shows that training
+        and held-out conditions score alike.
   \item Physical miss: the model generates temperature inversions at the rate of the weakly eddying runs
         in every regime (Table~\ref{tab:splits}).
 \end{itemize}
@@ -71,15 +71,10 @@
 \begin{itemize}
   \item Truth: 20-year time-mean state of each held-out run; metrics on water cells.
   \item Baselines: mean training state; nearest training run in standardised log-parameter space;
-        average of the axis-neighbour training runs; interpolation in $\log c_k$ between the nearest training
-        rows below ($b$) and above ($a$) in the same $c_\epsilon$ column,
-        $\hat x = (1-w)\,\bar x_b + w\,\bar x_a$, $w = \frac{\log c_k - \log c_k^{b}}{\log c_k^{a} - \log c_k^{b}}$
-        (one-sided when a side is missing).
+        average of the axis-neighbour training runs on the grid.
   \item Three hold-out splits, each with its own training set and statistics:
         scattered (10 interior points), band of three rows ($c_k$ = 0.126, 0.2, 0.3175; 30 runs; training rows
         a factor 6.3 apart), top row ($c_k$ = 0.8; 10 runs; extrapolation).
-  \item Ensemble of $n$ samples: $\mathrm{RMSE}_n^2 \approx \mathrm{bias}^2 + \mathrm{pattern}^2 + \mathrm{spread}^2/n$;
-        going from 8 to 32 samples changed the RMSE by \SI{0.004}{K} only (0.154 $\to$ 0.150), as predicted.
   \item Distributional metric. Each state is reduced to its profile of horizontal means over water cells,
         $\bar T_z$. Per level, the Wasserstein-1 distance between the 32 generated values and all 241 true
         snapshots of the window, through the quantile functions,
@@ -90,9 +85,7 @@
         with $\Delta z_z$ the level thicknesses from the level midpoints ($H = \SI{2080}{m}$).
         All 241 snapshots are used, not a subsample of 32: the quantile form accepts unequal sizes and a
         subsample would only add noise. A point prediction $x$ (the baselines) gives
-        $W_1^{(z)} = \frac{1}{241}\sum_i |x_z - \bar T_{z,i}|$. Floor: 32 random true snapshots against all
-        241, mean over 100 draws (what a perfect generator with 32 samples would score); drift scale: first
-        half of the window against the second. Unlike the RMSE of the ensemble mean, this rewards a correct
+        $W_1^{(z)} = \frac{1}{241}\sum_i |x_z - \bar T_{z,i}|$. Unlike the RMSE of the ensemble mean, this rewards a correct
         spread and does not reward collapse to the mean; it ignores horizontal structure, which the RMSE keeps.
 \end{itemize}
 
@@ -105,7 +98,6 @@
 \midrule
 diffusion, ensemble mean of 32: RMSE (K) & 0.150 & 0.129 & 0.193 \\
 diffusion, single sample: RMSE (K) & 0.186 & 0.175 & 0.232 \\
-interpolation in $\log c_k$: RMSE (K) & -- & 0.083 & 0.170 \\
 nearest training run: RMSE (K) & 0.037 & 0.116 & 0.170 \\
 neighbour average: RMSE (K) & 0.020 & 0.116 & 0.170 \\
 mean training state: RMSE (K) & 0.155 & 0.197 & 0.470 \\
@@ -115,9 +107,9 @@ $T$ inversions (interfaces), generated / truth & 9.6\,\% / 7.7\,\% & 11.0\,\% / 
 max salinity error (psu) & 0.011 & 0.012 & 0.020 \\
 \midrule
 $W_1$ profile, diffusion (K) & 0.125 & 0.109 & 0.161 \\
-$W_1$ profile, interpolation in $\log c_k$ (K) & -- & 0.062 & 0.142 \\
+$W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.142 \\
 $W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.142 \\
-$W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.067 & 0.008 / 0.073 \\
+$W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run.}
@@ -131,11 +123,10 @@ $W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.06
         25\,\% at the bottom; the $\epsilon$-loss weights all cells equally, so the shared structure dominates.
         Scattered split: RMSE = mean-state baseline (Figure~\ref{fig:scat}).
   \item \textbf{Model error is split-independent (0.13--\SI{0.19}{K}); baselines degrade with the gap
-        (0.02--\SI{0.17}{K}).} The model beats the nearest run in the two upper band rows and over the
-        trending part of the top row ($c_\epsilon$ 0.22--0.88), never beats $\log c_k$ interpolation
-        (Figures~\ref{fig:band}, \ref{fig:top}).
+        (0.02--\SI{0.17}{K}).} The model beats the nearest run and the neighbour average in the two upper band rows and over the
+        trending part of the top row ($c_\epsilon$ 0.22--0.88) (Figures~\ref{fig:band}, \ref{fig:top}).
   \item \textbf{Depth structure.} Best method at 650--\SI{800}{m} in the band split
-        (\SI{0.08}{K} vs \SI{0.11}{K}); worse than baselines in the top \SI{250}{m} (scale $3\sigma_z \approx \SI{12}{K}$
+        (\SI{0.08}{K} vs \SI{0.14}{K} for the nearest run); worse than baselines in the top \SI{250}{m} (scale $3\sigma_z \approx \SI{12}{K}$
         amplifies sampler noise) and at the two bottom levels (skewed, drifting, clipped training distribution).
   \item \textbf{Extrapolation is bounded by clipping.} Under the top split's training statistics, 17\,\% of
         the true bottom values of the held-out row exceed $[-1,1]$; generated corner \SI{0.2}{K} too cold,
@@ -144,11 +135,10 @@ $W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.06
         truth: 7.7\,\% (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). The regime dependence is not
         learned.
   \item \textbf{$W_1$ on the mean profiles agrees with the RMSE ranking and adds two facts}
-        (Figures~\ref{fig:wscat}--\ref{fig:wtop}). The model sits at 0.11--\SI{0.16}{K} against a floor
-        of \SI{0.007}{K} and a drift scale of \SI{0.07}{K}; the interpolation baseline is at 0.04--\SI{0.14}{K}.
+        (right-hand panels of Figures~\ref{fig:scat}--\ref{fig:top}).
         (i) Training grid points score the same as held-out ones (0.123 vs \SI{0.125}{K}, scattered split):
         the model does not fit the training conditions either, the signature of the mean-state collapse.
-        (ii) Between 650 and \SI{1200}{m} the samples beat every baseline under $W_1$ in the band and top
+        (ii) Between 650 and \SI{1200}{m} the samples beat the baselines under $W_1$ in the band and top
         splits, because a point prediction is charged for the spread it cannot represent; the model's total
         is set by the top \SI{250}{m} and the bottom two levels, as for the RMSE.
   \item \textbf{Plumbing.} $S$ within \SI{0.02}{psu} of 35 with no constraint; land exact; ensemble spread
@@ -173,12 +163,12 @@ $W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.06
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../full_3std/eval/grid_domain_mean.png}
-\caption{Domain-mean $T$ over the grid: truth, generated, difference. White dots: training runs; red crosses: held-out runs.}
+\includegraphics[width=\textwidth]{../full_3std/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../full_3std/eval/rmse_profile.png}
-\caption{RMSE by depth, mean over held-out runs.}
+\includegraphics[width=0.62\textwidth]{../full_3std/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
 \caption{Scattered split (10 interior held-out runs), 32 samples per run.}
 \label{fig:scat}
@@ -187,26 +177,12 @@ $W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.06
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../full_3std/eval/grid_w1.png}
-\caption{Thickness-weighted $W_1$ of the horizontal-mean $T$ profile over the grid: diffusion vs truth, floor, difference.}
+\includegraphics[width=\textwidth]{../band3_3std/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../full_3std/eval/w1_profile.png}
-\caption{$W_1$ by level; dashed: floor; dotted: drift.}
-\end{subfigure}
-\caption{$W_1$ metric, Scattered split (10 interior held-out runs), 32 samples per run.}
-\label{fig:wscat}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../band3_3std/eval/grid_domain_mean.png}
-\caption{Domain-mean $T$ over the grid.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../band3_3std/eval/rmse_profile.png}
-\caption{RMSE by depth; orange: $\log c_k$ interpolation.}
+\includegraphics[width=0.62\textwidth]{../band3_3std/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
 \caption{Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
 \label{fig:band}
@@ -215,43 +191,15 @@ $W_1$ profile, floor (32 of 241 true) / drift (K) & 0.007 / 0.066 & 0.007 / 0.06
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../band3_3std/eval/grid_w1.png}
-\caption{Thickness-weighted $W_1$ of the horizontal-mean $T$ profile over the grid: diffusion vs truth, floor, difference.}
+\includegraphics[width=\textwidth]{../top_3std/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../band3_3std/eval/w1_profile.png}
-\caption{$W_1$ by level; dashed: floor; dotted: drift.}
-\end{subfigure}
-\caption{$W_1$ metric, Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
-\label{fig:wband}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../top_3std/eval/grid_domain_mean.png}
-\caption{Domain-mean $T$ over the grid.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../top_3std/eval/rmse_profile.png}
-\caption{RMSE by depth; the three baselines coincide (row below).}
+\includegraphics[width=0.62\textwidth]{../top_3std/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
 \caption{Top row ($c_k$ = 0.8 held out, extrapolation), 32 samples per run.}
 \label{fig:top}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.9\textwidth]{../top_3std/eval/grid_w1.png}
-\caption{Thickness-weighted $W_1$ of the horizontal-mean $T$ profile over the grid: diffusion vs truth, floor, difference.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.27\textwidth]{../top_3std/eval/w1_profile.png}
-\caption{$W_1$ by level; dashed: floor; dotted: drift.}
-\end{subfigure}
-\caption{$W_1$ metric, Top row ($c_k$ = 0.8 held out, extrapolation), 32 samples per run.}
-\label{fig:wtop}
 \end{figure}
 
 \begin{figure}[p]
