@@ -4,7 +4,9 @@
                        [--grid-samples runs/full/samples/grid_n4_s1000_ema.npz] [--out-dir runs/full/eval]
 
 Metrics are computed on water cells only. Baselines: the mean training state, the nearest training run in
-standardised log-parameter space, and the average of the axis-neighbour training runs on the parameter grid.
+standardised log-parameter space, the average of the axis-neighbour training runs on the parameter grid, and
+linear interpolation in log c_k between the nearest training rows below and above in the same c_eps column
+(one-sided, i.e. the nearest row, when training rows exist on one side only, as in an extrapolation split).
 """
 from __future__ import annotations
 
@@ -70,17 +72,29 @@ def main(argv=None):
               ((ick[i] == ick[r] and abs(ieps[i] - ieps[r]) == 1) or (ieps[i] == ieps[r] and abs(ick[i] - ick[r]) == 1))]
         return (tmean[nb].mean(0), len(nb)) if nb else (tmean[nearest_train(r)], 0)
 
+    def interp_ck(r):
+        """Linear interpolation in log c_k between the nearest training rows below and above, same c_eps column."""
+        col = [i for i in range(len(run_ck)) if i in train_runs and ieps[i] == ieps[r]]
+        below = [i for i in col if ick[i] < ick[r]]; above = [i for i in col if ick[i] > ick[r]]
+        if below and above:
+            b = max(below, key=lambda i: ick[i]); a_ = min(above, key=lambda i: ick[i])
+            w = (lc[r] - lc[b]) / (lc[a_] - lc[b])
+            return (1 - w) * tmean[b] + w * tmean[a_], 0
+        i = max(below, key=lambda i: ick[i]) if below else min(above, key=lambda i: ick[i])
+        return tmean[i], 1
+
     rows = []
     def add(run, method, metric, value):
         rows.append((run_names[run], method, metric, float(value)))
 
     gen_rid = np.asarray(gs["run_id"]); gT = gs["temp"]; gS = gs["salt"]                # (n_cond, n_s, Z, Y, X)
-    lvl_rmse = {"diffusion_mean": [], "neighbour_avg": [], "nearest_train": [], "train_mean": []}
+    lvl_rmse = {"diffusion_mean": [], "interp_ck": [], "neighbour_avg": [], "nearest_train": [], "train_mean": []}
     for k, r in enumerate(gen_rid):
         r = int(r)
         truth = tmean[r]; gen = np.nan_to_num(gT[k]); ens = gen.mean(0)
-        nb_state, n_nb = neighbour_avg(r); nt_state = tmean[nearest_train(r)]
-        cands = {"diffusion_mean": ens, "neighbour_avg": nb_state, "nearest_train": nt_state, "train_mean": train_mean_state}
+        nb_state, n_nb = neighbour_avg(r); nt_state = tmean[nearest_train(r)]; ip_state, one_sided = interp_ck(r)
+        cands = {"diffusion_mean": ens, "interp_ck": ip_state, "neighbour_avg": nb_state, "nearest_train": nt_state,
+                 "train_mean": train_mean_state}
         for m, st in cands.items():
             add(r, m, "rmse_K", rmse(st, truth, water))
             add(r, m, "bias_domain_mean_K", st[water].mean() - truth[water].mean())
@@ -92,6 +106,7 @@ def main(argv=None):
         add(r, "diffusion", "temp_inversion_frac", np.mean([temp_inversion_fraction(g, water) for g in gen]))
         add(r, "truth", "temp_inversion_frac", temp_inversion_fraction(truth, water))
         add(r, "neighbour_avg", "n_neighbours", n_nb)
+        add(r, "interp_ck", "one_sided", one_sided)
 
     with open(out_dir / "metrics.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(["run", "method", "metric", "value"]); w.writerows(rows)
@@ -102,10 +117,12 @@ def main(argv=None):
         return (np.mean(v), np.std(v)) if v else (np.nan, np.nan)
     lines = [f"hold-out runs: {len(gen_rid)} | samples/run: {gT.shape[1]} | norm_mode={gs['norm_mode']} | weights={gs['weights']} | steps={int(gs['steps'])}",
              "", f"{'method':<18}{'RMSE(K) mean±std':>22}{'|bias|(K)':>12}"]
-    for m in ["diffusion_mean", "diffusion_sample", "neighbour_avg", "nearest_train", "train_mean"]:
+    for m in ["diffusion_mean", "diffusion_sample", "interp_ck", "neighbour_avg", "nearest_train", "train_mean"]:
         mu, sd = agg(m, "rmse_K"); bias = np.mean([abs(x[3]) for x in rows if x[1] == m and x[2] == "bias_domain_mean_K"]) if m != "diffusion_sample" else np.nan
         lines.append(f"{m:<18}{mu:>14.4f} ± {sd:<6.4f}{bias:>12.4f}")
-    lines += ["", f"ensemble spread (K): generated {agg('diffusion', 'spread_K')[0]:.4f} vs truth-in-window {agg('truth', 'spread_K')[0]:.4f}",
+    lines += [f"interp_ck one-sided (extrapolation) in {int(sum(x[3] for x in rows if x[1] == 'interp_ck' and x[2] == 'one_sided'))} of {len(gen_rid)} runs; "
+              f"neighbour_avg used {agg('neighbour_avg', 'n_neighbours')[0]:.1f} training neighbours on average",
+              "", f"ensemble spread (K): generated {agg('diffusion', 'spread_K')[0]:.4f} vs truth-in-window {agg('truth', 'spread_K')[0]:.4f}",
               f"interfaces with T decreasing upward: generated {100 * agg('diffusion', 'temp_inversion_frac')[0]:.3f}% vs truth {100 * agg('truth', 'temp_inversion_frac')[0]:.3f}% (truth has real inversions; compare, do not expect 0)",
               f"salinity max |S-35| over water: {agg('diffusion', 'salt_max_abs_err')[0]:.2e}"]
     (out_dir / "summary.txt").write_text("\n".join(lines) + "\n"); print("\n".join(lines))
