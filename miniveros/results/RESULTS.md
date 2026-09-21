@@ -114,6 +114,30 @@ What the three splits say together:
    constraint DINO-Fusion imposes at sampling time (isotonic projection of the density profile), and the
    natural next lever here.
 
+## Wasserstein-1 on stratification profiles (2026-09-21)
+
+Each state is reduced to its horizontal-mean temperature profile over water cells. Per level, W1 between the
+32 generated values and all 241 true snapshots of the window (quantile form, unequal sizes are fine; a
+subsample of 32 would only add noise); levels combined with thickness weights dz/H from the level midpoints
+(H = 2080 m). Point predictions (baselines): W1 = mean |x - T_i|. Floor: 32 random true snapshots vs all 241,
+mean of 100 draws. Drift scale: first vs second half of the window. Rewards a correct spread, does not reward
+collapse to the mean, ignores horizontal structure (kept by the RMSE).
+
+| thickness-weighted W1 (K) | scattered | band of three rows | top row |
+|---|---|---|---|
+| diffusion, 32 samples | 0.125 | 0.109 | 0.161 |
+| interpolation in log ck | 0.036 | 0.062 | 0.142 |
+| neighbour average | 0.036 | 0.095 | 0.142 |
+| nearest training run | 0.044 | 0.095 | 0.142 |
+| training-set mean | 0.136 | 0.160 | 0.420 |
+| floor (32 of 241 true) | 0.007 | 0.007 | 0.008 |
+| drift (half vs half) | 0.066 | 0.067 | 0.073 |
+| grid map: mean W1, all / hold-out / training points | 0.123 / 0.125 / 0.123 | 0.115 / 0.107 / 0.119 | 0.120 / 0.160 / 0.116 |
+
+Same ranking as the RMSE. Two additions: training grid points score like held-out ones (mean-state
+collapse), and between 650 and 1200 m the samples beat every baseline under W1 in the band and top splits.
+Figures: `<run>/eval/grid_w1.png` (+ `.csv`) and `<run>/eval/w1_profile.png` (+ `.csv`); code in `wmetrics.py`.
+
 ## Cost
 
 Extraction 2.5 min on 8 CPU cores. Training 22 min on one A100. Generation of 80 hold-out and 400 grid
@@ -133,7 +157,7 @@ samples plus evaluation 3.5 min. Whole chain under one GPU hour on the dev QoS.
 `full_3std/`: `grid_domain_mean.png` (+ `.csv`), `sections_holdout.png`, `rmse_profile.png`, `samples_final.png`,
 `samples_levels.png` (true state and three random samples of T and S at three depths for one hold-out condition,
 made with `plot_samples.py`). Raw metrics in `metrics.csv`, training curves in `train_log.csv`.
-`band3_3std/eval/`, `top_3std/eval/`, `full_3std/eval_n32/`: the three-split evaluations (32 samples per run).
+`full_3std/eval/`, `band3_3std/eval/`, `top_3std/eval/`: the three-split evaluations (32 samples per run and per grid point, RMSE and W1 figures); `full_3std/eval_n32/` is the earlier 32-sample rerun without W1.
 `band3_3std/samples_levels.png` (condition ck0.2_eps2.222, middle held-out row) and `top_3std/samples_levels.png`
 (condition ck0.8_eps0.5556, extrapolation): the same visual check for the two other splits.
 `report/report.tex`, `report/report.pdf`: the short report on the scattered split (compile with `tectonic report.tex`).

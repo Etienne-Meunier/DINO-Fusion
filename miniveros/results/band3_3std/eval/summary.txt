@@ -7,6 +7,7 @@ interp_ck                 0.0832 ± 0.0480      0.0370
 neighbour_avg             0.1157 ± 0.0949      0.0587
 nearest_train             0.1157 ± 0.0949      0.0587
 train_mean                0.1972 ± 0.1562      0.1143
+W1 on horizontal-mean T profiles, thickness-weighted (K): diffusion 0.109 | interp_ck 0.062 | neighbour_avg 0.095 | nearest_train 0.095 | train_mean 0.160 | floor (n of 241 true) 0.007 | drift (half vs half) 0.067
 interp_ck one-sided (extrapolation) in 0 of 30 runs; neighbour_avg used 0.7 training neighbours on average
 
 ensemble spread (K): generated 0.1130 vs truth-in-window 0.0306
