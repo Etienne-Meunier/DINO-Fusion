@@ -24,8 +24,10 @@ $c_k$ and $c_\epsilon$. The pipeline runs end to end on Jean Zay in under one A1
 with DINO-Fusion's per-level normalisation, the conditional model reproduces the mean training state rather
 than the parameter dependence: on ten held-out parameter pairs the eight-sample ensemble mean has an RMSE of
 \SI{0.154}{K} against the true 20-year mean state, the same as the mean-state baseline (\SI{0.155}{K}),
-while the average of the four neighbouring runs on the grid reaches \SI{0.020}{K}. The reason is
-quantified below and the next steps target it.
+while the average of the four neighbouring runs on the grid reaches \SI{0.020}{K}. Two harder hold-out
+splits, a band of three interior rows and the top row, show that the model's error is nearly independent of
+the split while the interpolation baselines degrade with the gap, and reveal a physical miss: the model
+generates temperature inversions at the rate of the weakly eddying runs whatever the regime.
 
 \section{Data}
 One hundred Veros ACC runs on a complete $10\times10$ log-spaced grid, $c_k\in[0.0125,\,0.8]$ and
@@ -128,8 +130,54 @@ the three baselines.}
 \label{fig:profile}
 \end{figure}
 
+\section{Hold-out splits}
+The scattered split gives every held-out run a training neighbour one grid step away on all four sides, the
+easiest case for an interpolation baseline. Two harder splits were run with identical settings and 32 samples
+per held-out run: a contiguous band of three interior rows ($c_k$ = 0.126, 0.2 and 0.3175, 30 runs, so the
+nearest training rows are a factor 6.3 apart in $c_k$) and the top row ($c_k$ = 0.8, 10 runs, pure
+extrapolation). Each split has its own training set and normalisation statistics. An additional baseline
+interpolates linearly in $\log c_k$ between the nearest training rows below and above in the same $c_\epsilon$
+column; for the top row it reduces to copying the row below. The scattered split was re-evaluated with 32
+samples for consistency (\SI{0.150}{K} against \SI{0.154}{K} with 8).
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+ & scattered & band of three rows & top row \\
+ & 10 runs & 30 runs & 10 runs \\
+\midrule
+diffusion, ensemble mean of 32: RMSE (K) & 0.150 & 0.129 & 0.193 \\
+diffusion, single sample: RMSE (K) & 0.186 & 0.175 & 0.232 \\
+interpolation in $\log c_k$: RMSE (K) & -- & 0.083 & 0.170 \\
+nearest training run: RMSE (K) & 0.037 & 0.116 & 0.170 \\
+mean training state: RMSE (K) & 0.155 & 0.197 & 0.470 \\
+diffusion: domain-mean bias (K) & $-0.024$ & $-0.023$ & $-0.083$ \\
+ensemble spread / true spread (K) & 0.110 / 0.031 & 0.113 / 0.031 & 0.114 / 0.032 \\
+$T$ inversions (interfaces), generated / truth & 9.6\,\% / 7.7\,\% & 11.0\,\% / 1.3\,\% & 12.0\,\% / 0.1\,\% \\
+\bottomrule
+\end{tabular}
+\caption{The three hold-out splits, mean over the held-out runs, water cells only, 32 samples per run.}
+\end{table}
+
+Three points follow. First, the model's error is nearly independent of the split (0.13 to \SI{0.19}{K})
+while the baselines' error grows with the gap they must bridge (0.02 to \SI{0.17}{K}); the model therefore
+catches up as the split gets harder, beats the nearest training run in the two upper rows of the band and over
+the trending part of the top row ($c_\epsilon$ from 0.22 to 0.88), but never beats interpolation in
+$\log c_k$ over an interior gap. Within the band it is the best method between 650 and \SI{800}{m}
+(\SI{0.08}{K} against \SI{0.11}{K} for interpolation); its floor comes from the top \SI{250}{m} and the two
+bottom levels, as before. Second, extrapolation is bounded before the model is: under the top split's own
+training statistics, 17\,\% of the true bottom-level values of the held-out row lie beyond the sampler's clip
+range and cannot be generated, so the generated corner is \SI{0.2}{K} too cold. Third, the inversion rows of
+the table show a physical miss that grows with $c_k$: the model generates 10 to 12\,\% of interfaces with
+temperature decreasing upward whatever the regime, the rate of the weakly eddying rows that dominate the grid,
+whereas in the truth the strongly eddying states are stratified almost everywhere. The model has not learned
+that regime dependence, and this is precisely the kind of constraint DINO-Fusion imposes at sampling time.
+
 \section{Next steps}
-Strengthen the conditioning within this normalisation: classifier-free guidance, a longer schedule or a
+Impose stratification at sampling time, DINO-Fusion's isotonic projection applied to the temperature profile
+since salinity is constant, which targets the inversion miss directly. Strengthen the conditioning within this
+normalisation: classifier-free guidance, a longer schedule or a
 larger conditioning path, and the year as a third condition so the model knows where in the drift window a
 state sits. Evaluate against snapshots as well as the time mean, since the training targets drift by up to
 \SI{0.45}{K} at the bottom inside the window. Draw 32 samples per condition, and hold out the whole
@@ -138,7 +186,8 @@ configuration, where active salinity, seasonal forcing and multi-century spin-up
 formulation and the density constraints of DINO-Fusion relevant.
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package
-\texttt{miniveros/}, commit \texttt{f912e66} for the run reported here. Extraction takes 2.5 minutes on
+\texttt{miniveros/}, commit \texttt{f912e66} for the scattered-split run and \texttt{5991188} for the two
+other splits. Extraction takes 2.5 minutes on
 8 CPU cores, training 22 minutes on one A100, generation and evaluation 3.5 minutes; the whole dependency
 chain ran on the development queue in under one GPU hour.
 
