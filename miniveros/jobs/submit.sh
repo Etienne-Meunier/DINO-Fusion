@@ -2,12 +2,15 @@
 # Submit a miniveros job.  usage:
 #   jobs/submit.sh extract        [extra extract_data.py args]
 #   jobs/submit.sh train          <train.py args, e.g. --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/x>
-#   jobs/submit.sh generate_eval  <run_dir> [n_samples, default 32]
+#   jobs/submit.sh [-s split] generate_eval  <run_dir> [n_samples, default 32]    (-s NAME: use data/veros_acc_TS_NAME.npz)
 # Account / QoS / constraint / log paths come from jz_env.sh next to this file (never from the tracked files).
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 [ -f "$HERE/jz_env.sh" ] || { echo "missing $HERE/jz_env.sh - copy jz_env.example.sh and fill it in" >&2; exit 1; }
 source "$HERE/jz_env.sh"
+SPLIT=""
+while getopts "s:" opt; do case $opt in s) SPLIT=$OPTARG ;; *) exit 1 ;; esac; done; shift $((OPTIND - 1))
+[ -n "$SPLIT" ] && export MV_DATA="${MV_DATA%.npz}_${SPLIT}.npz"
 JOB=$1; shift || true
 mkdir -p "$MV_WORK/logs" "$MV_WORK/runs" "$MV_WORK/data"
 export MV_ARGS="$*"
