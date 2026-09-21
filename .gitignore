@@ -11,3 +11,10 @@ miniveros/data/
 miniveros/runs/
 __pycache__/
 miniveros/results/report/*.log
+
+# editor, OS and notebook junk
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+.$*.bkp
+dask-worker-space/
