@@ -27,16 +27,13 @@
         coefficients $(c_k, c_\epsilon)$, skipping spin-up.
   \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; runs end to end on Jean Zay in
         under one A100 hour.
-  \item Result: with per-level normalisation the hold-out error is 0.19--\SI{0.21}{K} on every split, at or
-        above the mean-state baseline in the interior and above the nearest training run on average; it beats
-        copying the row below only on the warm side of the extrapolated row.
+  \item Result: with per-level normalisation the model's hold-out error is $\approx$ the mean-state
+        baseline (\SI{0.15}{K}); it beats the nearest training run only where the hold-out gap is large, and ties
+        copying the row below when extrapolating one row.
         A Wasserstein metric on the stratification profiles gives the same ranking and shows that training
         and held-out conditions score alike.
-  \item The sampler's clip matters as much as the split: a scalar clip at $|x'|\le 1$ gives 0.15 / 0.14 /
-        \SI{0.17}{K} but caps the warm corner; the per-level clip used here frees the corner and costs
-        0.03--\SI{0.06}{K}, all of it at the bottom levels (Table~\ref{tab:splits}).
   \item Physical miss: the model generates temperature inversions at the rate of the weakly eddying runs
-        in every regime.
+        in every regime (Table~\ref{tab:splits}).
 \end{itemize}
 
 \section{Data}
@@ -58,9 +55,7 @@
           x'_{z} = \frac{x_{z} - \mu_{z}}{3\,\max(\sigma_{z}, 0.05)} .
         \end{equation}
         $\mu_z, \sigma_z$ are computed once on all 100 runs and held fixed for every hold-out split (a deliberate,
-        mild leakage of 30 scaling constants; no held-out state enters training). At every sampling step the predicted clean state is clipped per channel to the observed data range of that
-        level over all runs, widened by 5\,\% (bounds within $[-1.30,\,2.86]$; a scalar clip at $|x'| \le 1$
-        would cut the deep levels, whose real values reach 2.7).
+        mild leakage of 30 scaling constants; no held-out state enters training). The sampler clips the predicted clean state at $|x'| \le 1$ (three standard deviations) at every step.
   \item Denoiser: UNet2DModel (64, 64, 128, 128), 6.9\,M parameters. The condition $c$, the standardised
         pair $(\log c_k, \log c_\epsilon)$, enters through an MLP added to the timestep embedding.
   \item DDPM, $\epsilon$-prediction, 1000 steps, squared-cosine schedule, EMA:
@@ -102,27 +97,23 @@
  & scattered & band of three rows & top row \\
  & 10 runs & 30 runs & 10 runs \\
 \midrule
-diffusion, ensemble mean of 32: RMSE (K) & 0.197 & 0.194 & 0.206 \\
-diffusion, single sample: RMSE (K) & 0.213 & 0.212 & 0.227 \\
+diffusion, ensemble mean of 32: RMSE (K) & 0.152 & 0.135 & 0.173 \\
+diffusion, single sample: RMSE (K) & 0.188 & 0.178 & 0.214 \\
 nearest training run: RMSE (K) & 0.037 & 0.116 & 0.170 \\
 neighbour average: RMSE (K) & 0.020 & 0.116 & 0.170 \\
 mean training state: RMSE (K) & 0.155 & 0.197 & 0.470 \\
-diffusion: domain-mean bias (K) & $-0.011$ & $-0.010$ & $-0.032$ \\
-ensemble spread / true spread (K) & 0.088 / 0.031 & 0.088 / 0.031 & 0.099 / 0.032 \\
-$T$ inversions (interfaces), generated / truth & 8.9\,\% / 7.7\,\% & 10.3\,\% / 1.3\,\% & 12.2\,\% / 0.1\,\% \\
-max salinity error (psu) & 0.003 & 0.003 & 0.003 \\
+diffusion: domain-mean bias (K) & $-0.027$ & $-0.027$ & $-0.071$ \\
+ensemble spread / true spread (K) & 0.109 / 0.031 & 0.111 / 0.031 & 0.115 / 0.032 \\
+$T$ inversions (interfaces), generated / truth & 9.6\,\% / 7.7\,\% & 10.7\,\% / 1.3\,\% & 12.1\,\% / 0.1\,\% \\
+max salinity error (psu) & 0.011 & 0.013 & 0.018 \\
 \midrule
-$W_1$ profile, diffusion (K) & 0.161 & 0.156 & 0.158 \\
+$W_1$ profile, diffusion (K) & 0.127 & 0.111 & 0.143 \\
 $W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.142 \\
 $W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.142 \\
 $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
-\midrule
-same models, scalar clip $|x'|\le 1$: RMSE (K) & 0.152 & 0.135 & 0.173 \\
-same models, scalar clip $|x'|\le 1$: $W_1$ (K) & 0.127 & 0.111 & 0.143 \\
 \bottomrule
 \end{tabular}
-\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run,
-per-level clip. Last two rows: the same trained models sampled with the scalar clip.}
+\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run.}
 \label{tab:splits}
 \end{table}
 
@@ -131,46 +122,38 @@ per-level clip. Last two rows: the same trained models sampled with the scalar c
   \item \textbf{Conditioning is weak under per-level scaling.} Signal-to-range ratio
         $\rho_z = \sigma_z^{\mathrm{runs}} / (3\sigma_z)$ is 0.7\,\% at the surface, 9\,\% at \SI{650}{m},
         25\,\% at the bottom; the $\epsilon$-loss weights all cells equally, so the shared structure dominates.
-        Scattered split: RMSE $\ge$ mean-state baseline (Figure~\ref{fig:scat}).
-  \item \textbf{Model error is split-independent (0.19--\SI{0.21}{K}); baselines degrade with the gap
-        (0.02--\SI{0.17}{K}).} The model loses to the nearest run in all three band rows (0.20 / 0.20 / \SI{0.18}{K}
-        vs 0.06 / 0.13 / \SI{0.15}{K} for $c_k$ = 0.126 / 0.2 / 0.3175); on the top row it beats copying the row
-        below on the warm side ($c_\epsilon \le 0.35$: 0.19--0.29 vs 0.22--\SI{0.35}{K}, corner included), ties at
-        $c_\epsilon = 0.56$ and loses in the flat regime (Figures~\ref{fig:band}, \ref{fig:top}).
+        Scattered split: RMSE = mean-state baseline (Figure~\ref{fig:scat}).
+  \item \textbf{Model error is split-independent (0.14--\SI{0.17}{K}); baselines degrade with the gap
+        (0.02--\SI{0.17}{K}).} The model beats the nearest run in the upper band row (0.127 vs \SI{0.152}{K}), ties
+        the middle one, loses the lower one, and beats copying the row below over the trending part of the top row
+        ($c_\epsilon$ 0.14--0.56: 0.12--0.23 vs 0.18--\SI{0.31}{K}) while losing at the corner and in the flat
+        regime (Figures~\ref{fig:band}, \ref{fig:top}).
   \item \textbf{Depth structure.} Beats the nearest run between 370 and \SI{800}{m} in the band split
-        (\SI{0.10}{K} vs \SI{0.14}{K} at \SI{650}{m}) and between 260 and \SI{1200}{m} in the top row; worse than
+        (\SI{0.08}{K} vs \SI{0.14}{K} at \SI{650}{m}) and between 260 and \SI{1430}{m} in the top row; worse than
         baselines in the top \SI{250}{m} (scale $3\sigma_z \approx \SI{12}{K}$ amplifies sampler noise) and at the two
-        bottom levels (skewed, drifting training distribution, and the widest clip bounds).
-  \item \textbf{The sampler's clip is a regulariser.} Same trained models, sampling only, scattered / top row:
-        scalar clip at $|x'|\le 1$ gives 0.152 / \SI{0.173}{K}, at 1.5 it gives 0.194 / \SI{0.183}{K}, at 3 it gives
-        0.302 / \SI{0.277}{K}, although the final samples barely exceed $|x'| = 1$ (0.1\,\% of values): clipping
-        the early, inaccurate clean-state estimates keeps the chain on track. A scalar clip at 1 also caps the deep
-        levels of the warm corner (12\,\% of the top row's true bottom values), a floor of \SI{0.04}{K} on the
-        row and \SI{0.17}{K} at the corner run. The per-level clip used here removes that floor (corner run
-        0.29 vs \SI{0.40}{K}, top-row bias $-0.03$ vs \SI{-0.07}{K}) and cuts the salinity error by four, but
-        loosens the regulariser where the bounds are wide: bottom-level RMSE 0.34 $\to$ \SI{0.48}{K} (scattered),
-        hence 0.197 / 0.194 / \SI{0.206}{K} overall, worse than the scalar clip on every split
-        (Table~\ref{tab:splits}). Above \SI{1400}{m} the two clips are within \SI{0.04}{K} of each other.
-  \item \textbf{Inversions.} Generated 9--12\,\% of interfaces with $\partial_z T < 0$ in every regime;
+        bottom levels (skewed, drifting training distribution).
+  \item \textbf{The sampler's clip is a regulariser, not a range limit.} Same trained models, sampling
+        only: clip at $|x'|\le 1$ gives 0.152 / \SI{0.173}{K} (scattered / top row), at 1.5 it gives
+        0.194 / \SI{0.183}{K}, at 3 it gives 0.302 / \SI{0.277}{K}, although the final samples barely
+        exceed $|x'| = 1$ (0.1\,\% of values). Clipping the early, inaccurate clean-state estimates keeps
+        the chain on track. The price is a range limit for extrapolation: with the fixed statistics 12\,\%
+        of the held-out top row's true bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated.
+  \item \textbf{Inversions.} Generated 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime;
         truth: 7.7\,\% (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). The regime dependence is not
         learned.
   \item \textbf{$W_1$ on the mean profiles agrees with the RMSE ranking and adds two facts}
         (right-hand panels of Figures~\ref{fig:scat}--\ref{fig:top}).
-        (i) Training grid points score the same as held-out ones (0.158 vs \SI{0.162}{K}, scattered split):
+        (i) Training grid points score the same as held-out ones (0.124 vs \SI{0.127}{K}, scattered split):
         the model does not fit the training conditions either, the signature of the mean-state collapse.
-        (ii) Between 370 and \SI{1200}{m} the samples beat the baselines under $W_1$ in the band and top splits
-        (0.07 vs 0.12 and 0.08 vs \SI{0.17}{K} at \SI{650}{m}), because a point prediction is charged for the
-        spread it cannot represent; the model's total is set by the top \SI{250}{m} and the bottom two levels,
-        as for the RMSE.
-  \item \textbf{Plumbing.} $S$ within \SI{0.003}{psu} of 35 with no constraint; land exact; ensemble spread
-        $3\times$ the true within-window spread (Figures~\ref{fig:samples}--\ref{fig:samples_top}).
+        (ii) Around \SI{650}{m} the samples beat the baselines under $W_1$ in the band and top splits
+        (0.06 vs 0.12 and 0.08 vs \SI{0.17}{K}), because a point prediction is charged for the spread it cannot represent; the model's total
+        is set by the top \SI{250}{m} and the bottom two levels, as for the RMSE.
+  \item \textbf{Plumbing.} $S$ within \SI{0.02}{psu} of 35 with no constraint; land exact; ensemble spread
+        $3.5\times$ the true within-window spread (Figures~\ref{fig:samples}--\ref{fig:samples_top}).
 \end{itemize}
 
 \section{Next steps}
 \begin{itemize}
-  \item Clip: keep the scalar clip's hold at depth without the corner floor, e.g. per-level bounds from
-        training quantiles (tight where the data are narrow) or the scalar clip loosened only on the levels
-        the corner exceeds.
   \item Stratification constraint at sampling time (DINO-Fusion's isotonic projection, on $T$ since $S$ is
         constant): targets the inversion miss directly.
   \item Stronger conditioning: classifier-free guidance; year as a third condition (drift of \SI{0.45}{K}
@@ -180,10 +163,8 @@ per-level clip. Last two rows: the same trained models sampled with the scalar c
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package
-\texttt{miniveros/}; commit \texttt{1a9470b} for the three runs reported here (training at \texttt{2b542aa},
-sampling with the per-level clip of \texttt{1a9470b}; the scalar-clip rows use \texttt{5fdcf01}). Extraction
-\SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets +
-evaluation 14--\SI{18}{min}.
+\texttt{miniveros/}; commit \texttt{5fdcf01} for the three runs reported here (training at \texttt{2b542aa}, sampling with the clip range of \texttt{5fdcf01}). Extraction
+\SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets + evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]
 \centering

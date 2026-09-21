@@ -41,11 +41,8 @@ class Config:
     num_inference_steps: int = 1000
     beta_schedule: str = "squaredcos_cap_v2"
     clip_sample: bool = True
-    clip_sample_range: float = 1.0   # sampling only, scalar mode. Clipping the predicted clean state at 3 sigma regularises the
-                                     # chain: range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
-    clip_mode: str = "per_level"     # "per_level": clip each channel at its observed data range (all runs) | "scalar": +-clip_sample_range
-    clip_margin: float = 0.05        # per_level: widen each channel's [min, max] by this fraction of its range
-    clip_min_halfwidth: float = 0.02 # per_level: minimum half-width in normalised units (constant salinity would give a zero range)
+    clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
+                                     # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
 
     # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)

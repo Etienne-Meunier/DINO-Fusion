@@ -170,7 +170,6 @@ def main(argv=None):
     # ---- normalisation statistics (float64 accumulation, chunked) on all samples, or on the training samples
     F = len(fields)
     lvl_mean, lvl_std = np.zeros((F, nz)), np.zeros((F, nz))
-    lvl_min, lvl_max = np.zeros((F, nz)), np.zeros((F, nz))
     tr_idx = np.where(is_train)[0] if args.stats == "train" else np.arange(N)
     print(f"normalisation statistics on {len(tr_idx)} samples ({args.stats})")
     for fi, name in enumerate(fields):
@@ -182,7 +181,6 @@ def main(argv=None):
         for z in range(nz):
             w = water[z]
             if w.any():
-                lvl_min[fi, z] = data[name][tr_idx][:, z][:, w].min(); lvl_max[fi, z] = data[name][tr_idx][:, z][:, w].max()
                 lvl_mean[fi, z] = (s1[z][w].sum()) / (n * w.sum())
                 lvl_std[fi, z] = np.sqrt(max(s2[z][w].sum() / (n * w.sum()) - lvl_mean[fi, z] ** 2, 0.0))
 
@@ -202,7 +200,7 @@ def main(argv=None):
              ck=run_ck[run_id].astype(np.float32), eps=run_eps[run_id].astype(np.float32),
              run_names=np.array(run_names), run_ck=run_ck, run_eps=run_eps,
              mask_land=land_mask, zt=zt, holdout_runs=holdout, train_runs=train_runs,
-             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std, lvl_min=lvl_min, lvl_max=lvl_max,
+             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std,
              cond_keys=cond_keys, cond_mean=cond_mean, cond_std=cond_std, meta=json.dumps(meta))
     os.replace(tmp, args.out)
 

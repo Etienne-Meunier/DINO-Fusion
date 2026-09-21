@@ -91,8 +91,6 @@ class FieldTransform:
         self.masker = Masker(land_mask.to(self.device))
         self.padder = Padder(paddings)
         self.n_channels = int(sum(field_levels.values()))
-        self.clip_lo = None   # (C,) normalised per-channel clip bounds, set by from_dataset
-        self.clip_hi = None
         self.field_shape = tuple(land_mask.shape[-2:])                          # (Y, X)
         probe = self.padder(torch.zeros(self.n_channels, *self.field_shape))
         self.padded_shape = tuple(probe.shape[-2:])                              # (Yp, Xp)
@@ -104,8 +102,7 @@ class FieldTransform:
     @classmethod
     def from_dataset(cls, ds: dict | np.lib.npyio.NpzFile, fields: tuple[str, ...], norm_mode: str,
                      std_floor: float, paddings: tuple[int, int, int, int],
-                     device: str | torch.device = "cpu", clip_margin: float = 0.05,
-                     clip_min_halfwidth: float = 0.02) -> "FieldTransform":
+                     device: str | torch.device = "cpu") -> "FieldTransform":
         """``ds`` is the converted-dataset npz (see extract_data.py); stats were computed on the train split."""
         stats_fields = [str(f) for f in ds["stats_fields"]]
         idx = [stats_fields.index(f) for f in fields]
@@ -119,32 +116,7 @@ class FieldTransform:
         std = torch.as_tensor(np.asarray(ds["lvl_std"])[idx]).reshape(-1, 1, 1)
         k = float(m.group(1))
         land_c = land.repeat(len(fields), 1, 1)                                                         # (C, Y, X)
-        tr = cls(field_levels, mean.float(), std.float(), land_c, k, std_floor, paddings, device)
-        tr.set_clip_bounds(ds, fields, land, clip_margin, clip_min_halfwidth)
-        return tr
-
-    def set_clip_bounds(self, ds, fields, land, margin: float, min_halfwidth: float) -> None:
-        """Per-channel clip bounds in normalised units from the observed data range of each field and level
-        (``lvl_min``/``lvl_max`` in the dataset if present, else computed over water cells), widened by
-        ``margin`` x range and at least ``min_halfwidth`` wide on each side of the range's centre."""
-        keys = set(getattr(ds, "files", ds.keys()))
-        stats_fields = [str(f) for f in ds["stats_fields"]]
-        water = ~np.asarray(land)
-        mins, maxs = [], []
-        for f in fields:
-            if "lvl_min" in keys and "lvl_max" in keys:
-                i = stats_fields.index(f); mn, mx = np.asarray(ds["lvl_min"])[i], np.asarray(ds["lvl_max"])[i]
-            else:
-                arr = np.asarray(ds[f])                                                         # (N, Z, Y, X)
-                mn = np.array([arr[:, z][:, water[z]].min() for z in range(arr.shape[1])])
-                mx = np.array([arr[:, z][:, water[z]].max() for z in range(arr.shape[1])])
-            mins.append(mn); maxs.append(mx)
-        mn = torch.as_tensor(np.concatenate(mins), dtype=torch.float32).to(self.device)
-        mx = torch.as_tensor(np.concatenate(maxs), dtype=torch.float32).to(self.device)
-        mean, std = self.normaliser.mean.reshape(-1), self.normaliser.std.reshape(-1)
-        lo = (mn - mean) / (self.normaliser.k * std); hi = (mx - mean) / (self.normaliser.k * std)
-        rng = hi - lo; c = 0.5 * (hi + lo); half = torch.maximum(0.5 * rng * (1 + 2 * margin), torch.full_like(rng, min_halfwidth))
-        self.clip_lo, self.clip_hi = c - half, c + half
+        return cls(field_levels, mean.float(), std.float(), land_c, k, std_floor, paddings, device)
 
     # ------------------------------------------------------------------ forward / backward
     def normalise(self, fields: dict[str, torch.Tensor]) -> torch.Tensor:
