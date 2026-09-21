@@ -180,8 +180,8 @@ since salinity is constant, which targets the inversion miss directly. Strengthe
 normalisation: classifier-free guidance, a longer schedule or a
 larger conditioning path, and the year as a third condition so the model knows where in the drift window a
 state sits. Evaluate against snapshots as well as the time mean, since the training targets drift by up to
-\SI{0.45}{K} at the bottom inside the window. Draw 32 samples per condition, and hold out the whole
-$c_k=0.8$ row to test the regime corner. The longer-term target is the same pipeline on a global Veros
+\SI{0.45}{K} at the bottom inside the window. Raise the clip range or the scale factor where extrapolation matters, since the top-row test was bounded
+by clipping. The longer-term target is the same pipeline on a global Veros
 configuration, where active salinity, seasonal forcing and multi-century spin-up make the generative
 formulation and the density constraints of DINO-Fusion relevant.
 
