@@ -21,7 +21,9 @@ def load(folder: Path) -> dict[tuple[str, str], float]:
 
 
 def main(folders: list[str]) -> None:
-    runs = {Path(f).name: load(Path(f)) for f in folders}
+    def label(f: str) -> str:            # 'runs/band3/eval' -> 'band3/eval', so two 'eval' folders stay distinct
+        p = Path(f); return f"{p.parent.name}/{p.name}" if p.name.startswith("eval") else p.name
+    runs = {label(f): load(Path(f)) for f in folders}
     keys = sorted({k for m in runs.values() for k in m}, key=lambda k: (k[1], k[0]))
     order = ["rmse_K", "bias_domain_mean_K", "spread_K", "temp_inversion_frac", "salt_max_abs_err", "n_neighbours"]
     keys.sort(key=lambda k: (order.index(k[1]) if k[1] in order else 99, k[0]))

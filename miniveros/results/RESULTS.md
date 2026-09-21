@@ -59,6 +59,61 @@ or the collapse toward the mean state. Generating 320 samples took 86 s on one A
 condition is now the default (`n_samples` in the config, `submit.sh` and `campaign.sh`); the grid map keeps
 4 samples per condition.
 
+## Hold-out splits: scattered, band of three rows, top row (2026-09-21)
+
+Same model family and settings (per-level normalisation, 20,000 steps, EMA, 32 samples per hold-out run),
+three ways of choosing the hold-out runs. Statistics and training runs differ per split, so each split has
+its own dataset file (`data/veros_acc_TS_<split>.npz`) and run (`runs/<split>_3std`).
+
+| | scattered (10 interior points) | band of three rows, `c_k` 0.126, 0.2, 0.3175 (30 runs) | top row, `c_k` 0.8 (10 runs) |
+|---|---|---|---|
+| training runs | 90 | 70 | 90 |
+| gap the training rows bridge | one step, all four sides | 0.0794 to 0.504, factor 6.3 | extrapolation, nothing above |
+| diffusion ensemble mean / RMSE (K) | 0.150 | 0.129 | 0.193 |
+| diffusion single sample / RMSE (K) | 0.186 | 0.175 | 0.232 |
+| log-`c_k` interpolation / RMSE (K) | n/a (one step) | 0.083 | 0.170 (one-sided = row below) |
+| neighbour average / RMSE (K) | 0.020 | 0.116 | 0.170 |
+| nearest training run / RMSE (K) | 0.037 | 0.116 | 0.170 |
+| training-set mean / RMSE (K) | 0.155 | 0.197 | 0.470 |
+| diffusion / domain-mean bias (K) | -0.024 | -0.023 | -0.083 |
+| ensemble spread / true spread (K) | 0.110 / 0.031 | 0.113 / 0.031 | 0.114 / 0.032 |
+| T-inversion fraction, generated / truth | 9.6 % / 7.7 % | 11.0 % / 1.3 % | 12.0 % / 0.1 % |
+| domain-mean T map RMSE, hold-out (K) | 0.030 | 0.045 | 0.101 |
+
+Band of three, by row (RMSE in K, mean over the 10 runs of the row):
+
+| row | diffusion mean | log-`c_k` interpolation | nearest row | training mean |
+|---|---|---|---|---|
+| `c_k` 0.126 | 0.133 | 0.066 | 0.063 | 0.149 |
+| `c_k` 0.2 (middle) | 0.134 | 0.098 | 0.132 | 0.187 |
+| `c_k` 0.3175 | 0.120 | 0.086 | 0.152 | 0.256 |
+
+Top row, by `c_eps` (RMSE in K): the model beats "copy the row below" where there is a trend to
+extrapolate (`c_eps` 0.22 to 0.88: 0.10 to 0.20 versus 0.11 to 0.27), loses at the extreme corner
+(`c_eps` 0.0875: 0.48 versus 0.35) and in the flat regime (`c_eps` >= 1.4: 0.14 to 0.16 versus 0.03 to 0.08).
+
+What the three splits say together:
+
+1. **The model's error is nearly independent of the split** (0.13 to 0.19 K) while the baselines' error
+   grows with the gap they must bridge (0.02 to 0.17 K). The model therefore catches up with the baselines
+   as the split gets harder: it beats the nearest-row baseline in the two upper rows of the band and over the
+   trending part of the top row, but never beats log-`c_k` interpolation over an interior gap.
+2. **Where the parameter signal lives, the model is competitive or best.** In the band split it is the best
+   method between about 650 and 800 m (0.08 K against 0.11 K for interpolation and 0.14 K for the nearest
+   row). Its floor comes from the top 250 m, where the per-level scale turns small normalised noise into
+   0.1 K of scatter, and from the two bottom levels, where the training distribution is skewed and drifting
+   and the sampler clips the extremes.
+3. **Extrapolation is limited by the clip range before the model.** Under the top split's own training
+   statistics, 17 % of the true bottom-level values of the held-out row and 7 % at 1666 m lie beyond
+   [-1, 1], so they cannot be generated; the generated corner is 0.2 K too cold and the bottom-level RMSE is
+   0.41 K against 0.22 K for the row below. Under the band split the same fraction is below 2 %.
+4. **A physical miss that grows with `c_k`.** The model generates 10 to 12 % of interfaces with temperature
+   decreasing upward whatever the regime, the rate of the low-`c_k` rows that dominate the grid, whereas the
+   truth goes from 7.7 % (scattered set) to 1.3 % (band) to 0.1 % (top row): the strongly eddying states are
+   stratified everywhere and the model has not learned that dependence. This is exactly the kind of
+   constraint DINO-Fusion imposes at sampling time (isotonic projection of the density profile), and the
+   natural next lever here.
+
 ## Cost
 
 Extraction 2.5 min on 8 CPU cores. Training 22 min on one A100. Generation of 80 hold-out and 400 grid
@@ -78,4 +133,5 @@ samples plus evaluation 3.5 min. Whole chain under one GPU hour on the dev QoS.
 `full_3std/`: `grid_domain_mean.png` (+ `.csv`), `sections_holdout.png`, `rmse_profile.png`, `samples_final.png`,
 `samples_levels.png` (true state and three random samples of T and S at three depths for one hold-out condition,
 made with `plot_samples.py`). Raw metrics in `metrics.csv`, training curves in `train_log.csv`.
-`report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).
+`band3_3std/eval/`, `top_3std/eval/`, `full_3std/eval_n32/`: the three-split evaluations (32 samples per run).
+`report/report.tex`, `report/report.pdf`: the short report on the scattered split (compile with `tectonic report.tex`).
