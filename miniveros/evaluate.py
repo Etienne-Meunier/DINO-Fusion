@@ -4,9 +4,9 @@
                        [--grid-samples runs/full/samples/grid_n4_s1000_ema.npz] [--out-dir runs/full/eval]
 
 Metrics are computed on water cells only. Baselines: the mean training state, the nearest training run in
-standardised log-parameter space, the average of the axis-neighbour training runs on the parameter grid, and
-linear interpolation in log c_k between the nearest training rows below and above in the same c_eps column
-(one-sided, i.e. the nearest row, when training rows exist on one side only, as in an extrapolation split).
+standardised log-parameter space, and the average of the axis-neighbour training runs on the parameter grid.
+Figures: grid_maps.png (truth, generated, difference of the domain-mean T; W1 of the profile distribution)
+and profiles.png (RMSE and W1 by depth for the diffusion samples and the baselines).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from wmetrics import floor_w1, level_thickness, profile_means, w1_point, w1_samples, weighted_sum
+from wmetrics import level_thickness, profile_means, w1_point, w1_samples, weighted_sum
 
 SALT_REF = 35.0
 
@@ -68,11 +68,6 @@ def main(argv=None):
         sel = np.where(run_id == r)[0]; sel = sel[np.argsort(time_s[sel])]
         prof_truth[r] = profile_means(temp_all[sel], water)
     prof = lambda field: profile_means(field[None], water)[0]                      # (Z, Y, X) -> (Z,)
-    rng = np.random.default_rng(0)
-    def floor_n(r, n, draws=100):
-        """Finite-sample floor: n random true snapshots against all snapshots, mean over draws -> (Z,)."""
-        tp = prof_truth[r]
-        return np.mean([w1_samples(tp[rng.choice(len(tp), n, replace=False)], tp) for _ in range(draws)], 0)
     lc, le = np.log(run_ck), np.log(run_eps)
     zc = np.stack([(lc - lc.mean()) / (lc.std() + 1e-12), (le - le.mean()) / (le.std() + 1e-12)], 1)
 
@@ -86,30 +81,18 @@ def main(argv=None):
               ((ick[i] == ick[r] and abs(ieps[i] - ieps[r]) == 1) or (ieps[i] == ieps[r] and abs(ick[i] - ick[r]) == 1))]
         return (tmean[nb].mean(0), len(nb)) if nb else (tmean[nearest_train(r)], 0)
 
-    def interp_ck(r):
-        """Linear interpolation in log c_k between the nearest training rows below and above, same c_eps column."""
-        col = [i for i in range(len(run_ck)) if i in train_runs and ieps[i] == ieps[r]]
-        below = [i for i in col if ick[i] < ick[r]]; above = [i for i in col if ick[i] > ick[r]]
-        if below and above:
-            b = max(below, key=lambda i: ick[i]); a_ = min(above, key=lambda i: ick[i])
-            w = (lc[r] - lc[b]) / (lc[a_] - lc[b])
-            return (1 - w) * tmean[b] + w * tmean[a_], 0
-        i = max(below, key=lambda i: ick[i]) if below else min(above, key=lambda i: ick[i])
-        return tmean[i], 1
-
     rows = []
     def add(run, method, metric, value):
         rows.append((run_names[run], method, metric, float(value)))
 
     gen_rid = np.asarray(gs["run_id"]); gT = gs["temp"]; gS = gs["salt"]                # (n_cond, n_s, Z, Y, X)
-    lvl_rmse = {"diffusion_mean": [], "interp_ck": [], "neighbour_avg": [], "nearest_train": [], "train_mean": []}
+    lvl_rmse = {"diffusion_mean": [], "neighbour_avg": [], "nearest_train": [], "train_mean": []}
     w1_levels = {}
     for k, r in enumerate(gen_rid):
         r = int(r)
         truth = tmean[r]; gen = np.nan_to_num(gT[k]); ens = gen.mean(0)
-        nb_state, n_nb = neighbour_avg(r); nt_state = tmean[nearest_train(r)]; ip_state, one_sided = interp_ck(r)
-        cands = {"diffusion_mean": ens, "interp_ck": ip_state, "neighbour_avg": nb_state, "nearest_train": nt_state,
-                 "train_mean": train_mean_state}
+        nb_state, n_nb = neighbour_avg(r); nt_state = tmean[nearest_train(r)]
+        cands = {"diffusion_mean": ens, "neighbour_avg": nb_state, "nearest_train": nt_state, "train_mean": train_mean_state}
         for m, st in cands.items():
             add(r, m, "rmse_K", rmse(st, truth, water))
             add(r, m, "bias_domain_mean_K", st[water].mean() - truth[water].mean())
@@ -121,13 +104,10 @@ def main(argv=None):
         add(r, "diffusion", "temp_inversion_frac", np.mean([temp_inversion_fraction(g, water) for g in gen]))
         add(r, "truth", "temp_inversion_frac", temp_inversion_fraction(truth, water))
         add(r, "neighbour_avg", "n_neighbours", n_nb)
-        add(r, "interp_ck", "one_sided", one_sided)
         # Wasserstein-1 on horizontal-mean profiles, per level, thickness-weighted sum
         tp = prof_truth[r]; gp = profile_means(gen, water)
-        W = {"diffusion": w1_samples(gp, tp), "interp_ck": w1_point(prof(ip_state), tp),
-             "neighbour_avg": w1_point(prof(nb_state), tp), "nearest_train": w1_point(prof(nt_state), tp),
-             "train_mean": w1_point(prof(train_mean_state), tp),
-             "floor_n": floor_n(r, gp.shape[0]), "drift_halves": floor_w1(tp)}
+        W = {"diffusion": w1_samples(gp, tp), "neighbour_avg": w1_point(prof(nb_state), tp),
+             "nearest_train": w1_point(prof(nt_state), tp), "train_mean": w1_point(prof(train_mean_state), tp)}
         for m_, v in W.items():
             add(r, m_, "w1_profile_K", weighted_sum(v, dz)); w1_levels.setdefault(m_, []).append(v)
 
@@ -140,14 +120,12 @@ def main(argv=None):
         return (np.mean(v), np.std(v)) if v else (np.nan, np.nan)
     lines = [f"hold-out runs: {len(gen_rid)} | samples/run: {gT.shape[1]} | norm_mode={gs['norm_mode']} | weights={gs['weights']} | steps={int(gs['steps'])}",
              "", f"{'method':<18}{'RMSE(K) mean±std':>22}{'|bias|(K)':>12}"]
-    for m in ["diffusion_mean", "diffusion_sample", "interp_ck", "neighbour_avg", "nearest_train", "train_mean"]:
+    for m in ["diffusion_mean", "diffusion_sample", "neighbour_avg", "nearest_train", "train_mean"]:
         mu, sd = agg(m, "rmse_K"); bias = np.mean([abs(x[3]) for x in rows if x[1] == m and x[2] == "bias_domain_mean_K"]) if m != "diffusion_sample" else np.nan
         lines.append(f"{m:<18}{mu:>14.4f} ± {sd:<6.4f}{bias:>12.4f}")
     lines += [f"W1 on horizontal-mean T profiles, thickness-weighted (K): "
-              + " | ".join(f"{m_} {agg(m_, 'w1_profile_K')[0]:.3f}" for m_ in ["diffusion", "interp_ck", "neighbour_avg", "nearest_train", "train_mean"])
-              + f" | floor (n of 241 true) {agg('floor_n', 'w1_profile_K')[0]:.3f} | drift (half vs half) {agg('drift_halves', 'w1_profile_K')[0]:.3f}"]
-    lines += [f"interp_ck one-sided (extrapolation) in {int(sum(x[3] for x in rows if x[1] == 'interp_ck' and x[2] == 'one_sided'))} of {len(gen_rid)} runs; "
-              f"neighbour_avg used {agg('neighbour_avg', 'n_neighbours')[0]:.1f} training neighbours on average",
+              + " | ".join(f"{m_} {agg(m_, 'w1_profile_K')[0]:.3f}" for m_ in ["diffusion", "neighbour_avg", "nearest_train", "train_mean"])]
+    lines += [f"neighbour_avg used {agg('neighbour_avg', 'n_neighbours')[0]:.1f} training neighbours on average",
               "", f"ensemble spread (K): generated {agg('diffusion', 'spread_K')[0]:.4f} vs truth-in-window {agg('truth', 'spread_K')[0]:.4f}",
               f"interfaces with T decreasing upward: generated {100 * agg('diffusion', 'temp_inversion_frac')[0]:.3f}% vs truth {100 * agg('truth', 'temp_inversion_frac')[0]:.3f}% (truth has real inversions; compare, do not expect 0)",
               f"salinity max |S-35| over water: {agg('diffusion', 'salt_max_abs_err')[0]:.2e}"]
@@ -157,24 +135,22 @@ def main(argv=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    prof = {m: np.nanmean(np.array(v), 0) for m, v in lvl_rmse.items()}
-    fig, ax = plt.subplots(figsize=(5, 6))
-    for m, v in prof.items():
-        ax.plot(v, zt, marker="o", ms=3, label=m)
-    ax.set_xlabel("RMSE (K), mean over hold-out runs"); ax.set_ylabel("depth (m)"); ax.grid(alpha=.3); ax.legend(fontsize=8)
-    fig.tight_layout(); fig.savefig(out_dir / "rmse_profile.png", dpi=120); plt.close(fig)
-
-    with open(out_dir / "w1_profile.csv", "w", newline="") as f:
-        w = csv.writer(f); w.writerow(["method", "z_m", "w1_K_mean_over_runs"])
-        for m_, v in w1_levels.items():
-            for z, val in zip(zt, np.mean(v, 0)):
-                w.writerow([m_, f"{z:.0f}", f"{val:.5f}"])
-    fig, ax = plt.subplots(figsize=(5, 6))
-    for m_, v in w1_levels.items():
-        style = dict(ls="--", color="k") if m_ == "floor_n" else dict(ls=":", color="gray") if m_ == "drift_halves" else dict(marker="o", ms=3)
-        ax.plot(np.mean(v, 0), zt, label=m_, **style)
-    ax.set_xlabel("W1 of horizontal-mean T (K), mean over hold-out runs"); ax.set_ylabel("depth (m)"); ax.grid(alpha=.3); ax.legend(fontsize=8)
-    fig.tight_layout(); fig.savefig(out_dir / "w1_profile.png", dpi=120); plt.close(fig)
+    prof_r = {m: np.nanmean(np.array(v), 0) for m, v in lvl_rmse.items()}
+    prof_w = {m: np.mean(v, 0) for m, v in w1_levels.items()}
+    with open(out_dir / "profiles.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["metric", "method", "z_m", "value_K_mean_over_runs"])
+        for m_, v in prof_r.items():
+            for z, val in zip(zt, v): w.writerow(["rmse", m_, f"{z:.0f}", f"{val:.5f}"])
+        for m_, v in prof_w.items():
+            for z, val in zip(zt, v): w.writerow(["w1", m_, f"{z:.0f}", f"{val:.5f}"])
+    label = {"diffusion_mean": "diffusion", "diffusion": "diffusion", "neighbour_avg": "neighbour average",
+             "nearest_train": "nearest run", "train_mean": "training mean"}
+    fig, axs = plt.subplots(1, 2, figsize=(9, 5.5), sharey=True)
+    for m_, v in prof_r.items(): axs[0].plot(v, zt, marker="o", ms=3, label=label[m_])
+    for m_, v in prof_w.items(): axs[1].plot(v, zt, marker="o", ms=3, label=label[m_])
+    axs[0].set_xlabel("RMSE of T (K)"); axs[1].set_xlabel("W1 of horizontal-mean T (K)"); axs[0].set_ylabel("depth (m)")
+    for ax in axs: ax.grid(alpha=.3)
+    axs[0].legend(fontsize=8); fig.tight_layout(); fig.savefig(out_dir / "profiles.png", dpi=120); plt.close(fig)
 
     n = len(gen_rid); fig, axs = plt.subplots(n, 4, figsize=(17, 2.6 * n), squeeze=False)
     yy = np.arange(water.shape[1])
@@ -205,11 +181,21 @@ def main(argv=None):
             for r in grid_rid:
                 w.writerow([run_names[r], run_ck[r], run_eps[r], ick[r], ieps[r], int(r in set(hr.tolist())),
                             f"{dm_truth[ick[r], ieps[r]]:.5f}", f"{dm_gen[ick[r], ieps[r]]:.5f}"])
-        fig, axs = plt.subplots(1, 3, figsize=(16, 4.8))
-        for ax, A, title, cmap, lim in [(axs[0], dm_truth, "truth", "viridis", None), (axs[1], dm_gen, "generated", "viridis", None),
-                                        (axs[2], dm_gen - dm_truth, "generated - truth", "RdBu_r", 0.2)]:
-            kw = dict(vmin=-lim, vmax=lim) if lim else dict(vmin=np.nanmin(dm_truth), vmax=np.nanmax(dm_truth))
-            im = ax.imshow(A, origin="lower", cmap=cmap, aspect="auto", **kw); ax.set_title(f"domain-mean T (°C): {title}")
+        # W1 of the profile distribution per grid point
+        n_g = gg["temp"].shape[1]; gw1 = np.full((len(cks), len(epss)), np.nan)
+        with open(out_dir / "grid_w1.csv", "w", newline="") as f:
+            w = csv.writer(f); w.writerow(["run", "ck", "eps", "holdout", "w1_K", "n_samples"])
+            for k, r in enumerate(grid_rid):
+                gp = profile_means(np.nan_to_num(gg["temp"][k]), water)
+                gw1[ick[r], ieps[r]] = weighted_sum(w1_samples(gp, prof_truth[r]), dz)
+                w.writerow([run_names[r], run_ck[r], run_eps[r], int(r in set(hr.tolist())), f"{gw1[ick[r], ieps[r]]:.5f}", n_g])
+        w_ho = np.nanmean(gw1[ick[hr], ieps[hr]]) if len(hr) else float("nan"); w_all = np.nanmean(gw1)
+        fig, axs = plt.subplots(1, 4, figsize=(21, 4.8))
+        for ax, A, title, cmap, kw in [(axs[0], dm_truth, "domain-mean T (°C): truth", "viridis", dict(vmin=np.nanmin(dm_truth), vmax=np.nanmax(dm_truth))),
+                                       (axs[1], dm_gen, "domain-mean T (°C): generated", "viridis", dict(vmin=np.nanmin(dm_truth), vmax=np.nanmax(dm_truth))),
+                                       (axs[2], dm_gen - dm_truth, "generated - truth (K)", "RdBu_r", dict(vmin=-0.2, vmax=0.2)),
+                                       (axs[3], gw1, f"W1 of T profiles, {n_g} samples (K)", "magma", dict(vmin=0, vmax=np.nanmax(gw1)))]:
+            im = ax.imshow(A, origin="lower", cmap=cmap, aspect="auto", **kw); ax.set_title(title)
             ax.set_xticks(range(len(epss))); ax.set_xticklabels([f"{e:g}" for e in epss], rotation=60, fontsize=7)
             ax.set_yticks(range(len(cks))); ax.set_yticklabels([f"{c:g}" for c in cks], fontsize=7); ax.set_xlabel("c_eps"); ax.set_ylabel("c_k")
             ax.plot(ieps[tr_], ick[tr_], "o", ms=3, mfc="white", mec="black", mew=0.6, label="training run")
@@ -217,35 +203,9 @@ def main(argv=None):
                 ax.plot(ieps[hr], ick[hr], "x", ms=7, mew=1.8, color="red", label="hold-out run")
             plt.colorbar(im, ax=ax, fraction=0.046)
         axs[0].legend(loc="lower right", fontsize=7, framealpha=0.9)
-        fig.suptitle(f"{gs['norm_mode']} normalisation | RMSE of domain-mean T: hold-out {ho:.3f} K, all runs {al:.3f} K")
-        fig.tight_layout(); fig.savefig(out_dir / "grid_domain_mean.png", dpi=120); plt.close(fig)
-
-        # W1 map: thickness-weighted W1 of the profile distribution per grid point, its finite-sample floor, difference
-        n_g = gg["temp"].shape[1]
-        gw1 = np.full((len(cks), len(epss)), np.nan); gfl = gw1.copy()
-        with open(out_dir / "grid_w1.csv", "w", newline="") as f:
-            w = csv.writer(f); w.writerow(["run", "ck", "eps", "holdout", "w1_K", "floor_K", "n_samples"])
-            for k, r in enumerate(grid_rid):
-                gp = profile_means(np.nan_to_num(gg["temp"][k]), water)
-                gw1[ick[r], ieps[r]] = weighted_sum(w1_samples(gp, prof_truth[r]), dz)
-                gfl[ick[r], ieps[r]] = weighted_sum(floor_n(r, n_g, draws=20), dz)
-                w.writerow([run_names[r], run_ck[r], run_eps[r], int(r in set(hr.tolist())), f"{gw1[ick[r], ieps[r]]:.5f}", f"{gfl[ick[r], ieps[r]]:.5f}", n_g])
-        w_ho = np.nanmean(gw1[ick[hr], ieps[hr]]) if len(hr) else float("nan"); w_all = np.nanmean(gw1)
-        fig, axs = plt.subplots(1, 3, figsize=(16, 4.8)); vmax = np.nanmax(gw1)
-        for ax, A, title, cmap, lim in [(axs[0], gw1, f"W1 diffusion vs truth ({n_g} samples)", "viridis", None),
-                                        (axs[1], gfl, f"floor: {n_g} true snapshots vs all", "viridis", None),
-                                        (axs[2], gw1 - gfl, "diffusion - floor", "RdBu_r", 0.2)]:
-            kw = dict(vmin=-lim, vmax=lim) if lim else dict(vmin=0, vmax=vmax)
-            im = ax.imshow(A, origin="lower", cmap=cmap, aspect="auto", **kw); ax.set_title(f"{title} (K)")
-            ax.set_xticks(range(len(epss))); ax.set_xticklabels([f"{e:g}" for e in epss], rotation=60, fontsize=7)
-            ax.set_yticks(range(len(cks))); ax.set_yticklabels([f"{c:g}" for c in cks], fontsize=7); ax.set_xlabel("c_eps"); ax.set_ylabel("c_k")
-            ax.plot(ieps[tr_], ick[tr_], "o", ms=3, mfc="white", mec="black", mew=0.6)
-            if len(hr):
-                ax.plot(ieps[hr], ick[hr], "x", ms=7, mew=1.8, color="red")
-            plt.colorbar(im, ax=ax, fraction=0.046)
-        fig.suptitle(f"{gs['norm_mode']} normalisation | thickness-weighted W1 of horizontal-mean T profiles: hold-out {w_ho:.3f} K, all runs {w_all:.3f} K")
-        fig.tight_layout(); fig.savefig(out_dir / "grid_w1.png", dpi=120); plt.close(fig)
-        print(f"grid W1: mean over all runs {w_all:.4f} K, hold-out only {w_ho:.4f} K")
+        fig.suptitle(f"{gs['norm_mode']} normalisation | hold-out: RMSE of domain-mean T {ho:.3f} K, W1 {w_ho:.3f} K | all runs: {al:.3f} K, {w_all:.3f} K")
+        fig.tight_layout(); fig.savefig(out_dir / "grid_maps.png", dpi=120); plt.close(fig)
+        print(f"grid: RMSE of domain-mean T all {al:.4f} K / hold-out {ho:.4f} K | W1 all {w_all:.4f} K / hold-out {w_ho:.4f} K")
         print(f"grid map: RMSE of domain-mean T over all runs {al:.4f} K, hold-out only {ho:.4f} K")
     print(f"outputs in {out_dir}")
 

@@ -6,7 +6,6 @@ one value per level. Per level, the 1-D Wasserstein-1 distance is computed betwe
     W1 = int_0^1 |F_g^{-1}(q) - F_t^{-1}(q)| dq ,
 so unequal sample sizes are fine. A point prediction x (baseline) gives W1 = mean_i |x - t_i|.
 The levels are combined with thickness weights dz_k / H (a thickness-weighted sum, in K).
-The floor is the same distance between the first and the second half of the true window (the drift).
 """
 from __future__ import annotations
 
@@ -45,8 +44,3 @@ def weighted_sum(w1_levels: np.ndarray, dz: np.ndarray) -> float:
     """Thickness-weighted sum over levels, weights dz_k / H (result in K)."""
     return float(np.sum(w1_levels * dz) / np.sum(dz))
 
-
-def floor_w1(truth_profiles: np.ndarray) -> np.ndarray:
-    """Per-level W1 between the first and second half of the (time-ordered) true window."""
-    m = truth_profiles.shape[0] // 2
-    return w1_samples(truth_profiles[:m], truth_profiles[m:])
