@@ -64,11 +64,13 @@ def main(argv=None):
 
     weights = run_dir / ("model_ema.pt" if a.weights == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
     model = ConditionalUNet.load(weights, map_location=device).to(device).eval()
-    scheduler = Diffusion(cfg).scheduler
     tr = build_transform(cfg.data_file, cfg, device=device)
+    scheduler = Diffusion(cfg, clip_bounds=(tr.clip_lo, tr.clip_hi)).scheduler
+    clip_desc = (f"per-level [{tr.clip_lo.min():.2f}, {tr.clip_hi.max():.2f}]" if cfg.clip_mode == "per_level"
+                 else f"scalar +-{cfg.clip_sample_range}")
     constraints = [LandZero(tr.zero_mask)]
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"device {device}", flush=True)
+          f"clip {clip_desc}, device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}
@@ -91,7 +93,7 @@ def main(argv=None):
     np.savez(out_path, **out, ck=cks.astype(np.float32), eps=epss.astype(np.float32), run_id=rid,
              run_names=np.array([run_names[r] if r >= 0 else f"ck{c:g}_eps{e:g}" for r, c, e in zip(rid, cks, epss)]),
              mask_land=ds["mask_land"], zt=ds["zt"], n_samples=n_samples, steps=steps, weights=str(weights.name),
-             guidance=guidance, norm_mode=cfg.norm_mode)
+             guidance=guidance, norm_mode=cfg.norm_mode, clip_mode=cfg.clip_mode)
     print(f"wrote {out_path}")
 
 

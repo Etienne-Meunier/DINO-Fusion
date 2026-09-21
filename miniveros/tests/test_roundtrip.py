@@ -17,7 +17,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config  # noqa: E402
 from dataset import VerosTSDataset, build_transform  # noqa: E402
-from diffusion import Diffusion  # noqa: E402
+from diffusion import Diffusion, PerLevelClipDDPMScheduler  # noqa: E402
 from model import ConditionalUNet  # noqa: E402
 from pipeline import LandZero, sample  # noqa: E402
 from transforms import FieldTransform  # noqa: E402
@@ -93,6 +93,16 @@ def test_model_and_loss(data_file: str):
     assert torch.isfinite(Diffusion(cfg).training_loss(model, xb, cb, tr.zero_mask))
     s = sample(model.eval(), Diffusion(cfg).scheduler, cb, 3, generator=torch.Generator().manual_seed(0),
                constraints=[LandZero(tr.zero_mask)])
+    # per-level clip: bounds exist, salt channels are narrow around 0, and the scheduler clamps per channel
+    assert tr.clip_lo is not None and tr.clip_lo.shape == (tr.n_channels,) and (tr.clip_lo < tr.clip_hi).all()
+    assert (tr.clip_hi[15:] <= 0.05).all() and (tr.clip_lo[15:] >= -0.05).all()
+    sch = Diffusion(cfg, clip_bounds=(tr.clip_lo, tr.clip_hi)).scheduler
+    assert isinstance(sch, PerLevelClipDDPMScheduler) and sch.config.thresholding
+    probe = torch.full((2, tr.n_channels, 4, 4), 5.0); probe[:, 0] = -5.0
+    out = sch._threshold_sample(probe)
+    assert torch.allclose(out[:, 0], tr.clip_lo[0].expand(2, 4, 4)) and torch.allclose(out[:, 1], tr.clip_hi[1].expand(2, 4, 4))
+    s2 = sample(model.eval(), sch, cb, 3, generator=torch.Generator().manual_seed(0), constraints=[LandZero(tr.zero_mask)])
+    assert torch.isfinite(s2).all()
     assert s.shape == xb.shape and torch.isfinite(s).all()
     assert (s.masked_select(tr.zero_mask.expand_as(s)) == 0).all()
     fields = tr.denormalise(s)
