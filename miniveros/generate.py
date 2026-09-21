@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from config import Config, _coerce_all
-from dataset import CondEncoder, build_transform
+from dataset import CondEncoder, build_transform, resolve_split
 from diffusion import Diffusion
 from model import ConditionalUNet
 from pipeline import LandZero, sample
@@ -52,7 +52,7 @@ def main(argv=None):
     enc = CondEncoder(ds)
     run_ck, run_eps, run_names = np.asarray(ds["run_ck"]), np.asarray(ds["run_eps"]), [str(r) for r in ds["run_names"]]
     if a.holdout:
-        rid = np.asarray(ds["holdout_runs"]); tag = "holdout"
+        _, rid = resolve_split(cfg, ds); tag = "holdout"
     elif a.grid:
         rid = np.arange(len(run_ck)); tag = "grid"
     else:

@@ -20,7 +20,7 @@ from diffusers.training_utils import EMAModel
 from torch.utils.data import DataLoader
 
 from config import parse_cli
-from dataset import VerosTSDataset, build_transform
+from dataset import VerosTSDataset, build_transform, resolve_split
 from diffusion import Diffusion
 from model import ConditionalUNet
 from pipeline import LandZero, sample
@@ -68,8 +68,9 @@ def final_samples(model, ema, diffusion, tr, cfg, device, run_dir: Path) -> None
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    ds_h = VerosTSDataset(cfg.data_file, "holdout", tr, cfg.fields, snapshot_stride=12)
-    ds = ds_h if len(ds_h) else VerosTSDataset(cfg.data_file, "train", tr, cfg.fields, snapshot_stride=12)
+    _, hold = resolve_split(cfg, np.load(cfg.data_file, allow_pickle=False))
+    ds_h = VerosTSDataset(cfg.data_file, "holdout", tr, cfg.fields, snapshot_stride=12, holdout_runs=hold)
+    ds = ds_h if len(ds_h) else VerosTSDataset(cfg.data_file, "train", tr, cfg.fields, snapshot_stride=12, holdout_runs=hold)
     runs = ds.runs()[:4]
     if ema is not None:
         ema.store(model.parameters()); ema.copy_to(model.parameters())
@@ -108,7 +109,9 @@ def main(argv=None):
     (run_dir / "git_hash.txt").write_text(git_hash() + "\n")
 
     tr = build_transform(cfg.data_file, cfg, device="cpu")
-    ds = VerosTSDataset(cfg.data_file, "train", tr, cfg.fields, cfg.snapshot_stride)
+    train_runs, hold = resolve_split(cfg, np.load(cfg.data_file, allow_pickle=False))
+    print(f"split {cfg.split_mode}: {len(train_runs)} training runs, {len(hold)} held out", flush=True)
+    ds = VerosTSDataset(cfg.data_file, "train", tr, cfg.fields, cfg.snapshot_stride, holdout_runs=hold)
     dl = DataLoader(ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, num_workers=cfg.num_workers,
                     pin_memory=(device.type == "cuda"), persistent_workers=cfg.num_workers > 0)
     model = ConditionalUNet(tr.n_channels, tr.padded_shape, ds.encoder.dim, cfg.block_out_channels,

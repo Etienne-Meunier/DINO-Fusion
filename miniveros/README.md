@@ -23,8 +23,8 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `ck`, `eps`, `run_id`, `time_s`, `year` | `(N,)` | per-sample parameters and time |
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
 | `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
-| `holdout_runs`, `train_runs` | | the split, chosen before statistics |
-| `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics, train split only |
+| `holdout_runs`, `train_runs` | | optional stored split (normally empty; the split is chosen in the config) |
+| `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics, all runs |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
 
 Salinity is exactly 35 in every water cell of every run. It is carried through the whole pipeline
@@ -37,8 +37,10 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
 ```
 
 * **Normalisation** (`norm_mode`, `"<k>-std"`): per vertical level, `(x - mean_z) / (k * std_z)`, as in
-  DINO-Fusion, with statistics from the training runs only. The std is floored (`std_floor`) so the
-  constant salinity maps to exactly 0.
+  DINO-Fusion. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
+  constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
+  choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`). The std is floored (`std_floor`) so
+  the constant salinity maps to exactly 0. The DDPM sampler clips to `clip_sample_range` = 3 (never a real state).
 * **Padding**: zeros, `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
   four times. Padding equals the land value.
 * **Model**: diffusers `UNet2DModel` (64, 64, 128, 128), plus an MLP that maps the standardised
@@ -73,9 +75,10 @@ copy `jz_env.example.sh`, fill it in on the cluster, then
 
 ```bash
 jobs/submit.sh extract
-jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/full_3std
-jobs/submit.sh generate_eval $MV_WORK/runs/full_3std      # 32 samples per hold-out condition by default
-jobs/campaign.sh 3-std              # or the whole chain at once: extract -> train -> generate_eval
+jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/fs_scattered_3std split_mode=interior_random
+jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std      # 32 samples per hold-out condition by default
+jobs/campaign.sh -s fs_scattered -p "split_mode=interior_random"      # whole chain: extract -> train -> generate_eval
+jobs/campaign.sh -n -s fs_band3 -p "split_mode=rows split_rows=0.126,0.2,0.3175"   # reuse the data file
 ```
 
 ## Evaluation

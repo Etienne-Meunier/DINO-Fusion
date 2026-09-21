@@ -5,7 +5,18 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from extract_data import choose_holdout
 from transforms import FieldTransform
+
+
+def resolve_split(cfg, ds):
+    """(train_runs, holdout_runs) from the config; "file" uses the split stored in the dataset."""
+    run_ck, run_eps = np.asarray(ds["run_ck"]), np.asarray(ds["run_eps"])
+    if cfg.split_mode == "file":
+        hold = np.asarray(ds["holdout_runs"], dtype=np.int64)
+    else:
+        hold = choose_holdout(run_ck, run_eps, cfg.split_mode, cfg.n_holdout, cfg.split_seed, list(cfg.split_rows))
+    return np.setdiff1d(np.arange(len(run_ck)), hold), np.asarray(hold, dtype=np.int64)
 
 
 class CondEncoder:
@@ -32,11 +43,12 @@ class VerosTSDataset(Dataset):
     """Returns ``(x, cond)``: x is the normalised, land-zeroed, padded (C, Yp, Xp) tensor; cond is (n_cond,)."""
 
     def __init__(self, data_file: str, split: str, transform: FieldTransform, fields=("temp", "salt"),
-                 snapshot_stride: int = 1):
+                 snapshot_stride: int = 1, holdout_runs=None):
+        """``holdout_runs``: run ids held out (from :func:`resolve_split`); None uses the dataset's stored split."""
         assert split in ("train", "holdout", "all")
         ds = np.load(data_file, allow_pickle=False)
         run_id = np.asarray(ds["run_id"])
-        holdout = np.asarray(ds["holdout_runs"])
+        holdout = np.asarray(ds["holdout_runs"]) if holdout_runs is None else np.asarray(holdout_runs)
         if split == "all":
             idx = np.arange(len(run_id))
         else:

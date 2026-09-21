@@ -10,7 +10,8 @@ class Diffusion:
     def __init__(self, cfg):
         self.cfg = cfg
         self.scheduler = DDPMScheduler(num_train_timesteps=cfg.num_train_timesteps,
-                                       beta_schedule=cfg.beta_schedule, clip_sample=cfg.clip_sample)
+                                       beta_schedule=cfg.beta_schedule, clip_sample=cfg.clip_sample,
+                                       clip_sample_range=cfg.clip_sample_range)
 
     def training_loss(self, model, x0: torch.Tensor, cond: torch.Tensor,
                       zero_mask: torch.Tensor | None = None) -> torch.Tensor:

@@ -41,7 +41,14 @@ class Config:
     num_inference_steps: int = 1000
     beta_schedule: str = "squaredcos_cap_v2"
     clip_sample: bool = True
+    clip_sample_range: float = 3.0   # in normalised units; 3 = never clips a real state (max |x'| is 2.6), only sampler excursions
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
+
+    # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)
+    split_mode: str = "interior_random"   # "interior_random" | "rows" | "row_ck_max" | "none" | "file" (use the dataset's stored split)
+    split_rows: tuple[float, ...] = ()    # with "rows": c_k values of the held-out rows
+    split_seed: int = 0
+    n_holdout: int = 10                   # with "interior_random"
 
     # ---- training
     batch_size: int = 32

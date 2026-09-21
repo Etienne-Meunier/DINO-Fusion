@@ -42,6 +42,7 @@ def main(argv=None):
     p.add_argument("--samples", required=True)
     p.add_argument("--grid-samples", default=None)
     p.add_argument("--out-dir", default=None)
+    p.add_argument("--config", default=None, help="run config.json; its split_mode defines train/hold-out (default: the split stored in the data file)")
     a = p.parse_args(argv)
     warnings.filterwarnings("ignore", category=RuntimeWarning)   # nanmean over all-NaN land columns is expected
     out_dir = Path(a.out_dir) if a.out_dir else Path(a.samples).parent.parent / "eval"
@@ -52,7 +53,13 @@ def main(argv=None):
     water = ~np.asarray(ds["mask_land"]); zt = np.asarray(ds["zt"])
     run_id = np.asarray(ds["run_id"]); run_ck, run_eps = np.asarray(ds["run_ck"]), np.asarray(ds["run_eps"])
     run_names = [str(r) for r in ds["run_names"]]
-    train_runs = set(np.asarray(ds["train_runs"]).tolist())
+    if a.config:
+        from config import Config
+        from dataset import resolve_split
+        tr_arr, hr = resolve_split(Config.load(a.config), ds)
+    else:
+        tr_arr, hr = np.asarray(ds["train_runs"]), np.asarray(ds["holdout_runs"])
+    train_runs = set(tr_arr.tolist())
     cks, epss = np.unique(run_ck), np.unique(run_eps)
     ick, ieps = np.searchsorted(cks, run_ck), np.searchsorted(epss, run_eps)
 
@@ -172,7 +179,7 @@ def main(argv=None):
         for k, r in enumerate(grid_rid):
             dm_truth[ick[r], ieps[r]] = tmean[r][water].mean()
             dm_gen[ick[r], ieps[r]] = np.nanmean(gg["temp"][k], 0)[water].mean()
-        hr = np.asarray(ds["holdout_runs"]); tr_ = np.asarray(ds["train_runs"])
+        tr_ = tr_arr
         ho = np.sqrt(np.nanmean(((dm_gen - dm_truth)[ick[hr], ieps[hr]]) ** 2)) if len(hr) else float("nan")
         al = np.sqrt(np.nanmean((dm_gen - dm_truth) ** 2))
         # numbers behind the figure, so it can be re-plotted without the samples

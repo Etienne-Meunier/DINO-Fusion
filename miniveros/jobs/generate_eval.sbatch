@@ -11,5 +11,5 @@ echo "run_dir: $MV_RUN_DIR | n_samples: $MV_NSAMPLES"
 python generate.py --run-dir "$MV_RUN_DIR" --holdout --n-samples "$MV_NSAMPLES"
 python generate.py --run-dir "$MV_RUN_DIR" --grid    --n-samples "$MV_NSAMPLES"
 HOLD=$(ls -t "$MV_RUN_DIR"/samples/holdout_*.npz | head -1); GRID=$(ls -t "$MV_RUN_DIR"/samples/grid_*.npz | head -1)
-python evaluate.py --data-file "$MV_DATA" --samples "$HOLD" --grid-samples "$GRID" --out-dir "$MV_RUN_DIR/eval"
+python evaluate.py --data-file "$MV_DATA" --samples "$HOLD" --grid-samples "$GRID" --out-dir "$MV_RUN_DIR/eval" --config "$MV_RUN_DIR/config.json"
 echo "done $(date)"

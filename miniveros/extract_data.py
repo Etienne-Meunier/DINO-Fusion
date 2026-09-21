@@ -4,7 +4,8 @@ Input : ``<raw_dir>/ck<ck>_eps<eps>.npz`` files, one per run. Each holds arrays 
         (t, x, y, z) including 2 ghost cells on each horizontal side, plus ``time`` (s), ``zt`` (m).
 Output: one uncompressed npz with, for every kept snapshot of every run,
         temp/salt as float32 (N, Z, Y, X) on the interior grid, the run parameters, the land mask,
-        the train/hold-out split, and the per-level normalisation statistics computed on the TRAIN split only.
+        an optional stored split, and the per-level normalisation statistics (by default on ALL runs, so that
+        every hold-out split shares one normalised space; ``--stats train`` restricts them to the training runs).
 
 Only T and S are read (by seeking inside the zip, the other variables are never touched).
 """
@@ -100,7 +101,9 @@ def main(argv=None):
     p.add_argument("--last-years", type=float, default=20.0, help="keep snapshots in the last N years of each run")
     p.add_argument("--stride", type=int, default=1, help="keep every k-th of those snapshots")
     p.add_argument("--n-holdout", type=int, default=10)
-    p.add_argument("--holdout-mode", default="interior_random", choices=["interior_random", "row_ck_max", "rows", "none"])
+    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "none"],
+                   help="optional split stored in the file (normally the split is chosen in the training config)")
+    p.add_argument("--stats", default="all", choices=["all", "train"], help="runs used for the normalisation statistics")
     p.add_argument("--holdout-ck", default="", help="with --holdout-mode rows: comma-separated c_k values of the rows to hold out")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--limit-runs", type=int, default=0, help="debug: only the first k runs (sorted by name)")
@@ -164,10 +167,11 @@ def main(argv=None):
     is_train = np.isin(run_id, train_runs)
     print(f"split: {len(train_runs)} train runs, {len(holdout)} hold-out runs -> {[run_names[i] for i in holdout]}")
 
-    # ---- normalisation statistics on TRAIN samples only (float64 accumulation, chunked)
+    # ---- normalisation statistics (float64 accumulation, chunked) on all samples, or on the training samples
     F = len(fields)
     lvl_mean, lvl_std = np.zeros((F, nz)), np.zeros((F, nz))
-    tr_idx = np.where(is_train)[0]
+    tr_idx = np.where(is_train)[0] if args.stats == "train" else np.arange(N)
+    print(f"normalisation statistics on {len(tr_idx)} samples ({args.stats})")
     for fi, name in enumerate(fields):
         s1 = np.zeros((nz, ny, nx)); s2 = np.zeros((nz, ny, nx))
         for c in range(0, len(tr_idx), 2000):
@@ -187,6 +191,7 @@ def main(argv=None):
 
     meta = dict(raw_dir=os.path.abspath(args.raw_dir), fields=fields, last_years=args.last_years, stride=args.stride,
                 n_runs=n_run, n_keep_per_run=n_keep, holdout_mode=args.holdout_mode, holdout_ck=rows, seed=args.seed,
+                stats_on=args.stats,
                 dims="(N, Z, Y, X); Z index 0 = bottom (zt ascending to the surface); Y meridional; X zonal (periodic)",
                 created=clock.strftime("%Y-%m-%d %H:%M:%S"))
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)

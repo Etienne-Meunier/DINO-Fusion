@@ -77,7 +77,7 @@ def test_transforms(data_file: str):
 
 
 def test_model_and_loss(data_file: str):
-    cfg = Config(num_train_timesteps=20, num_inference_steps=3, block_out_channels=(32, 32, 64, 64), cond_drop_prob=0.2)
+    cfg = Config(num_train_timesteps=20, num_inference_steps=3, block_out_channels=(32, 32, 64, 64), cond_drop_prob=0.2, split_mode="file")
     tr = build_transform(data_file, cfg)
     ds = VerosTSDataset(data_file, "train", tr, cfg.fields, snapshot_stride=1)
     x, c = ds[0]
