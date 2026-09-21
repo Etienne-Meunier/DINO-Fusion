@@ -134,4 +134,6 @@ samples plus evaluation 3.5 min. Whole chain under one GPU hour on the dev QoS.
 `samples_levels.png` (true state and three random samples of T and S at three depths for one hold-out condition,
 made with `plot_samples.py`). Raw metrics in `metrics.csv`, training curves in `train_log.csv`.
 `band3_3std/eval/`, `top_3std/eval/`, `full_3std/eval_n32/`: the three-split evaluations (32 samples per run).
+`band3_3std/samples_levels.png` (condition ck0.2_eps2.222, middle held-out row) and `top_3std/samples_levels.png`
+(condition ck0.8_eps0.5556, extrapolation): the same visual check for the two other splits.
 `report/report.tex`, `report/report.pdf`: the short report on the scattered split (compile with `tectonic report.tex`).

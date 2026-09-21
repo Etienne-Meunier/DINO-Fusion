@@ -6,6 +6,7 @@
 \usepackage{siunitx}
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{float}
 \captionsetup{font=small}
 \setlength{\parskip}{4pt}
@@ -99,12 +100,12 @@ domain-mean $T$ map, RMSE on hold-out / all runs (K) & 0.030 / 0.049 \\
         component was checked on synthetic and real data before the run.
   \item \textbf{Conditioning is not yet effective.} The ensemble-mean RMSE equals the mean-state baseline:
         the model reproduces the structure shared by all runs and adds noise. The generated map of
-        domain-mean temperature over the grid (Figure~\ref{fig:grid}) shows only a faint response in the
+        domain-mean temperature over the grid (Figure~\ref{fig:scat}a) shows only a faint response in the
         warm high-$c_k$, low-$c_\epsilon$ corner. The mechanism is quantitative: under per-level scaling the
         run-to-run signal is 0.7\,\% of the normalised range at the surface, 9\,\% at \SI{650}{m} and 25\,\%
         at the bottom, and the $\epsilon$-prediction loss weights every cell equally, so training is
         dominated by the shared structure. Consistently, the model beats the mean-state baseline only between
-        about 400 and \SI{1400}{m} (Figure~\ref{fig:profile}); it is worse than it in the top \SI{250}{m},
+        about 400 and \SI{1400}{m} (Figure~\ref{fig:scat}b); it is worse than it in the top \SI{250}{m},
         where the signal is below one percent of the range, and at the two bottom levels, where the training
         distribution is broadened by the residual drift and its extremes are clipped.
   \item \textbf{Spread.} Single samples are \SI{0.188}{K} from the truth and the ensemble spread is three
@@ -114,20 +115,18 @@ domain-mean $T$ map, RMSE on hold-out / all runs (K) & 0.030 / 0.049 \\
         land is exact, and the fraction of temperature inversions (9.5\,\%) is close to the truth's (7.7\,\%).
 \end{enumerate}
 
-\begin{figure}[H]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.9\textwidth]{../full_3std/grid_domain_mean.png}
-\caption{Domain-mean temperature over the parameter grid: truth, generated, and difference.
-White dots mark training runs, red crosses the held-out runs.}
-\label{fig:grid}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.32\textwidth]{../full_3std/rmse_profile.png}
-\caption{RMSE against the truth by depth, mean over the held-out runs, for the diffusion ensemble mean and
-the three baselines.}
-\label{fig:profile}
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.9\textwidth]{../full_3std/eval_n32/grid_domain_mean.png}
+\caption{Domain-mean temperature over the parameter grid: truth, generated, difference. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.27\textwidth]{../full_3std/eval_n32/rmse_profile.png}
+\caption{RMSE against the truth by depth, mean over the held-out runs: diffusion ensemble mean and baselines.}
+\end{subfigure}
+\caption{Scattered split (10 interior held-out runs), 32 samples per run.}
+\label{fig:scat}
 \end{figure}
 
 \section{Hold-out splits}
@@ -172,7 +171,38 @@ range and cannot be generated, so the generated corner is \SI{0.2}{K} too cold. 
 the table show a physical miss that grows with $c_k$: the model generates 10 to 12\,\% of interfaces with
 temperature decreasing upward whatever the regime, the rate of the weakly eddying rows that dominate the grid,
 whereas in the truth the strongly eddying states are stratified almost everywhere. The model has not learned
-that regime dependence, and this is precisely the kind of constraint DINO-Fusion imposes at sampling time.
+that regime dependence, and this is precisely the kind of constraint DINO-Fusion imposes at
+sampling time. Figures~\ref{fig:band} and \ref{fig:top} show the parameter map and the depth profile for
+the two splits; Figures~\ref{fig:samples}, \ref{fig:samples_band} and \ref{fig:samples_top} show the
+visual check for one held-out condition of each split.
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.9\textwidth]{../band3_3std/eval/grid_domain_mean.png}
+\caption{Domain-mean temperature over the parameter grid.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.27\textwidth]{../band3_3std/eval/rmse_profile.png}
+\caption{RMSE by depth, mean over the 30 held-out runs; the interpolation baseline is the orange curve.}
+\end{subfigure}
+\caption{Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
+\label{fig:band}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.9\textwidth]{../top_3std/eval/grid_domain_mean.png}
+\caption{Domain-mean temperature over the parameter grid.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.27\textwidth]{../top_3std/eval/rmse_profile.png}
+\caption{RMSE by depth, mean over the 10 held-out runs; all three baselines coincide (the row below).}
+\end{subfigure}
+\caption{Top row ($c_k$ = 0.8 held out, extrapolation), 32 samples per run.}
+\label{fig:top}
+\end{figure}
 
 \section{Next steps}
 Impose stratification at sampling time, DINO-Fusion's isotonic projection applied to the temperature profile
@@ -194,12 +224,30 @@ chain ran on the development queue in under one GPU hour.
 \begin{figure}[p]
 \centering
 \includegraphics[width=0.72\textwidth]{../full_3std/samples_levels.png}
-\caption{Visual check for one held-out condition ($c_k=0.2$, $c_\epsilon=2.222$): the true 20-year mean
+\caption{Scattered split, visual check for one held-out condition ($c_k=0.2$, $c_\epsilon=2.222$): the true 20-year mean
 state (left column) and three random samples at the surface, at about \SI{650}{m} and at the bottom, for
 temperature (top three rows) and salinity (bottom three rows). Salinity is \SI{35}{psu} everywhere in the
 truth; the salinity panels show the residual noise of the generator on a colour scale of a few hundredths
 of a psu. Grey is land.}
 \label{fig:samples}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../band3_3std/samples_levels.png}
+\caption{Band-of-three split, same visual check for the same condition ($c_k=0.2$, $c_\epsilon=2.222$), which
+now sits in the middle held-out row: true 20-year mean state and three random samples at the surface, about
+\SI{650}{m} and the bottom, temperature (top) and salinity (bottom). Grey is land.}
+\label{fig:samples_band}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../top_3std/samples_levels.png}
+\caption{Top-row split, visual check for the held-out condition $c_k=0.8$, $c_\epsilon=0.5556$ (extrapolation
+one row above the training grid): true 20-year mean state and three random samples at the surface, about
+\SI{650}{m} and the bottom, temperature (top) and salinity (bottom). Grey is land.}
+\label{fig:samples_top}
 \end{figure}
 
 \end{document}
