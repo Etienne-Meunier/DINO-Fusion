@@ -136,10 +136,8 @@ samples plus evaluation 3.5 min. Whole chain under one GPU hour on the dev QoS.
 
 ## Figures
 
-`full_3std/`: `grid_domain_mean.png` (+ `.csv`), `sections_holdout.png`, `rmse_profile.png`, `samples_final.png`,
+Per run (`full_3std/`, `band3_3std/`, `top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`, `samples_final.png`,
 `samples_levels.png` (true state and three random samples of T and S at three depths for one hold-out condition,
-made with `plot_samples.py`). Raw metrics in `metrics.csv`, training curves in `train_log.csv`.
-`full_3std/eval/`, `band3_3std/eval/`, `top_3std/eval/`: the three-split evaluations (32 samples per run and per grid point).
-`band3_3std/samples_levels.png` (condition ck0.2_eps2.222, middle held-out row) and `top_3std/samples_levels.png`
-(condition ck0.8_eps0.5556, extrapolation): the same visual check for the two other splits.
-`report/report.tex`, `report/report.pdf`: the short report on the scattered split (compile with `tectonic report.tex`).
+made with `plot_samples.py`), and `eval/` with `summary.txt`, `metrics.csv`, `grid_maps.png` (+ `grid_domain_mean.csv`,
+`grid_w1.csv`) and `profiles.png` (+ `profiles.csv`), all with 32 samples per run and per grid point.
+`report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).
