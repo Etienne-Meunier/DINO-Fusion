@@ -1,143 +1,89 @@
-# Results: first end-to-end run (2026-09-18)
+# Results (current design, 2026-09-21)
 
 Conditional DDPM emulator of the Veros ACC temperature and salinity state as a function of the EKE-closure
-coefficients `c_k` and `c_eps`. Code at commit `f912e66`, data = last 20 years of the 100 runs (241 snapshots
-per run, 30-day output), 90 training runs, 10 interior hold-out runs chosen at random before any statistics.
-Normalisation per vertical level as in DINO-Fusion (`3-std`). 20,000 steps, batch 32, EMA, 1000 DDPM steps
-at sampling, 32 samples per hold-out condition.
+coefficients `c_k` and `c_eps`. Data = last 20 years of the 100 runs (241 snapshots per run, 30-day output).
+Normalisation per vertical level as in DINO-Fusion (`3-std`), with the statistics computed once on all 100 runs
+and held fixed (a deliberate, mild leakage of 30 scaling constants); the hold-out split is a training-config
+choice, so one data file serves every split. 20,000 steps, batch 32, EMA, 1000 DDPM steps at sampling with the
+predicted clean state clipped at 3 sigma, 32 samples per hold-out run and per grid point. Code `5fdcf01`
+(training at `2b542aa`). Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_top_3std`.
 
-## Hold-out metrics (mean over the 10 hold-out runs, water cells, against the true 20-year time-mean)
-
-| method / metric                                | full_3std |
-|------------------------------------------------|-----------|
-| diffusion ensemble mean / RMSE (K)             | 0.154 ± 0.018 |
-| diffusion single sample / RMSE (K)             | 0.188 ± 0.015 |
-| neighbour average / RMSE (K)                   | 0.020 ± 0.011 |
-| nearest training run / RMSE (K)                | 0.037 ± 0.027 |
-| training-set mean / RMSE (K)                   | 0.155 ± 0.030 |
-| diffusion / domain-mean bias (K)               | -0.028 |
-| diffusion / ensemble spread (K)                | 0.105 |
-| truth / spread within window (K)               | 0.031 |
-| diffusion / T-inversion fraction               | 9.5 % |
-| truth / T-inversion fraction                   | 7.7 % |
-| diffusion / max salinity error (psu)           | 0.010 |
-| grid map, domain-mean T RMSE, hold-out (K)     | 0.030 |
-| grid map, domain-mean T RMSE, all runs (K)     | 0.049 |
-
-## What it shows
-
-1. **The pipeline runs end to end**: extraction, training (22 min on one A100), conditional generation,
-   evaluation with baselines and figures, all as one SLURM dependency chain under one GPU hour.
-2. **Conditioning is not yet effective.** The ensemble-mean RMSE (0.154 K) equals the mean-training-state
-   baseline (0.155 K): the model reproduces the shared structure of the ensemble and adds noise. The generated
-   map of domain-mean temperature over the parameter grid shows only a faint response in the warm high-`c_k`,
-   low-`c_eps` corner. The mechanism: under per-level scaling the run-to-run signal is 0.7 % of the normalised
-   range at the surface, 9 % at 650 m and 25 % at the bottom, and the epsilon-prediction loss weights every
-   cell equally, so the shared structure dominates training. Accordingly the model beats the mean-state
-   baseline only between about 400 and 1400 m; it is worse than it in the top 250 m, where the signal is
-   below one percent of the range, and at the two bottom levels, where the training distribution is
-   broadened by the residual drift and its extremes are clipped.
-3. **Spread.** Single samples are 0.188 K from the truth and the ensemble spread (0.105 K) is three times the
-   true within-window spread (0.031 K).
-4. **Plumbing checks pass.** Salinity comes back within 0.01 psu of 35 without any constraint, land is exact,
-   and the fraction of interfaces with temperature decreasing upward (9.5 %) is close to the truth's (7.7 %).
-
-Data range under this normalisation: with k = 3, 99.4 % of the training temperature values lie inside the
-sampler's clip range [-1, 1]; the exceptions are the cold southern boundary between 650 and 1400 m and the
-bottom two levels, whose extremes are clipped at sampling. Salinity is exactly 0 everywhere.
-
-## Hold-out splits: scattered, band of three rows, top row (2026-09-21)
-
-Same model family and settings (per-level normalisation, 20,000 steps, EMA, 32 samples per hold-out run),
-three ways of choosing the hold-out runs. Statistics and training runs differ per split, so each split has
-its own dataset file (`data/veros_acc_TS_<split>.npz`) and run (`runs/<split>_3std`).
+## Hold-out metrics (mean over the held-out runs, water cells, against the true 20-year time-mean)
 
 | | scattered (10 interior points) | band of three rows, `c_k` 0.126, 0.2, 0.3175 (30 runs) | top row, `c_k` 0.8 (10 runs) |
 |---|---|---|---|
 | training runs | 90 | 70 | 90 |
 | gap the training rows bridge | one step, all four sides | 0.0794 to 0.504, factor 6.3 | extrapolation, nothing above |
-| diffusion ensemble mean / RMSE (K) | 0.150 | 0.129 | 0.193 |
-| diffusion single sample / RMSE (K) | 0.186 | 0.175 | 0.232 |
+| diffusion ensemble mean of 32 / RMSE (K) | 0.152 ± 0.007 | 0.135 ± 0.019 | 0.173 ± 0.081 |
+| diffusion single sample / RMSE (K) | 0.188 | 0.178 | 0.214 |
 | neighbour average / RMSE (K) | 0.020 | 0.116 | 0.170 |
 | nearest training run / RMSE (K) | 0.037 | 0.116 | 0.170 |
 | training-set mean / RMSE (K) | 0.155 | 0.197 | 0.470 |
-| diffusion / domain-mean bias (K) | -0.024 | -0.023 | -0.083 |
-| ensemble spread / true spread (K) | 0.110 / 0.031 | 0.113 / 0.031 | 0.114 / 0.032 |
-| T-inversion fraction, generated / truth | 9.6 % / 7.7 % | 11.0 % / 1.3 % | 12.0 % / 0.1 % |
-| domain-mean T map RMSE, hold-out (K) | 0.030 | 0.045 | 0.101 |
+| diffusion / domain-mean bias (K) | -0.027 | -0.027 | -0.071 |
+| ensemble spread / true spread (K) | 0.109 / 0.031 | 0.111 / 0.031 | 0.115 / 0.032 |
+| T-inversion fraction, generated / truth | 9.6 % / 7.7 % | 10.7 % / 1.3 % | 12.1 % / 0.1 % |
+| max salinity error (psu) | 0.011 | 0.013 | 0.018 |
+| W1 profile, diffusion (K) | 0.127 | 0.111 | 0.143 |
+| W1 profile, neighbour average (K) | 0.036 | 0.095 | 0.142 |
+| W1 profile, nearest training run (K) | 0.044 | 0.095 | 0.142 |
+| W1 profile, training-set mean (K) | 0.136 | 0.160 | 0.420 |
+| grid W1, all / hold-out / training points (K) | 0.125 / 0.127 / 0.124 | 0.119 / 0.110 / 0.123 | 0.119 / 0.141 / 0.117 |
 
-Band of three, by row (RMSE in K, mean over the 10 runs of the row):
+Band of three, by row (RMSE in K): diffusion 0.140 / 0.139 / 0.127 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
+0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
+below from 0.139 to 0.556 (0.12 to 0.23 K vs 0.18 to 0.31 K), loses at the corner (0.40 vs 0.35 K) and in the
+flat regime (`c_eps` >= 0.88: 0.12 to 0.16 vs 0.03 to 0.11 K).
 
-| row | diffusion mean | nearest row | training mean |
-|---|---|---|---|
-| `c_k` 0.126 | 0.133 | 0.063 | 0.149 |
-| `c_k` 0.2 (middle) | 0.134 | 0.132 | 0.187 |
-| `c_k` 0.3175 | 0.120 | 0.152 | 0.256 |
-
-Top row, by `c_eps` (RMSE in K): the model beats "copy the row below" where there is a trend to
-extrapolate (`c_eps` 0.22 to 0.88: 0.10 to 0.20 versus 0.11 to 0.27), loses at the extreme corner
-(`c_eps` 0.0875: 0.48 versus 0.35) and in the flat regime (`c_eps` >= 1.4: 0.14 to 0.16 versus 0.03 to 0.08).
-
-What the three splits say together:
-
-1. **The model's error is nearly independent of the split** (0.13 to 0.19 K) while the baselines' error
-   grows with the gap they must bridge (0.02 to 0.17 K). The model therefore catches up with the baselines
-   as the split gets harder: it beats the nearest-row baseline in the two upper rows of the band and over the
-   trending part of the top row.
-2. **Where the parameter signal lives, the model is competitive or best.** In the band split it is the best
-   method between about 650 and 800 m (0.08 K against 0.14 K for the nearest row). Its error is dominated by the top 250 m, where the per-level scale turns small normalised noise into
-   0.1 K of scatter, and from the two bottom levels, where the training distribution is skewed and drifting
-   and the sampler clips the extremes.
-3. **Extrapolation is limited by the clip range before the model.** Under the top split's own training
-   statistics, 17 % of the true bottom-level values of the held-out row and 7 % at 1666 m lie beyond
-   [-1, 1], so they cannot be generated; the generated corner is 0.2 K too cold and the bottom-level RMSE is
-   0.41 K against 0.22 K for the row below. Under the band split the same fraction is below 2 %.
-4. **A physical miss that grows with `c_k`.** The model generates 10 to 12 % of interfaces with temperature
-   decreasing upward whatever the regime, the rate of the low-`c_k` rows that dominate the grid, whereas the
-   truth goes from 7.7 % (scattered set) to 1.3 % (band) to 0.1 % (top row): the strongly eddying states are
-   stratified everywhere and the model has not learned that dependence. This is exactly the kind of
-   constraint DINO-Fusion imposes at sampling time (isotonic projection of the density profile), and the
-   natural next lever here.
-
-## Wasserstein-1 on stratification profiles (2026-09-21)
+## W1 metric
 
 Each state is reduced to its horizontal-mean temperature profile over water cells. Per level, W1 between the
-32 generated values and all 241 true snapshots of the window (quantile form, unequal sizes are fine; a
-subsample of 32 would only add noise); levels combined with thickness weights dz/H from the level midpoints
-(H = 2080 m). Point predictions (baselines): W1 = mean |x - T_i|. Rewards a correct spread, does not reward
-collapse to the mean, ignores horizontal structure (kept by the RMSE).
+32 generated values and all 241 true snapshots of the window (quantile form; a subsample of 32 would only add
+noise); levels combined with thickness weights dz/H from the level midpoints (H = 2080 m). Point predictions
+(baselines): W1 = mean |x - T_i|. Rewards a correct spread, does not reward collapse to the mean, ignores
+horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 
-| thickness-weighted W1 (K) | scattered | band of three rows | top row |
-|---|---|---|---|
-| diffusion, 32 samples | 0.125 | 0.109 | 0.161 |
-| neighbour average | 0.036 | 0.095 | 0.142 |
-| nearest training run | 0.044 | 0.095 | 0.142 |
-| training-set mean | 0.136 | 0.160 | 0.420 |
-| grid map: mean W1, all / hold-out / training points | 0.123 / 0.125 / 0.123 | 0.115 / 0.107 / 0.119 | 0.120 / 0.160 / 0.116 |
+## What the results say
 
-Same ranking as the RMSE. Two additions: training grid points score like held-out ones (mean-state
-collapse), and between 650 and 1200 m the samples beat the baselines under W1 in the band and top splits.
-Figures: `<run>/eval/grid_maps.png` (truth, generated, difference, W1 over the grid; `grid_domain_mean.csv`,
-`grid_w1.csv`) and `<run>/eval/profiles.png` (RMSE and W1 by depth; `profiles.csv`); code in `wmetrics.py`.
+1. **Conditioning is weak under per-level scaling.** The run-to-run signal is 0.7 % of the normalised range at
+   the surface, 9 % at 650 m, 25 % at the bottom; the epsilon loss weights every cell equally, so the shared
+   structure dominates. Scattered split: RMSE = mean-state baseline. Under W1 the training grid points score
+   like the held-out ones (0.124 vs 0.127 K): the model does not fit the training conditions either.
+2. **Model error is nearly split-independent (0.14 to 0.17 K) while the baselines degrade with the gap
+   (0.02 to 0.17 K).** The model beats the nearest run in the upper band row, ties the middle one, loses the lower
+   one; on the top row it ties copying the row below on average and beats it where there is a trend to continue.
+3. **Depth structure.** Best method between 370 and 800 m in the band split (0.08 vs 0.14 K at 650 m) and
+   between 260 and 1430 m in the top row; worse than the baselines in the top 250 m (the per-level scale turns
+   small normalised noise into 0.1 K of scatter) and at the two bottom levels (skewed, drifting distribution).
+4. **The sampler's clip is a regulariser.** Same trained models, sampling only: clip at 1 gives 0.152 / 0.173 K
+   (scattered / top), at 1.5 it gives 0.194 / 0.183 K, at 3 it gives 0.302 / 0.277 K, although the final samples
+   barely exceed |x'| = 1 (0.1 %). Clipping the early, inaccurate clean-state estimates keeps the chain on track.
+   The price is a range limit for extrapolation: 12 % of the held-out top row's true bottom values lie above
+   mu + 3 sigma and cannot be generated.
+5. **Inversions.** The model generates 10 to 12 % of interfaces with temperature decreasing upward whatever the
+   regime; the truth goes from 7.7 % (scattered set) to 1.3 % (band) to 0.1 % (top row). Not learned; this is
+   the kind of constraint DINO-Fusion imposes at sampling time.
+6. **Plumbing.** Salinity within 0.02 psu of 35 without any constraint, land exact, spread 3.5x the true
+   within-window spread.
+
+Previous design (statistics per split, 8 then 32 samples): 0.150 / 0.129 / 0.193 K; fixed statistics changed
+the scattered and band numbers within noise and improved the top row from 0.193 to 0.173 K.
 
 ## Cost
 
-Extraction 2.5 min on 8 CPU cores. Training 22 min on one A100. Generation of 80 hold-out and 400 grid
-samples plus evaluation 3.5 min. Whole chain under one GPU hour on the dev QoS.
+Extraction 2.5 min on 8 CPU cores (once). Training 17 to 22 min on one A100 per split. Generation of the 32-sample
+hold-out and grid sets plus evaluation 14 to 18 min. A split costs under 40 GPU minutes end to end.
 
 ## Suggested next steps
 
-- Strengthen the conditioning: classifier-free guidance (`cond_drop_prob` 0.1, guidance 2 to 3), longer
-  training or a larger conditioning MLP, and the year as a third condition.
-- Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread-skill), since the
-  model is trained on snapshots that drift by up to 0.45 K at the bottom over the 20-year window.
-- More samples per condition (32 instead of 8) for the ensemble mean.
-- Extrapolation split: hold out the whole `c_k` = 0.8 row to test the regime corner.
+- Stratification constraint at sampling time (DINO-Fusion's isotonic projection, on T since S is constant).
+- Stronger conditioning: classifier-free guidance; the year as a third condition (drift of 0.45 K at the bottom
+  inside the window).
+- Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread-skill).
 
 ## Figures
 
-Per run (`full_3std/`, `band3_3std/`, `top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`, `samples_final.png`,
-`samples_levels.png` (true state and three random samples of T and S at three depths for one hold-out condition,
-made with `plot_samples.py`), and `eval/` with `summary.txt`, `metrics.csv`, `grid_maps.png` (+ `grid_domain_mean.csv`,
-`grid_w1.csv`) and `profiles.png` (+ `profiles.csv`), all with 32 samples per run and per grid point.
+Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+`samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
+hold-out condition, made with `plot_samples.py`), and `eval/` with `summary.txt`, `metrics.csv`, `grid_maps.png`
+(+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
 `report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).

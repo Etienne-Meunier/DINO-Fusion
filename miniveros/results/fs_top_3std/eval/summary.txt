@@ -1,14 +1,14 @@
 hold-out runs: 10 | samples/run: 32 | norm_mode=3-std | weights=model_ema.pt | steps=1000
 
 method                  RMSE(K) mean±std   |bias|(K)
-diffusion_mean            0.2774 ± 0.0214      0.0869
-diffusion_sample          0.3771 ± 0.0234         nan
+diffusion_mean            0.1729 ± 0.0809      0.0762
+diffusion_sample          0.2141 ± 0.0745         nan
 neighbour_avg             0.1698 ± 0.1082      0.0953
 nearest_train             0.1698 ± 0.1082      0.0953
 train_mean                0.4702 ± 0.4237      0.3057
-W1 on horizontal-mean T profiles, thickness-weighted (K): diffusion 0.222 | neighbour_avg 0.142 | nearest_train 0.142 | train_mean 0.420
+W1 on horizontal-mean T profiles, thickness-weighted (K): diffusion 0.143 | neighbour_avg 0.142 | nearest_train 0.142 | train_mean 0.420
 neighbour_avg used 1.0 training neighbours on average
 
-ensemble spread (K): generated 0.2470 vs truth-in-window 0.0315
-interfaces with T decreasing upward: generated 16.082% vs truth 0.103% (truth has real inversions; compare, do not expect 0)
-salinity max |S-35| over water: 2.84e-02
+ensemble spread (K): generated 0.1153 vs truth-in-window 0.0315
+interfaces with T decreasing upward: generated 12.117% vs truth 0.103% (truth has real inversions; compare, do not expect 0)
+salinity max |S-35| over water: 1.78e-02

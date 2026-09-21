@@ -30,7 +30,7 @@
   "num_inference_steps": 1000,
   "beta_schedule": "squaredcos_cap_v2",
   "clip_sample": true,
-  "clip_sample_range": 3.0,
+  "clip_sample_range": 1.0,
   "mask_loss": false,
   "split_mode": "interior_random",
   "split_rows": [],
