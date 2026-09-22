@@ -1,0 +1,57 @@
+{
+  "data_file": "/lustre/fswork/projects/rech/udt/udu91zn/miniveros/data/veros_acc_TS.npz",
+  "run_dir": "/lustre/fswork/projects/rech/udt/udu91zn/miniveros/runs/fs_band3_minmax",
+  "fields": [
+    "temp",
+    "salt"
+  ],
+  "paddings": [
+    1,
+    1,
+    3,
+    3
+  ],
+  "norm_mode": "minmax",
+  "std_floor": 0.05,
+  "cond_keys": [
+    "log_ck",
+    "log_eps"
+  ],
+  "cond_drop_prob": 0.0,
+  "block_out_channels": [
+    64,
+    64,
+    128,
+    128
+  ],
+  "layers_per_block": 2,
+  "cond_hidden": 256,
+  "num_train_timesteps": 1000,
+  "num_inference_steps": 1000,
+  "beta_schedule": "squaredcos_cap_v2",
+  "clip_sample": true,
+  "clip_sample_range": 1.0,
+  "mask_loss": false,
+  "split_mode": "rows",
+  "split_rows": [
+    0.126,
+    0.2,
+    0.3175
+  ],
+  "split_seed": 0,
+  "n_holdout": 10,
+  "batch_size": 32,
+  "lr": 0.0001,
+  "lr_warmup_steps": 500,
+  "max_steps": 20000,
+  "grad_clip": 1.0,
+  "use_ema": true,
+  "ema_decay": 0.999,
+  "ckpt_every": 500,
+  "log_every": 20,
+  "snapshot_stride": 1,
+  "num_workers": 4,
+  "seed": 0,
+  "n_samples": 32,
+  "guidance_scale": 1.0
+}

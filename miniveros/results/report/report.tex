@@ -32,8 +32,10 @@
         copying the row below when extrapolating one row.
         A Wasserstein metric on the stratification profiles gives the same ranking and shows that training
         and held-out conditions score alike.
+  \item Per-level min-max normalisation (data range $\to [-1,1]$), tested on the same three splits, is worse
+        (0.20 / 0.23 / \SI{0.29}{K}): the ensemble spread halves and the bias dominates (Table~\ref{tab:splits}).
   \item Physical miss: the model generates temperature inversions at the rate of the weakly eddying runs
-        in every regime (Table~\ref{tab:splits}).
+        in every regime.
 \end{itemize}
 
 \section{Data}
@@ -70,6 +72,8 @@ orange ticks: the 100 per-run level means.}
         \end{equation}
         $\mu_z, \sigma_z$ are computed once on all 100 runs and held fixed for every hold-out split (a deliberate,
         mild leakage of 30 scaling constants; no held-out state enters training). The sampler clips the predicted clean state at $|x'| \le 1$ (three standard deviations) at every step.
+        Alternative tested: per-level min-max, $x'_z = 2\,(x_z - \min_z)/(\max_z - \min_z) - 1$, with land and
+        padding cells at the normalised level mean instead of 0 (Table~\ref{tab:splits}, last rows).
   \item Denoiser: UNet2DModel (64, 64, 128, 128), 6.9\,M parameters. The condition $c$, the standardised
         pair $(\log c_k, \log c_\epsilon)$, enters through an MLP added to the timestep embedding.
   \item DDPM, $\epsilon$-prediction, 1000 steps, squared-cosine schedule, EMA:
@@ -125,9 +129,15 @@ $W_1$ profile, diffusion (K) & 0.127 & 0.111 & 0.143 \\
 $W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.142 \\
 $W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.142 \\
 $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
+\midrule
+min-max norm., ensemble mean of 32: RMSE (K) & 0.199 & 0.233 & 0.288 \\
+min-max, single sample: RMSE (K) & 0.205 & 0.238 & 0.293 \\
+min-max, ensemble spread (K) & 0.051 & 0.056 & 0.061 \\
+min-max, $W_1$ profile (K) & 0.165 & 0.188 & 0.241 \\
 \bottomrule
 \end{tabular}
-\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run.}
+\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run, 3-std
+normalisation. Last four rows: the same splits trained with the per-level min-max normalisation.}
 \label{tab:splits}
 \end{table}
 
@@ -152,6 +162,14 @@ $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
         exceed $|x'| = 1$ (0.1\,\% of values). Clipping the early, inaccurate clean-state estimates keeps
         the chain on track. The price is a range limit for extrapolation: with the fixed statistics 12\,\%
         of the held-out top row's true bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated.
+  \item \textbf{Min-max normalisation is worse on every split} (0.199 / 0.233 / \SI{0.288}{K} against
+        0.152 / 0.135 / 0.173; $W_1$ 0.165 / 0.188 / 0.241 against 0.127 / 0.111 / 0.143) and at almost every level:
+        the 100--\SI{400}{m} band doubles (0.13 $\to$ \SI{0.24}{K} at \SI{106}{m}, scattered) and the bottom level goes
+        0.34 $\to$ 0.43 / 0.28 $\to$ 0.54 / 0.35 $\to$ \SI{0.66}{K}. The ensemble spread halves (0.05 vs \SI{0.11}{K}) and a
+        single sample scores like the ensemble mean: the error is bias, not sampler noise. Stretching the upper
+        levels onto $[-1,1]$ gives the fixed structure of Figure~\ref{fig:tdist} more weight, not the run-to-run
+        signal (1.4\,\% of the scale); stretching the bottom scale to the corner cell dilutes the level that
+        carries the most signal.
   \item \textbf{Inversions.} Generated 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime;
         truth: 7.7\,\% (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). The regime dependence is not
         learned.
@@ -177,7 +195,7 @@ $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package
-\texttt{miniveros/}; commit \texttt{5fdcf01} for the three runs reported here (training at \texttt{2b542aa}, sampling with the clip range of \texttt{5fdcf01}). Extraction
+\texttt{miniveros/}; commit \texttt{5fdcf01} for the three runs reported here (training at \texttt{2b542aa}, sampling with the clip range of \texttt{5fdcf01}; min-max runs at \texttt{4fe5d51}). Extraction
 \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets + evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]

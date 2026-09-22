@@ -77,6 +77,32 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 Previous design (statistics per split, 8 then 32 samples): 0.150 / 0.129 / 0.193 K; fixed statistics changed
 the scattered and band numbers within noise and improved the top row from 0.193 to 0.173 K.
 
+## Normalisation: per-level min-max (2026-09-22, runs `fs_*_minmax`, code `4fe5d51`)
+
+`norm_mode=minmax`: each level's data range [min_z, max_z] (all runs, water cells) -> [-1, 1]; land and padding
+hold the normalised level mean (within +-0.42 of the midpoint) instead of 0. Same splits, training and sampling
+settings as the 3-std runs.
+
+| | scattered | band of three | top row |
+|---|---|---|---|
+| diffusion ensemble mean of 32 / RMSE (K), minmax vs 3-std | 0.199 vs 0.152 | 0.233 vs 0.135 | 0.288 vs 0.173 |
+| diffusion single sample / RMSE (K) | 0.205 vs 0.188 | 0.238 vs 0.178 | 0.293 vs 0.214 |
+| ensemble spread (K) | 0.051 vs 0.109 | 0.056 vs 0.111 | 0.061 vs 0.115 |
+| W1 profile, diffusion (K) | 0.165 vs 0.127 | 0.188 vs 0.111 | 0.241 vs 0.143 |
+| T-inversion fraction, generated | 9.1 % | 9.9 % | 10.9 % |
+| max salinity error (psu) | 0.004 | 0.004 | 0.005 |
+
+- Worse on every split and at almost every level: the 100 to 400 m band doubles (0.13 -> 0.24 K at 106 m,
+  scattered; 0.06 -> 0.19 K at 374 m) and the bottom level goes 0.34 -> 0.43 / 0.28 -> 0.54 / 0.35 -> 0.66 K.
+  Only 70 m and 1000 to 1200 m are unchanged.
+- The spread halves and a single sample scores like the ensemble mean: the error is bias, not sampler noise.
+  The top-row grid map shows a warm bias of 0.05 to 0.09 K over the flat regime and -0.19 K at the corner.
+- Reading: stretching the upper levels onto [-1, 1] gives the fixed structure (restoring spikes, meridional
+  gradient) more weight, not the run-to-run signal (1.4 % of the scale); stretching the bottom scale to the
+  single corner cell (max 6.45 C, 99.8 % of the values within 4 K) dilutes the level with the most signal.
+- Band rows (RMSE, K): diffusion 0.217 / 0.229 / 0.252 vs nearest row 0.063 / 0.132 / 0.152. Top row: loses to
+  copying the row below at every c_eps (0.20 to 0.50 vs 0.03 to 0.35 K).
+
 ## Cost
 
 Extraction 2.5 min on 8 CPU cores (once). Training 17 to 22 min on one A100 per split. Generation of the 32-sample
@@ -91,7 +117,7 @@ hold-out and grid sets plus evaluation 14 to 18 min. A split costs under 40 GPU 
 
 ## Figures
 
-Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`, and the min-max runs `fs_*_minmax/`): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
