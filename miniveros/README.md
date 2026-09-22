@@ -24,7 +24,7 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
 | `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
 | `holdout_runs`, `train_runs` | | optional stored split (normally empty; the split is chosen in the config) |
-| `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics, all runs |
+| `lvl_mean/std/min/max` `(2, 15)` | | per-level normalisation statistics over water cells, all runs |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
 
 Salinity is exactly 35 in every water cell of every run. It is carried through the whole pipeline
@@ -33,11 +33,12 @@ so the code handles two active fields, but it contains no information in this da
 ## Pipeline
 
 ```
-fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0--> --pad--> (30,48,32)
+fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --fill land--> --pad--> (30,48,32)
 ```
 
-* **Normalisation** (`norm_mode`, `"<k>-std"`): per vertical level, `(x - mean_z) / (k * std_z)`, as in
-  DINO-Fusion. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
+* **Normalisation** (`norm_mode`): per vertical level, `"<k>-std"` = `(x - mean_z) / (k * std_z)` as in
+  DINO-Fusion, or `"minmax"` = the level's data range `[min_z, max_z]` mapped to `[-1, 1]`. Land and padding
+  cells hold the normalised level mean (0 for `"<k>-std"`), re-imposed at every sampling step. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
   constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
   choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`). The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
