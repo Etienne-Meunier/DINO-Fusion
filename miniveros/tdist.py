@@ -12,11 +12,12 @@ NBINS = 1000
 
 def compute(src, out):
     t0 = time.time()
-    d = np.load(src, allow_pickle=True)
+    d = np.load(src, allow_pickle=False)
     temp, land, zt, run_id = d["temp"], d["mask_land"], d["zt"], d["run_id"]      # temp (N, Z, Y, X), Z index 0 = bottom
     N, Z, Y, X = temp.shape
     water = ~(np.broadcast_to(land, (Z, Y, X)) if land.ndim == 2 else land).astype(bool)
     runs = np.unique(run_id); R = len(runs); T = N // R
+    assert N == R * T and np.array_equal(run_id, np.repeat(runs, T)), "snapshots must be stored run by run"
     print(f"temp {temp.shape}, water cells per level {water.reshape(Z, -1).sum(1)}, load {time.time() - t0:.0f}s", flush=True)
     st = {k: np.zeros(Z) for k in ["mean", "std", "min", "max", "skew", "kurt", "frac_out3", "n", "sigma_runs", "sigma_time"]}
     quant, edges, counts = np.zeros((Z, len(QS))), np.zeros((Z, NBINS + 1)), np.zeros((Z, NBINS))

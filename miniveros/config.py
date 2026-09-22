@@ -21,13 +21,14 @@ class Config:
 
     # ---- fields and grid
     fields: tuple[str, ...] = ("temp", "salt")    # channel order: all temp levels, then all salt levels
-    paddings: tuple[int, int, int, int] = (1, 1, 3, 3)  # zeros added (x_left, x_right, y_low, y_high): 42x30 -> 48x32
+    paddings: tuple[int, int, int, int] = (1, 1, 3, 3)  # cells added (x_left, x_right, y_low, y_high): 42x30 -> 48x32, holding the fill
 
     # ---- normalisation
     norm_mode: str = "3-std"     # "<k>-std": per vertical level, (x - mean_z) / (k * std_z), as in DINO-Fusion
                                  # "minmax": per level, the data range [min_z, max_z] -> [-1, 1]; land and padding hold the
                                  # normalised level mean in both modes (0 for "<k>-std")
-    std_floor: float = 0.05      # std is floored before dividing: constant fields (salinity) would otherwise divide by ~0
+    std_floor: float = 0.05      # floor on the scale: std (then x k) for "<k>-std", half-range for "minmax"; constant fields (salinity)
+                                 # would otherwise divide by ~0. The floor sets how sampler noise maps back to psu: 0.15 vs 0.05 psu per unit
 
     # ---- conditioning
     cond_keys: tuple[str, ...] = ("log_ck", "log_eps")

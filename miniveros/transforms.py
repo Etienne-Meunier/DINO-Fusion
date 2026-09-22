@@ -96,12 +96,21 @@ def level_range(ds, fields: tuple[str, ...]) -> tuple[np.ndarray, np.ndarray]:
         idx = [stats_fields.index(f) for f in fields]
         return np.asarray(ds["lvl_min"])[idx].reshape(-1), np.asarray(ds["lvl_max"])[idx].reshape(-1)
     water = ~np.asarray(ds["mask_land"]).astype(bool)                       # (Z, Y, X)
+    sel = None                                                               # same samples as the stored mean/std
+    if "meta" in keys and "train_runs" in keys:
+        import json
+        if json.loads(str(ds["meta"])).get("stats_on") == "train":
+            sel = np.isin(np.asarray(ds["run_id"]), np.asarray(ds["train_runs"]))
     lo, hi = [], []
     for f in fields:
-        arr = ds[f]
+        arr = ds[f]                                                          # an npz member loads whole; chunking bounds the temporaries only
         l = np.full(water.shape[0], np.inf); h = np.full(water.shape[0], -np.inf)
         for c in range(0, arr.shape[0], 2000):
             blk = np.asarray(arr[c:c + 2000])
+            if sel is not None:
+                blk = blk[sel[c:c + 2000]]
+                if blk.shape[0] == 0:
+                    continue
             bmin, bmax = blk.min(0), blk.max(0)
             for z in range(water.shape[0]):
                 if water[z].any():

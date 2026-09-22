@@ -43,7 +43,7 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --fill land
   choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`). The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
   (three standard deviations): this regularises the chain, and widening it to 3 doubled the hold-out RMSE.
-* **Padding**: zeros, `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
+* **Padding**: the fill value (see above), `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
   four times. Padding equals the land value.
 * **Model**: diffusers `UNet2DModel` (64, 64, 128, 128), plus an MLP that maps the standardised
   `(log ck, log eps)` into the time-embedding space (`class_embed_type="identity"`). Optional

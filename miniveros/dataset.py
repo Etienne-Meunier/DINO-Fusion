@@ -40,7 +40,7 @@ class CondEncoder:
 
 
 class VerosTSDataset(Dataset):
-    """Returns ``(x, cond)``: x is the normalised, land-zeroed, padded (C, Yp, Xp) tensor; cond is (n_cond,)."""
+    """Returns ``(x, cond)``: x is the normalised, land-filled, padded (C, Yp, Xp) tensor; cond is (n_cond,)."""
 
     def __init__(self, data_file: str, split: str, transform: FieldTransform, fields=("temp", "salt"),
                  snapshot_stride: int = 1, holdout_runs=None):

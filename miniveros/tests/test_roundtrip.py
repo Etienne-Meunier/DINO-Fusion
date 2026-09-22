@@ -107,6 +107,13 @@ def test_model_and_loss(data_file: str):
                constraints=[LandFill(tr.fill_mask, tr.fill)])
     assert s.shape == xb.shape and torch.isfinite(s).all()
     assert (s.masked_select(tr.fill_mask.expand_as(s)) == 0).all()          # 3-std: fill is 0
+    cfg_mm = Config(**{**cfg.__dict__, "norm_mode": "minmax"}); tr_mm = build_transform(data_file, cfg_mm)
+    assert (tr_mm.fill != 0).any()
+    s_mm = sample(model.eval(), Diffusion(cfg_mm).scheduler, cb, 3, generator=torch.Generator().manual_seed(0),
+                  constraints=[LandFill(tr_mm.fill_mask, tr_mm.fill)])
+    fill_b = tr_mm.fill.expand_as(s_mm[0]).expand_as(s_mm); m = tr_mm.fill_mask.expand_as(s_mm)
+    assert (s_mm[m] == fill_b[m]).all(), "LandFill must impose the per-channel fill on land and padding"
+    assert torch.isnan(tr_mm.denormalise(s_mm)["temp"][:, :, tr_mm.masker.mask[0]]).all()
     fields = tr.denormalise(s)
     assert set(fields) == {"temp", "salt"} and fields["temp"].shape[-3:] == (15, 42, 30)
     with tempfile.TemporaryDirectory() as d:

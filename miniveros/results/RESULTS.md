@@ -13,7 +13,8 @@ predicted clean state clipped at 3 sigma, 32 samples per hold-out run and per gr
 `data/T_distribution_per_level.png` (made with `tdist.py`, statistics in `data/T_per_level_stats.npz`): all 100 runs
 x 241 snapshots, water cells, before and after the 3-std normalisation. Above 400 m the histogram is a mixture of
 restoring values and interior and sigma_z is set by the meridional gradient, so mu +- 3 sigma is wider than the
-level and the normalised values stay within [-0.7, 0.4]; below 1400 m the distribution is skewed with a warm tail
+level and the normalised values stay within [-0.85, 0.6] ([-0.7, 0.4] in the top 200 m); below 1400 m the
+distribution is skewed with a warm tail
 to x' = +2.7 (the corner runs). Run-to-run signal sigma_runs / 3 sigma_z: 0.7 % at the surface, 9 % at 650 m,
 26 % at the bottom.
 
@@ -92,14 +93,29 @@ settings as the 3-std runs.
 | T-inversion fraction, generated | 9.1 % | 9.9 % | 10.9 % |
 | max salinity error (psu) | 0.004 | 0.004 | 0.005 |
 
-- Worse on every split and at almost every level: the 100 to 400 m band doubles (0.13 -> 0.24 K at 106 m,
-  scattered; 0.06 -> 0.19 K at 374 m) and the bottom level goes 0.34 -> 0.43 / 0.28 -> 0.54 / 0.35 -> 0.66 K.
-  Only 70 m and 1000 to 1200 m are unchanged.
-- The spread halves and a single sample scores like the ensemble mean: the error is bias, not sampler noise.
-  The top-row grid map shows a warm bias of 0.05 to 0.09 K over the flat regime and -0.19 K at the corner.
-- Reading: stretching the upper levels onto [-1, 1] gives the fixed structure (restoring spikes, meridional
-  gradient) more weight, not the run-to-run signal (1.4 % of the scale); stretching the bottom scale to the
-  single corner cell (max 6.45 C, 99.8 % of the values within 4 K) dilutes the level with the most signal.
+- Worse on every split and at almost every level: the 100 to 400 m band grows 1.2 to 3.4x (0.13 -> 0.24 K at
+  106 m, scattered; 0.06 -> 0.19 K at 374 m) and the bottom level goes 0.34 -> 0.43 / 0.28 -> 0.54 / 0.35 -> 0.66 K.
+  In the scattered split 70 m improves (0.20 -> 0.15 K) and 490 m and 1000 to 1200 m are unchanged; in the band
+  and top splits 1000 to 1200 m are 1.25 to 1.6x worse too.
+- Worse than the mean training state in the interior splits (0.199 vs 0.155, 0.233 vs 0.197 K) and at the
+  training grid points (grid W1 at training points 0.190 / 0.185 / 0.171 vs 0.124 / 0.123 / 0.117 K): the model
+  fits the training conditions less, not only generalises less.
+- A single sample scores like the ensemble mean (0.205 vs 0.199 K; RMSE_sample^2 = RMSE_mean^2 + spread^2 holds
+  in both modes) and the domain-mean |bias| does not grow (0.048 / 0.034 / 0.065 vs 0.027 / 0.029 / 0.076 K): the
+  loss is structured, level-dependent error, not a shift of the mean. The top-row grid map shows a warm bias of
+  0.00 to 0.09 K over the flat regime and -0.19 K at the corner. The halved spread is mechanical: above 260 m
+  the min-max scale is 0.50 to 0.63 of 3 sigma.
+- The cause is not isolated. Two confounds come with the map: (i) the clip at |x'| <= 1 now sits at each
+  level's data range, so the sampler loses the tighter 3-sigma regulariser (finding 4); with the top row held
+  out, the bottom-level range is set by the held-out corner run (its warm tail reaches 6.45 C). (ii) Land and
+  padding are reset to a clean fill of up to +-0.42 at every sampling step while training saw that fill under
+  noise, a train/sampling mismatch of (1 - sqrt(alpha_bar_t)) x fill, largest at the levels that degraded
+  (|fill| 0.3 to 0.4 above 260 m and at the bottom, about 0 at 650 to 1200 m where the scattered split is
+  unchanged; the cold bottom bias has the sign of fill = -0.42). One training seed per configuration.
+  Sampling-only tests would separate them: the min-max models with the 3-sigma bounds, and a fill re-imposed
+  under the noise level of the step.
+- The smaller salinity error (0.004 vs 0.011 to 0.018 psu) is the floor, not learning: the same 0.08 in
+  normalised units; minmax floors the half-range at 0.05 where 3-std floors sigma at 0.05 and multiplies by 3.
 - Band rows (RMSE, K): diffusion 0.217 / 0.229 / 0.252 vs nearest row 0.063 / 0.132 / 0.152. Top row: loses to
   copying the row below at every c_eps (0.20 to 0.50 vs 0.03 to 0.35 K).
 
