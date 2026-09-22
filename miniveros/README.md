@@ -38,7 +38,10 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --fill land
 
 * **Normalisation** (`norm_mode`): per vertical level, `"<k>-std"` = `(x - mean_z) / (k * std_z)` as in
   DINO-Fusion, or `"minmax"` = the level's data range `[min_z, max_z]` mapped to `[-1, 1]`. Land and padding
-  cells hold the normalised level mean (0 for `"<k>-std"`), re-imposed at every sampling step. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
+  cells hold the normalised level mean (0 for `"<k>-std"`). At sampling they are re-imposed after every step at the
+  noise level of that step (`fill_mode=noised`, as the training data had them); `fill_mode=clean` re-imposes the
+  exact fill (DINO's constraint) and costs 0.06 to 0.09 K of hold-out RMSE. `clip_ref="<k>-std"` keeps the
+  sampler's clip at `mean_z +- k std_z` in physical units whatever the normalisation (per-channel bounds). The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
   constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
   choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`). The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
