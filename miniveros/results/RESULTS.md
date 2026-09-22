@@ -8,6 +8,15 @@ choice, so one data file serves every split. 20,000 steps, batch 32, EMA, 1000 D
 predicted clean state clipped at 3 sigma, 32 samples per hold-out run and per grid point. Code `5fdcf01`
 (training at `2b542aa`). Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_top_3std`.
 
+## Data: distribution of T per level
+
+`data/T_distribution_per_level.png` (made with `tdist.py`, statistics in `data/T_per_level_stats.npz`): all 100 runs
+x 241 snapshots, water cells, before and after the 3-std normalisation. Above 400 m the histogram is a mixture of
+restoring values and interior and sigma_z is set by the meridional gradient, so mu +- 3 sigma is wider than the
+level and the normalised values stay within [-0.7, 0.4]; below 1400 m the distribution is skewed with a warm tail
+to x' = +2.7 (the corner runs). Run-to-run signal sigma_runs / 3 sigma_z: 0.7 % at the surface, 9 % at 650 m,
+26 % at the bottom.
+
 ## Hold-out metrics (mean over the held-out runs, water cells, against the true 20-year time-mean)
 
 | | scattered (10 interior points) | band of three rows, `c_k` 0.126, 0.2, 0.3175 (30 runs) | top row, `c_k` 0.8 (10 runs) |
@@ -86,4 +95,6 @@ Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`): `config.json`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
+`data/T_distribution_per_level.png`, `data/T_per_level_stats.npz`: per-level T distribution (`tdist.py compute` on the
+cluster, `tdist.py plot` locally).
 `report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).

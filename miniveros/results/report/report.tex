@@ -45,7 +45,20 @@
         \SI{0.05}{K} between grid neighbours; bottom level still drifts by \SI{0.45}{K} over the window.
   \item One effective parameter: $\;\log c_k - 1.05\,\log c_\epsilon\;$ explains 99\,\% of the variance of
         the domain-mean $T$; the low-$c_k/c_\epsilon$ part of the grid saturates.
+  \item Per-level distribution of $T$ (Figure~\ref{fig:tdist}): above \SI{400}{m} a mixture of restoring values
+        and interior, with $\sigma_z$ set by the meridional gradient, so $\mu_z \pm 3\sigma_z$ is wider than the
+        level and the normalised values stay in $[-0.7,\,0.4]$; below \SI{1400}{m} a warm tail to $x' = +2.7$.
+        Run-to-run signal $\sigma_z^{\mathrm{runs}}$: 0.7\,\% of $3\sigma_z$ at the surface, 26\,\% at the bottom.
 \end{itemize}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{../data/T_distribution_per_level.png}
+\caption{Distribution of $T$ per level over all 100 runs and 241 snapshots (water cells), before (left) and after
+(right) the per-level normalisation of Eq.~(\ref{eq:norm}). Black: $\mu_z$; red dashed: $\mu_z \pm 3\sigma_z$;
+orange ticks: the 100 per-run level means.}
+\label{fig:tdist}
+\end{figure}
 
 \section{Method}
 \begin{itemize}
@@ -53,6 +66,7 @@
         zero-padded $42\times30 \to 48\times32$:
         \begin{equation}
           x'_{z} = \frac{x_{z} - \mu_{z}}{3\,\max(\sigma_{z}, 0.05)} .
+          \label{eq:norm}
         \end{equation}
         $\mu_z, \sigma_z$ are computed once on all 100 runs and held fixed for every hold-out split (a deliberate,
         mild leakage of 30 scaling constants; no held-out state enters training). The sampler clips the predicted clean state at $|x'| \le 1$ (three standard deviations) at every step.
