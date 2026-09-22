@@ -170,6 +170,7 @@ def main(argv=None):
     # ---- normalisation statistics (float64 accumulation, chunked) on all samples, or on the training samples
     F = len(fields)
     lvl_mean, lvl_std = np.zeros((F, nz)), np.zeros((F, nz))
+    lvl_min, lvl_max = np.full((F, nz), np.inf), np.full((F, nz), -np.inf)      # over water cells, for norm_mode=minmax
     tr_idx = np.where(is_train)[0] if args.stats == "train" else np.arange(N)
     print(f"normalisation statistics on {len(tr_idx)} samples ({args.stats})")
     for fi, name in enumerate(fields):
@@ -177,6 +178,11 @@ def main(argv=None):
         for c in range(0, len(tr_idx), 2000):
             blk = data[name][tr_idx[c:c + 2000]].astype(np.float64)
             s1 += blk.sum(0); s2 += (blk ** 2).sum(0)
+            bmin, bmax = blk.min(0), blk.max(0)
+            for z in range(nz):
+                if water[z].any():
+                    lvl_min[fi, z] = min(lvl_min[fi, z], bmin[z][water[z]].min())
+                    lvl_max[fi, z] = max(lvl_max[fi, z], bmax[z][water[z]].max())
         n = len(tr_idx)
         for z in range(nz):
             w = water[z]
@@ -200,7 +206,7 @@ def main(argv=None):
              ck=run_ck[run_id].astype(np.float32), eps=run_eps[run_id].astype(np.float32),
              run_names=np.array(run_names), run_ck=run_ck, run_eps=run_eps,
              mask_land=land_mask, zt=zt, holdout_runs=holdout, train_runs=train_runs,
-             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std,
+             stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std, lvl_min=lvl_min, lvl_max=lvl_max,
              cond_keys=cond_keys, cond_mean=cond_mean, cond_std=cond_std, meta=json.dumps(meta))
     os.replace(tmp, args.out)
 
@@ -213,6 +219,10 @@ def main(argv=None):
         print(f"{name}: per-level mean range [{lvl_mean[fi].min():.3f}, {lvl_mean[fi].max():.3f}], "
               f"std range [{lvl_std[fi].min():.4f}, {lvl_std[fi].max():.4f}] | "
               f"fraction of water values outside [-1,1] with 3-std: {float(lvl[:, water].__gt__(1).mean()):.4f}")
+        half = np.maximum((lvl_max[fi] - lvl_min[fi]) / 2, 0.05)
+        print(f"{name}: per-level range [{lvl_min[fi].min():.3f}, {lvl_max[fi].max():.3f}] | minmax: level mean at "
+              f"x' in [{((lvl_mean[fi] - (lvl_min[fi] + lvl_max[fi]) / 2) / half).min():+.2f}, "
+              f"{((lvl_mean[fi] - (lvl_min[fi] + lvl_max[fi]) / 2) / half).max():+.2f}]")
 
 
 if __name__ == "__main__":

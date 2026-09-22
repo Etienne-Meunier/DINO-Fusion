@@ -5,17 +5,19 @@ import torch
 from diffusers.utils.torch_utils import randn_tensor
 
 
-class LandZero:
-    """Re-impose zeros on land and padding cells after every denoising step (DINO's BorderZeroConstraint)."""
+class LandFill:
+    """Re-impose the fill value (the normalised level mean, 0 in the std modes) on land and padding cells after
+    every denoising step (DINO's BorderZeroConstraint)."""
 
-    def __init__(self, zero_mask: torch.Tensor):
-        self.mask = zero_mask                                  # (C, H, W) bool
+    def __init__(self, fill_mask: torch.Tensor, fill: torch.Tensor):
+        self.mask = fill_mask                                  # (C, H, W) bool
+        self.fill = fill                                       # (C, 1, 1)
 
     def __call__(self, x: torch.Tensor, t) -> torch.Tensor:
-        return x.masked_fill(self.mask, 0.0)
+        return torch.where(self.mask, self.fill.to(x), x)
 
     def __str__(self):
-        return f"LandZero({int(self.mask.sum())} cells)"
+        return f"LandFill({int(self.mask.sum())} cells)"
 
 
 @torch.no_grad()

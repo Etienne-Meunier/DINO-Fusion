@@ -25,6 +25,8 @@ class Config:
 
     # ---- normalisation
     norm_mode: str = "3-std"     # "<k>-std": per vertical level, (x - mean_z) / (k * std_z), as in DINO-Fusion
+                                 # "minmax": per level, the data range [min_z, max_z] -> [-1, 1]; land and padding hold the
+                                 # normalised level mean in both modes (0 for "<k>-std")
     std_floor: float = 0.05      # std is floored before dividing: constant fields (salinity) would otherwise divide by ~0
 
     # ---- conditioning

@@ -48,7 +48,7 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
   `(log ck, log eps)` into the time-embedding space (`class_embed_type="identity"`). Optional
   classifier-free guidance via `cond_drop_prob`.
 * **Diffusion**: DDPM, 1000 steps, `squaredcos_cap_v2`, `clip_sample=True`, epsilon prediction, EMA.
-* **Sampling**: DDPM loop with a constraints hook; `LandZero` re-imposes zeros on land and padding.
+* **Sampling**: DDPM loop with a constraints hook; `LandFill` re-imposes the fill value (the normalised level mean, 0 for `<k>-std`) on land and padding.
 
 ## Usage (from this directory)
 

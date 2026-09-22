@@ -18,7 +18,7 @@ from config import Config, _coerce_all
 from dataset import CondEncoder, build_transform, resolve_split
 from diffusion import Diffusion
 from model import ConditionalUNet
-from pipeline import LandZero, sample
+from pipeline import LandFill, sample
 from train import get_device
 
 
@@ -66,9 +66,9 @@ def main(argv=None):
     model = ConditionalUNet.load(weights, map_location=device).to(device).eval()
     scheduler = Diffusion(cfg).scheduler
     tr = build_transform(cfg.data_file, cfg, device=device)
-    constraints = [LandZero(tr.zero_mask)]
+    constraints = [LandFill(tr.fill_mask, tr.fill)]
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"device {device}", flush=True)
+          f"norm {cfg.norm_mode} (fill range [{tr.fill.min():.2f}, {tr.fill.max():.2f}]), device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}

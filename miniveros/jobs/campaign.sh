@@ -10,6 +10,7 @@
 #     jobs/campaign.sh    -s fs_scattered -p "split_mode=interior_random"
 #     jobs/campaign.sh -n -s fs_band3     -p "split_mode=rows split_rows=0.126,0.2,0.3175"
 #     jobs/campaign.sh -n -s fs_top       -p "split_mode=row_ck_max"
+#     jobs/campaign.sh -n -s fs_scattered -p "split_mode=interior_random" minmax        (runs/fs_scattered_minmax)
 # Each job exits non-zero on failure (set -e), so dependants never start on garbage.
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
