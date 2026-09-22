@@ -169,19 +169,20 @@ normalisation. Last four rows: the same splits trained with the per-level min-ma
         single sample scores like the ensemble mean: the error is bias, not sampler noise. Stretching the upper
         levels onto $[-1,1]$ gives the fixed structure of Figure~\ref{fig:tdist} more weight, not the run-to-run
         signal (1.4\,\% of the scale); stretching the bottom scale to the corner cell dilutes the level that
-        carries the most signal.
+        carries the most signal (Figures~\ref{fig:scat_mm}, \ref{fig:band_mm}, \ref{fig:top_mm}; samples in
+        Figures~\ref{fig:samples_mm}, \ref{fig:samples_band_mm}, \ref{fig:samples_top_mm}).
   \item \textbf{Inversions.} Generated 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime;
         truth: 7.7\,\% (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). The regime dependence is not
         learned.
   \item \textbf{$W_1$ on the mean profiles agrees with the RMSE ranking and adds two facts}
-        (right-hand panels of Figures~\ref{fig:scat}--\ref{fig:top}).
+        (right-hand panels of Figures~\ref{fig:scat}, \ref{fig:band}, \ref{fig:top}).
         (i) Training grid points score the same as held-out ones (0.124 vs \SI{0.127}{K}, scattered split):
         the model does not fit the training conditions either, the signature of the mean-state collapse.
         (ii) Around \SI{650}{m} the samples beat the baselines under $W_1$ in the band and top splits
         (0.06 vs 0.12 and 0.08 vs \SI{0.17}{K}), because a point prediction is charged for the spread it cannot represent; the model's total
         is set by the top \SI{250}{m} and the bottom two levels, as for the RMSE.
   \item \textbf{Plumbing.} $S$ within \SI{0.02}{psu} of 35 with no constraint; land exact; ensemble spread
-        $3.5\times$ the true within-window spread (Figures~\ref{fig:samples}--\ref{fig:samples_top}).
+        $3.5\times$ the true within-window spread (Figures~\ref{fig:samples}, \ref{fig:samples_band}, \ref{fig:samples_top}).
 \end{itemize}
 
 \section{Next steps}
@@ -215,6 +216,20 @@ normalisation. Last four rows: the same splits trained with the per-level min-ma
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=\textwidth]{../fs_scattered_minmax/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.62\textwidth]{../fs_scattered_minmax/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
+\end{subfigure}
+\caption{Scattered split, \textbf{min-max normalisation}; compare with Figure~\ref{fig:scat}.}
+\label{fig:scat_mm}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
 \includegraphics[width=\textwidth]{../fs_band3_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
@@ -224,6 +239,20 @@ normalisation. Last four rows: the same splits trained with the per-level min-ma
 \end{subfigure}
 \caption{Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
 \label{fig:band}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=\textwidth]{../fs_band3_minmax/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.62\textwidth]{../fs_band3_minmax/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
+\end{subfigure}
+\caption{Band of three rows, \textbf{min-max normalisation}; compare with Figure~\ref{fig:band}.}
+\label{fig:band_mm}
 \end{figure}
 
 \begin{figure}[!htb]
@@ -240,12 +269,33 @@ normalisation. Last four rows: the same splits trained with the per-level min-ma
 \label{fig:top}
 \end{figure}
 
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=\textwidth]{../fs_top_minmax/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.62\textwidth]{../fs_top_minmax/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
+\end{subfigure}
+\caption{Top row, \textbf{min-max normalisation}; compare with Figure~\ref{fig:top}.}
+\label{fig:top_mm}
+\end{figure}
+
 \begin{figure}[p]
 \centering
 \includegraphics[width=0.72\textwidth]{../fs_scattered_3std/samples_levels.png}
 \caption{Scattered split, $c_k=0.2$, $c_\epsilon=2.222$: true 20-year mean (left) and three random samples at
 the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three rows). Grey: land.}
 \label{fig:samples}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../fs_scattered_minmax/samples_levels.png}
+\caption{Same condition as Figure~\ref{fig:samples}, \textbf{min-max normalisation}.}
+\label{fig:samples_mm}
 \end{figure}
 
 \begin{figure}[p]
@@ -257,9 +307,23 @@ the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three
 
 \begin{figure}[p]
 \centering
+\includegraphics[width=0.72\textwidth]{../fs_band3_minmax/samples_levels.png}
+\caption{Same condition as Figure~\ref{fig:samples_band}, \textbf{min-max normalisation}.}
+\label{fig:samples_band_mm}
+\end{figure}
+
+\begin{figure}[p]
+\centering
 \includegraphics[width=0.72\textwidth]{../fs_top_3std/samples_levels.png}
 \caption{Top-row split, $c_k=0.8$, $c_\epsilon=0.5556$ (extrapolation one row above the training grid).}
 \label{fig:samples_top}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../fs_top_minmax/samples_levels.png}
+\caption{Same condition as Figure~\ref{fig:samples_top}, \textbf{min-max normalisation}.}
+\label{fig:samples_top_mm}
 \end{figure}
 
 \end{document}
