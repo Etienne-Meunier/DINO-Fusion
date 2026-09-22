@@ -7,17 +7,33 @@ from diffusers.utils.torch_utils import randn_tensor
 
 class LandFill:
     """Re-impose the fill value (the normalised level mean, 0 in the std modes) on land and padding cells after
-    every denoising step (DINO's BorderZeroConstraint)."""
+    every denoising step. ``mode="clean"``: the exact fill (DINO's BorderZeroConstraint). ``mode="noised"``: the fill
+    at the noise level of the state just produced, sqrt(abar_prev) fill + sqrt(1 - abar_prev) z, as those cells
+    looked in training; the exact fill at the last step."""
 
-    def __init__(self, fill_mask: torch.Tensor, fill: torch.Tensor):
+    def __init__(self, fill_mask: torch.Tensor, fill: torch.Tensor, mode: str = "clean", scheduler=None,
+                 generator: torch.Generator | None = None):
         self.mask = fill_mask                                  # (C, H, W) bool
         self.fill = fill                                       # (C, 1, 1)
+        self.mode, self.scheduler, self.generator = mode, scheduler, generator
+        if mode not in ("clean", "noised"):
+            raise ValueError(f"fill mode must be 'clean' or 'noised', got {mode!r}")
+        if mode == "noised" and scheduler is None:
+            raise ValueError("noised fill needs the scheduler")
 
     def __call__(self, x: torch.Tensor, t) -> torch.Tensor:
-        return torch.where(self.mask, self.fill.to(x), x)
+        value = self.fill.to(x)
+        if self.mode == "noised":
+            s = self.scheduler
+            prev_t = int(t) - s.config.num_train_timesteps // s.num_inference_steps   # x is x_{prev_t}
+            if prev_t >= 0:
+                ab = s.alphas_cumprod[prev_t].to(x)
+                z = randn_tensor(x.shape, generator=self.generator, device=x.device, dtype=x.dtype)
+                value = ab.sqrt() * value + (1 - ab).sqrt() * z
+        return torch.where(self.mask, value, x)
 
     def __str__(self):
-        return f"LandFill({int(self.mask.sum())} cells)"
+        return f"LandFill({int(self.mask.sum())} cells, {self.mode})"
 
 
 @torch.no_grad()

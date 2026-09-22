@@ -123,11 +123,13 @@ class FieldTransform:
     """The full pipeline. Build it with :func:`FieldTransform.from_dataset`."""
 
     def __init__(self, field_levels: dict[str, int], offset: torch.Tensor, scale: torch.Tensor, mean: torch.Tensor,
-                 land_mask: torch.Tensor, paddings: tuple[int, int, int, int], device: str | torch.device = "cpu"):
+                 std: torch.Tensor, land_mask: torch.Tensor, paddings: tuple[int, int, int, int],
+                 device: str | torch.device = "cpu"):
         self.device = torch.device(device)
         offset, scale, mean = (t.to(self.device).float() for t in (offset, scale, mean))
         self.concatener = Concatener(field_levels)
         self.normaliser = Normaliser(offset, scale)
+        self.mean, self.std = mean, std.to(self.device).float()                  # (C, 1, 1) physical units, std floored
         self.fill = (mean - offset) / scale                                      # (C, 1, 1): the level mean, normalised
         self.masker = Masker(land_mask.to(self.device), self.fill)
         self.padder = Padder(paddings, self.fill)
@@ -150,10 +152,10 @@ class FieldTransform:
         nz = land.shape[0]
         field_levels = {f: nz for f in fields}
         mean = torch.as_tensor(np.asarray(ds["lvl_mean"])[idx]).reshape(-1, 1, 1).double()        # (C, 1, 1)
+        std = torch.as_tensor(np.asarray(ds["lvl_std"])[idx]).reshape(-1, 1, 1).double().clamp_min(std_floor)
         m = re.fullmatch(r"(\d+(?:\.\d+)?)-std", norm_mode)
         if m:
-            std = torch.as_tensor(np.asarray(ds["lvl_std"])[idx]).reshape(-1, 1, 1).double()
-            offset, scale = mean, float(m.group(1)) * std.clamp_min(std_floor)
+            offset, scale = mean, float(m.group(1)) * std
         elif norm_mode == "minmax":
             lo, hi = level_range(ds, fields)
             lo = torch.as_tensor(lo).reshape(-1, 1, 1).double(); hi = torch.as_tensor(hi).reshape(-1, 1, 1).double()
@@ -161,7 +163,19 @@ class FieldTransform:
         else:
             raise ValueError(f"norm_mode must be '<k>-std' (e.g. '3-std') or 'minmax', got {norm_mode!r}")
         land_c = land.repeat(len(fields), 1, 1)                                                         # (C, Y, X)
-        return cls(field_levels, offset, scale, mean, land_c, paddings, device)
+        return cls(field_levels, offset, scale, mean, std, land_c, paddings, device)
+
+    def clip_bounds(self, clip_ref: str) -> tuple[torch.Tensor, torch.Tensor] | None:
+        """Per-channel (lo, hi) in normalised units for ``clip_ref`` '<k>-std' (mean_z +- k std_z in physical units);
+        None for 'norm' (the scheduler's scalar clip). Under '<k>-std' normalisation with the same k this is exactly +-1."""
+        if clip_ref == "norm":
+            return None
+        m = re.fullmatch(r"(\d+(?:\.\d+)?)-std", clip_ref)
+        if not m:
+            raise ValueError(f"clip_ref must be 'norm' or '<k>-std', got {clip_ref!r}")
+        k = float(m.group(1))
+        lo = self.normaliser(self.mean - k * self.std).reshape(-1); hi = self.normaliser(self.mean + k * self.std).reshape(-1)
+        return lo, hi
 
     # ------------------------------------------------------------------ forward / backward
     def normalise(self, fields: dict[str, torch.Tensor]) -> torch.Tensor:

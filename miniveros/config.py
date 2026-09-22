@@ -47,6 +47,11 @@ class Config:
     clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
                                      # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
+    fill_mode: str = "clean"     # land/padding at sampling: "clean" = the fill re-imposed exactly after every step (DINO's constraint);
+                                 # "noised" = the fill at the noise level of the step, as the training data had it
+    clip_ref: str = "norm"       # "norm": scalar clip at +-clip_sample_range in normalised units (diffusers); "<k>-std": per channel at
+                                 # mean_z +- k std_z in physical units (= |x'| <= 1 under "3-std"), so the clip stays put when the
+                                 # normalisation changes
 
     # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)
     split_mode: str = "interior_random"   # "interior_random" | "rows" | "row_ck_max" | "none" | "file" (use the dataset's stored split)

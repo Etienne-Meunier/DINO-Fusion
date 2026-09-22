@@ -114,6 +114,24 @@ def test_model_and_loss(data_file: str):
     fill_b = tr_mm.fill.expand_as(s_mm[0]).expand_as(s_mm); m = tr_mm.fill_mask.expand_as(s_mm)
     assert (s_mm[m] == fill_b[m]).all(), "LandFill must impose the per-channel fill on land and padding"
     assert torch.isnan(tr_mm.denormalise(s_mm)["temp"][:, :, tr_mm.masker.mask[0]]).all()
+    # clip reference in physical units: +-1 under 3-std normalisation, per-channel bounds under minmax
+    lo, hi = tr.clip_bounds("3-std")
+    assert torch.allclose(lo, -torch.ones_like(lo), atol=1e-5) and torch.allclose(hi, torch.ones_like(hi), atol=1e-5)
+    lo_mm, hi_mm = tr_mm.clip_bounds("3-std")
+    assert (hi_mm - lo_mm).min() > 0 and not torch.allclose(lo_mm, -torch.ones_like(lo_mm))
+    sched = Diffusion(cfg_mm, clip_bounds=(lo_mm, hi_mm)).scheduler
+    probe = torch.randn(2, 30, 48, 32) * 5
+    clipped = sched._threshold_sample(probe)
+    assert (clipped <= hi_mm.view(1, -1, 1, 1) + 1e-6).all() and (clipped >= lo_mm.view(1, -1, 1, 1) - 1e-6).all()
+    # noised fill: the final sample still carries the exact fill; the constraint needs the scheduler
+    g = torch.Generator().manual_seed(0)
+    s_nf = sample(model.eval(), sched, cb, 3, generator=g,
+                  constraints=[LandFill(tr_mm.fill_mask, tr_mm.fill, mode="noised", scheduler=sched, generator=g)])
+    assert (s_nf[m] == fill_b[m]).all() and torch.isfinite(s_nf).all()
+    try:
+        LandFill(tr_mm.fill_mask, tr_mm.fill, mode="noised"); raise AssertionError("noised fill without scheduler must fail")
+    except ValueError:
+        pass
     fields = tr.denormalise(s)
     assert set(fields) == {"temp", "salt"} and fields["temp"].shape[-3:] == (15, 42, 30)
     with tempfile.TemporaryDirectory() as d:

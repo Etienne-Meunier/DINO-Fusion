@@ -125,7 +125,8 @@ def main(argv=None):
     def agg(method, metric):
         v = [x[3] for x in rows if x[1] == method and x[2] == metric]
         return (np.mean(v), np.std(v)) if v else (np.nan, np.nan)
-    lines = [f"hold-out runs: {len(gen_rid)} | samples/run: {gT.shape[1]} | norm_mode={gs['norm_mode']} | weights={gs['weights']} | steps={int(gs['steps'])}",
+    variant = "".join(f" | {k}={gs[k]}" for k in ("fill_mode", "clip_ref") if k in gs.files)
+    lines = [f"hold-out runs: {len(gen_rid)} | samples/run: {gT.shape[1]} | norm_mode={gs['norm_mode']} | weights={gs['weights']} | steps={int(gs['steps'])}{variant}",
              "", f"{'method':<18}{'RMSE(K) mean±std':>22}{'|bias|(K)':>12}"]
     for m in ["diffusion_mean", "diffusion_sample", "neighbour_avg", "nearest_train", "train_mean"]:
         mu, sd = agg(m, "rmse_K"); bias = np.mean([abs(x[3]) for x in rows if x[1] == m and x[2] == "bias_domain_mean_K"]) if m != "diffusion_sample" else np.nan

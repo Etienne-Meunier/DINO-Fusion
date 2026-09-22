@@ -36,6 +36,7 @@ def main(argv=None):
     p.add_argument("--batch", type=int, default=64, help="samples per forward pass")
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--out", default=None)
+    p.add_argument("--tag", default="", help="suffix for the sample file name (sampling variants of one run)")
     p.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE", help="override config fields (e.g. data_file=...)")
     a = p.parse_args(argv)
 
@@ -64,16 +65,20 @@ def main(argv=None):
 
     weights = run_dir / ("model_ema.pt" if a.weights == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
     model = ConditionalUNet.load(weights, map_location=device).to(device).eval()
-    scheduler = Diffusion(cfg).scheduler
     tr = build_transform(cfg.data_file, cfg, device=device)
-    constraints = [LandFill(tr.fill_mask, tr.fill)]
+    bounds = tr.clip_bounds(cfg.clip_ref)
+    scheduler = Diffusion(cfg, clip_bounds=bounds).scheduler
+    gen = torch.Generator(device).manual_seed(a.seed)
+    constraints = [LandFill(tr.fill_mask, tr.fill, mode=cfg.fill_mode, scheduler=scheduler, generator=gen)]
+    clip_txt = (f"clip {cfg.clip_ref} per channel [{bounds[0].min():.2f}, {bounds[1].max():.2f}]" if bounds is not None
+                else f"clip scalar +-{cfg.clip_sample_range:g}")
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"norm {cfg.norm_mode} (fill range [{tr.fill.min():.2f}, {tr.fill.max():.2f}]), device {device}", flush=True)
+          f"norm {cfg.norm_mode} (fill range [{tr.fill.min():.2f}, {tr.fill.max():.2f}], {cfg.fill_mode}), {clip_txt}, "
+          f"device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}
     cond_all = enc(np.repeat(cks, n_samples), np.repeat(epss, n_samples)).to(device)       # (n_cond*n_samples, d)
-    gen = torch.Generator(device).manual_seed(a.seed)
     t0 = time.time(); total = n_cond * n_samples
     for s in range(0, total, a.batch):
         c = cond_all[s:s + a.batch]
@@ -86,12 +91,13 @@ def main(argv=None):
                 out[f][k // n_samples, k % n_samples] = arr[j]
         print(f"  {min(s + a.batch, total)}/{total} samples  {time.time() - t0:.0f}s", flush=True)
 
-    out_path = Path(a.out) if a.out else run_dir / "samples" / f"{tag}_n{n_samples}_s{steps}_{a.weights}.npz"
+    suffix = f"_{a.tag}" if a.tag else ""
+    out_path = Path(a.out) if a.out else run_dir / "samples" / f"{tag}_n{n_samples}_s{steps}_{a.weights}{suffix}.npz"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path, **out, ck=cks.astype(np.float32), eps=epss.astype(np.float32), run_id=rid,
              run_names=np.array([run_names[r] if r >= 0 else f"ck{c:g}_eps{e:g}" for r, c, e in zip(rid, cks, epss)]),
              mask_land=ds["mask_land"], zt=ds["zt"], n_samples=n_samples, steps=steps, weights=str(weights.name),
-             guidance=guidance, norm_mode=cfg.norm_mode)
+             guidance=guidance, norm_mode=cfg.norm_mode, fill_mode=cfg.fill_mode, clip_ref=cfg.clip_ref)
     print(f"wrote {out_path}")
 
 
