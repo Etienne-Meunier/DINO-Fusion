@@ -89,18 +89,13 @@ orange ticks: the 100 per-run level means.}
 
 \paragraph{Differences from the DINO-Fusion code.}
 \begin{itemize}
-  \item Data: a parameter ensemble of 100 runs held in memory and split by run, instead of one DINO trajectory
-        streamed from webdataset tars; no \texttt{tensordict}.
-  \item Conditioning: the UNet receives $(\log c_k, \log c_\epsilon)$ through the timestep embedding, with optional
-        classifier-free dropout; DINO's UNet is unconditional and is steered only by sampling-time constraints.
-  \item Transforms: the same concatenate--normalise--mask--pad chain and the same 3-std normalisation, but no
-        vertical striding (all 15 levels kept), padding $(1,1,3,3)$ for the $42\times30$ grid, and statistics
-        fixed on all runs.
-  \item Training: the same DDPM settings, run step-based on one GPU with a cosine schedule and checkpoint
-        resume, instead of DINO's epoch loop under \texttt{accelerate}.
-  \item Sampling: the same DDPM loop and constraint hook; DINO's BorderZeroConstraint (exact zeros) is replaced
-        by zeros at the step's noise level; DINO's stratification constraints are not ported yet.
-  \item Added: hold-out splits, baselines, and the $W_1$ metric on stratification profiles.
+  \item Conditioning: DINO's UNet is unconditional and is steered at sampling time by constraints; here the UNet
+        receives $(\log c_k, \log c_\epsilon)$ through the timestep embedding, and the data are an ensemble of 100
+        runs split by run instead of one trajectory.
+  \item Sampling: DINO's BorderZeroConstraint (exact zeros on land and padding after every step) is replaced by
+        zeros at the step's noise level, the largest single gain of this study (first finding); DINO's
+        stratification constraints are not ported yet.
+  \item Everything else is kept: transform chain, 3-std normalisation, DDPM settings, EMA.
 \end{itemize}
 
 \section{Evaluation}
@@ -177,8 +172,16 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
         \SI{0.35}{K}) and in the flat regime ($c_\epsilon \ge 3.5$). Scattered: loses to the one-step neighbours
         (0.061 vs 0.037 / \SI{0.020}{K}) except between 490 and \SI{650}{m} (Figures~\ref{fig:scat}--\ref{fig:top}).
   \item \textbf{Depth structure.} 0.04--\SI{0.08}{K} at every level in the scattered and block splits; the
-        bottom levels are no longer special (\SI{0.07}{K}) except in the top row (\SI{0.29}{K}, the corner runs). Worst band:
-        the top \SI{100}{m}, where $3\sigma_z \approx \SI{12}{K}$ amplifies sampler noise.
+        bottom levels are no longer special (\SI{0.07}{K}) except in the top row (\SI{0.29}{K}, the corner runs).
+  \item \textbf{Why the surface is worst in kelvin.} The per-level scale $3\sigma_z$ is \SI{12}{K} at the surface
+        and \SI{1.6}{K} at the bottom, and the sampler's precision is roughly uniform in normalised units: the
+        surface RMSE is 0.6\,\% of its scale (\SI{0.073}{K}, scattered), against 1\,\% at \SI{650}{m} and 4.5\,\% at
+        the bottom. The run-to-run surface signal is 0.7\,\% of the scale (\SI{0.085}{K}), the same size, so the
+        model cannot tell the runs apart there and matches the mean state (0.076 vs \SI{0.073}{K}); the nearest
+        run wins (\SI{0.026}{K}) only because neighbouring runs are nearly identical at the surface. What remains
+        is a per-sample offset of the surface mean: $W_1$ on the horizontal-mean profile is \SI{0.12}{K} at
+        \SI{14}{m}, above the \SI{0.07}{K} cell RMSE of the ensemble mean, so each sample carries a nearly uniform
+        shift of about \SI{0.1}{K} (0.01 normalised) that the average of 32 mostly removes.
   \item \textbf{The clip is a regulariser, not a range limit.} Same models, exact zeros, scattered / top:
         clip at $|x'| \le 1$ gives 0.152 / \SI{0.173}{K}, at 1.5 0.194 / \SI{0.183}{K}, at 3 0.302 / \SI{0.277}{K},
         although the final samples barely exceed $|x'| = 1$ (0.1\,\% of values): clipping the early clean-state

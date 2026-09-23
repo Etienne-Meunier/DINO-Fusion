@@ -69,14 +69,22 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 3. **Depth structure.** 0.04 to 0.08 K at every level in the scattered and block splits; the bottom two levels are no longer
    special (0.07 K) except in the top row (0.29 K, the corner runs). Worst band: the top 100 m (0.07 to 0.12 K),
    where 3 sigma_z is about 12 K and sampler noise is amplified.
-4. **The sampler's clip is a regulariser, not a range limit.** Exact fill, scattered / top: clip at 1 gives
+4. **Why the surface is worst in kelvin.** The per-level scale 3 sigma_z is 12 K at the surface and 1.6 K at the
+   bottom, and the sampler's precision is roughly uniform in normalised units: surface RMSE 0.6 % of its scale
+   (0.073 K, scattered) vs 1 % at 650 m and 4.5 % at the bottom. The run-to-run surface signal is 0.7 % of the
+   scale (0.085 K), the same size, so the model cannot tell the runs apart there and matches the mean state
+   (0.076 vs 0.073 K); the nearest run wins (0.026 K) only because neighbouring runs are nearly identical at the
+   surface. What remains is a per-sample offset of the surface mean: W1 on the horizontal-mean profile is 0.12 K
+   at 14 m, above the 0.07 K cell RMSE of the ensemble mean, so each sample carries a nearly uniform shift of
+   about 0.1 K (0.01 normalised) that the average of 32 mostly removes.
+5. **The sampler's clip is a regulariser, not a range limit.** Exact fill, scattered / top: clip at 1 gives
    0.152 / 0.173 K, at 1.5 0.194 / 0.183, at 3 0.302 / 0.277, although the final samples barely exceed
    |x'| = 1 (0.1 %). The price is a range limit: 12 % of the held-out top row's true bottom values
    lie above mu + 3 sigma and cannot be generated; the corner run is the largest top-row error in every variant.
-5. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
+6. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
    sampler; the truth is 7.7 % (scattered set), 4.2 % (block), 1.3 % (band), 0.1 % (top row). Not learned; this is
    the kind of constraint DINO-Fusion imposes at sampling time.
-6. **Plumbing.** Salinity within 0.02 psu of 35 without any constraint, land exact, spread 4x the true
+7. **Plumbing.** Salinity within 0.02 psu of 35 without any constraint, land exact, spread 4x the true
    within-window spread.
 
 ## Cost
