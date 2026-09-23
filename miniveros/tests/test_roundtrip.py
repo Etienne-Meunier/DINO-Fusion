@@ -113,6 +113,16 @@ def test_model_and_loss(data_file: str):
           f"train set {len(ds)} samples from runs {ds.runs()} | cond example {c.numpy().round(3)}")
 
 
+def test_block_split():
+    from extract_data import choose_holdout
+    ck = np.logspace(np.log10(0.0125), np.log10(0.8), 10); eps = np.logspace(np.log10(0.0875), np.log10(5.6), 10)
+    run_ck, run_eps = np.repeat(ck, 10), np.tile(eps, 10)
+    h = choose_holdout(run_ck, run_eps, "block", 0, 0, [], (2, 9, 2, 9))
+    assert len(h) == 49 and run_ck[h].min() > 0.03 and run_ck[h].max() < 0.51 and run_eps[h].min() > 0.22 and run_eps[h].max() < 3.6
+    assert len(choose_holdout(run_ck, run_eps, "block", 0, 0, [], (0, 10, 0, 10))) == 100
+    print("  block split: 49 runs held out, edge rows/columns kept")
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         data_file = sys.argv[1]; print(f"using dataset {data_file}")

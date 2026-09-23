@@ -15,7 +15,8 @@ def resolve_split(cfg, ds):
     if cfg.split_mode == "file":
         hold = np.asarray(ds["holdout_runs"], dtype=np.int64)
     else:
-        hold = choose_holdout(run_ck, run_eps, cfg.split_mode, cfg.n_holdout, cfg.split_seed, list(cfg.split_rows))
+        hold = choose_holdout(run_ck, run_eps, cfg.split_mode, cfg.n_holdout, cfg.split_seed, list(cfg.split_rows),
+                              tuple(cfg.split_block))
     return np.setdiff1d(np.arange(len(run_ck)), hold), np.asarray(hold, dtype=np.int64)
 
 

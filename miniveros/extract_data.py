@@ -69,7 +69,7 @@ def to_zyx_interior(block: np.ndarray) -> np.ndarray:
 
 # ----------------------------------------------------------------------------- split
 def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, seed: int,
-                   rows: list[float] | None = None) -> np.ndarray:
+                   rows: list[float] | None = None, block: tuple[int, int, int, int] | None = None) -> np.ndarray:
     cks, epss = np.unique(run_ck), np.unique(run_eps)
     ick = np.searchsorted(cks, run_ck)
     ieps = np.searchsorted(epss, run_eps)
@@ -89,6 +89,10 @@ def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, s
         return np.sort(rng.choice(cand, size=min(n, len(cand)), replace=False))
     if mode == "row_ck_max":
         return np.where(ick == ick.max())[0]
+    if mode == "block":                      # a rectangular block of the grid: index ranges [i0, i1) on c_k, [j0, j1) on c_eps
+        assert block and len(block) == 4, "block mode needs (i0, i1, j0, j1)"
+        i0, i1, j0, j1 = (int(b) for b in block)
+        return np.where((ick >= i0) & (ick < i1) & (ieps >= j0) & (ieps < j1))[0]
     raise ValueError(f"unknown holdout mode {mode!r}")
 
 
@@ -101,10 +105,11 @@ def main(argv=None):
     p.add_argument("--last-years", type=float, default=20.0, help="keep snapshots in the last N years of each run")
     p.add_argument("--stride", type=int, default=1, help="keep every k-th of those snapshots")
     p.add_argument("--n-holdout", type=int, default=10)
-    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "none"],
+    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "block", "none"],
                    help="optional split stored in the file (normally the split is chosen in the training config)")
     p.add_argument("--stats", default="all", choices=["all", "train"], help="runs used for the normalisation statistics")
     p.add_argument("--holdout-ck", default="", help="with --holdout-mode rows: comma-separated c_k values of the rows to hold out")
+    p.add_argument("--holdout-block", default="2,9,2,9", help="with --holdout-mode block: i0,i1,j0,j1 index ranges (c_k, c_eps), half-open")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--limit-runs", type=int, default=0, help="debug: only the first k runs (sorted by name)")
     args = p.parse_args(argv)
@@ -162,7 +167,8 @@ def main(argv=None):
     run_ck, run_eps = np.array(run_ck), np.array(run_eps)
     water = ~land_mask
     rows = [float(c) for c in args.holdout_ck.split(",") if c.strip()]
-    holdout = choose_holdout(run_ck, run_eps, args.holdout_mode, args.n_holdout, args.seed, rows)
+    block = tuple(int(b) for b in args.holdout_block.split(","))
+    holdout = choose_holdout(run_ck, run_eps, args.holdout_mode, args.n_holdout, args.seed, rows, block)
     train_runs = np.setdiff1d(np.arange(n_run), holdout)
     is_train = np.isin(run_id, train_runs)
     print(f"split: {len(train_runs)} train runs, {len(holdout)} hold-out runs -> {[run_names[i] for i in holdout]}")
