@@ -77,8 +77,7 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 
 Extraction 2.5 min on 8 CPU cores (once). Training 17 to 22 min on one A100 per split. Generation of the 32-sample
 hold-out and grid sets plus evaluation 14 to 18 min. A split costs under 40 GPU minutes end to end; a sampling
-variant 15 GPU minutes. Per-level min-max normalisation was tested (2026-09-22) and gave the same result as 3-std
-under the same sampler; removed (numbers in the git history at `e257917`).
+variant 15 GPU minutes.
 
 ## Suggested next steps
 

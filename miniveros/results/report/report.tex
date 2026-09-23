@@ -25,8 +25,8 @@
 \begin{itemize}
   \item Goal: generate the post-spin-up $(T, S)$ state of the Veros ACC channel from the EKE-closure
         coefficients $(c_k, c_\epsilon)$, skipping the spin-up.
-  \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; one split runs end to end on
-        Jean Zay in under one A100 hour.
+  \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; one split runs end to end in
+        under one A100 hour.
   \item Hold-out RMSE 0.061 / 0.076 / \SI{0.141}{K} (scattered / band of three rows / top row), against
         0.037 / 0.116 / \SI{0.170}{K} for the nearest training run and 0.155 / 0.197 / \SI{0.470}{K} for the mean
         state: the model wins in the two large-gap splits and loses only to one-step neighbours. A Wasserstein
@@ -34,7 +34,6 @@
   \item Main lesson: DINO's constraint that re-imposes exact zeros on land and padding after every sampling step
         cost 0.03--\SI{0.09}{K} (0.152 / 0.135 / \SI{0.173}{K} before). Re-imposing them at the step's noise level,
         as in training, fixes it without retraining.
-  \item Per-level min-max normalisation was tested: same result as 3-std under the same sampler; dropped.
   \item Physical miss: temperature inversions are generated at the rate of the weakly eddying runs in every
         regime.
 \end{itemize}
