@@ -32,9 +32,6 @@
         0.155 / 0.197 / 0.197 / \SI{0.470}{K} for the mean state: the model wins in the three large-gap splits,
         by a factor 1.8 with half the grid held out, and loses only to one-step neighbours. A Wasserstein metric
         on the stratification profiles gives the same ranking.
-  \item Main lesson: DINO's constraint that re-imposes exact zeros on land and padding after every sampling step
-        cost 0.03--\SI{0.09}{K} (0.152 / 0.135 / 0.136 / \SI{0.173}{K} before). Re-imposing them at the step's noise level,
-        as in training, fixes it without retraining.
   \item Physical miss: temperature inversions are generated at the rate of the weakly eddying runs in every
         regime.
 \end{itemize}
@@ -92,9 +89,12 @@ orange ticks: the 100 per-run level means.}
   \item Conditioning: DINO's UNet is unconditional and is steered at sampling time by constraints; here the UNet
         receives $(\log c_k, \log c_\epsilon)$ through the timestep embedding, and the data are an ensemble of 100
         runs split by run instead of one trajectory.
-  \item Sampling: DINO's BorderZeroConstraint (exact zeros on land and padding after every step) is replaced by
-        zeros at the step's noise level, the largest single gain of this study (first finding); DINO's
-        stratification constraints are not ported yet.
+  \item Sampling: DINO's BorderZeroConstraint resets land and padding to exact zeros after every step. In
+        training those cells carry noise like every other, so a solid block of zeros at high noise levels is out
+        of distribution; it is replaced by zeros at the step's noise level, $\sqrt{1-\bar\alpha_t}\,z$. On the same
+        trained models this alone takes the hold-out RMSE from 0.152 / 0.135 / 0.136 / \SI{0.173}{K} to
+        0.061 / 0.076 / 0.064 / \SI{0.141}{K} (the four splits of Table~\ref{tab:splits}), with the largest gain at
+        the bottom. DINO's stratification constraints are not ported yet.
   \item Everything else is kept: transform chain, 3-std normalisation, DDPM settings, EMA.
 \end{itemize}
 
@@ -143,23 +143,14 @@ $W_1$ profile, diffusion (K) & 0.066 & 0.075 & 0.073 & 0.132 \\
 $W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.095 & 0.142 \\
 $W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.095 & 0.142 \\
 $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.166 & 0.420 \\
-\midrule
-same models, exact zeros (previous sampler): RMSE (K) & 0.152 & 0.135 & 0.136 & 0.173 \\
-same models, exact zeros (previous sampler): $W_1$ (K) & 0.127 & 0.111 & 0.122 & 0.143 \\
 \bottomrule
 \end{tabular}
-\caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Last two rows:
-the same models sampled with DINO's constraint (exact zeros on land and padding after every step).}
+\caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run.}
 \label{tab:splits}
 \end{table}
 
 \section{Findings}
 \begin{itemize}
-  \item \textbf{The land/padding constraint was the main error source.} Same models, sampling only: exact zeros
-        after every step give 0.152 / 0.135 / 0.136 / \SI{0.173}{K}; zeros at the step's noise level give
-        0.061 / 0.076 / 0.064 / \SI{0.141}{K}. In training those cells carry noise like every other, so a solid block of
-        zeros at high noise levels is out of distribution. The gain is largest at the bottom
-        (0.34 $\to$ \SI{0.07}{K}, scattered); the mean-state collapse of the first version was this artefact.
   \item \textbf{Model vs baselines.} Band: beats the nearest run at every level below \SI{26}{m} and in all
         three rows (0.063 / 0.074 / \SI{0.091}{K} vs 0.063 / 0.132 / \SI{0.152}{K} for $c_k$ = 0.126 / 0.2 / 0.3175).
         Centre block: beats the nearest run at every level below the surface; over the block the error is flat,
@@ -182,7 +173,7 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
         is a per-sample offset of the surface mean: $W_1$ on the horizontal-mean profile is \SI{0.12}{K} at
         \SI{14}{m}, above the \SI{0.07}{K} cell RMSE of the ensemble mean, so each sample carries a nearly uniform
         shift of about \SI{0.1}{K} (0.01 normalised) that the average of 32 mostly removes.
-  \item \textbf{The clip is a regulariser, not a range limit.} Same models, exact zeros, scattered / top:
+  \item \textbf{The clip is a regulariser, not a range limit.} Same models, sampling only (with DINO's constraint), scattered / top:
         clip at $|x'| \le 1$ gives 0.152 / \SI{0.173}{K}, at 1.5 0.194 / \SI{0.183}{K}, at 3 0.302 / \SI{0.277}{K},
         although the final samples barely exceed $|x'| = 1$ (0.1\,\% of values): clipping the early clean-state
         estimates keeps the chain on track. Its price is a range limit: 12\,\% of the held-out top row's true
@@ -209,8 +200,7 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}.
-Training at \texttt{2b542aa} (\texttt{338997d} for the block split); sampling and evaluation at \texttt{bfee32f} (\texttt{fill\_mode} noised; the
-exact-zero rows: clean). Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
+Training at \texttt{2b542aa} (\texttt{338997d} for the block split); sampling and evaluation at \texttt{bfee32f}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
 the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]
