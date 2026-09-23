@@ -130,4 +130,5 @@ if __name__ == "__main__":
         data_file = synthetic_dataset(os.path.join(tempfile.gettempdir(), "miniveros_synth.npz")); print("using synthetic dataset")
     print("test_transforms"); test_transforms(data_file)
     print("test_model_and_loss"); test_model_and_loss(data_file)
+    print("test_block_split"); test_block_split()
     print("ALL TESTS PASSED")

@@ -27,12 +27,13 @@
         coefficients $(c_k, c_\epsilon)$, skipping the spin-up.
   \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; one split runs end to end in
         under one A100 hour.
-  \item Hold-out RMSE 0.061 / 0.076 / \SI{0.141}{K} (scattered / band of three rows / top row), against
-        0.037 / 0.116 / \SI{0.170}{K} for the nearest training run and 0.155 / 0.197 / \SI{0.470}{K} for the mean
-        state: the model wins in the two large-gap splits and loses only to one-step neighbours. A Wasserstein
-        metric on the stratification profiles gives the same ranking.
+  \item Hold-out RMSE 0.061 / 0.076 / 0.064 / \SI{0.141}{K} (scattered / band of three rows / centre block of
+        49 runs / top row), against 0.037 / 0.116 / 0.114 / \SI{0.170}{K} for the nearest training run and
+        0.155 / 0.197 / 0.197 / \SI{0.470}{K} for the mean state: the model wins in the three large-gap splits,
+        by a factor 1.8 with half the grid held out, and loses only to one-step neighbours. A Wasserstein metric
+        on the stratification profiles gives the same ranking.
   \item Main lesson: DINO's constraint that re-imposes exact zeros on land and padding after every sampling step
-        cost 0.03--\SI{0.09}{K} (0.152 / 0.135 / \SI{0.173}{K} before). Re-imposing them at the step's noise level,
+        cost 0.03--\SI{0.09}{K} (0.152 / 0.135 / 0.136 / \SI{0.173}{K} before). Re-imposing them at the step's noise level,
         as in training, fixes it without retraining.
   \item Physical miss: temperature inversions are generated at the rate of the weakly eddying runs in every
         regime.
@@ -107,9 +108,10 @@ orange ticks: the 100 per-run level means.}
   \item Truth: 20-year time-mean state of each held-out run; metrics on water cells.
   \item Baselines: mean training state; nearest training run in standardised log-parameter space; average of
         the axis-neighbour training runs on the grid.
-  \item Three hold-out splits, same data file and statistics, different training sets: scattered (10 interior
+  \item Four hold-out splits, same data file and statistics, different training sets: scattered (10 interior
         points), band of three rows ($c_k$ = 0.126, 0.2, 0.3175; 30 runs; training rows a factor 6.3 apart),
-        top row ($c_k$ = 0.8; 10 runs; extrapolation).
+        centre block (the $7\times7$ centre of the grid, $c_k$ 0.0315--0.504, $c_\epsilon$ 0.22--3.5; 49 runs;
+        training on the outer rows and columns only), top row ($c_k$ = 0.8; 10 runs; extrapolation).
   \item Distributional metric: each state is reduced to its profile of horizontal means over water cells,
         $\bar T_z$; per level, the Wasserstein-1 distance between the 32 generated values and the 241 true
         snapshots of the window, through the quantile functions,
@@ -124,29 +126,31 @@ orange ticks: the 100 per-run level means.}
 \end{itemize}
 
 \begin{table}[H]
-\centering\footnotesize
-\begin{tabular}{lrrr}
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrr}
 \toprule
- & scattered & band of three rows & top row \\
- & 10 runs & 30 runs & 10 runs \\
+ & scattered & band of three rows & centre block & top row \\
+ & 10 runs & 30 runs & 49 runs & 10 runs \\
 \midrule
-diffusion, ensemble mean of 32: RMSE (K) & 0.061 & 0.076 & 0.141 \\
-diffusion, single sample: RMSE (K) & 0.147 & 0.160 & 0.208 \\
-nearest training run: RMSE (K) & 0.037 & 0.116 & 0.170 \\
-neighbour average: RMSE (K) & 0.020 & 0.116 & 0.170 \\
-mean training state: RMSE (K) & 0.155 & 0.197 & 0.470 \\
-diffusion: domain-mean bias (K) & $+0.042$ & $+0.020$ & $-0.016$ \\
-ensemble spread / true spread (K) & 0.128 / 0.031 & 0.132 / 0.031 & 0.132 / 0.032 \\
-$T$ inversions (interfaces), generated / truth & 10.2\,\% / 7.7\,\% & 10.9\,\% / 1.3\,\% & 12.3\,\% / 0.1\,\% \\
-max salinity error (psu) & 0.013 & 0.014 & 0.017 \\
+diffusion, mean of 32: RMSE (K) & 0.061 & 0.076 & 0.064 & 0.141 \\
+diffusion, single sample: RMSE (K) & 0.147 & 0.160 & 0.153 & 0.208 \\
+nearest training run: RMSE (K) & 0.037 & 0.116 & 0.114 & 0.170 \\
+neighbour average: RMSE (K) & 0.020 & 0.116 & 0.113 & 0.170 \\
+mean training state: RMSE (K) & 0.155 & 0.197 & 0.197 & 0.470 \\
+diffusion: domain-mean bias (K) & $+0.042$ & $+0.020$ & $+0.032$ & $-0.016$ \\
+ensemble spread (K) & 0.128 & 0.132 & 0.132 & 0.132 \\
+true within-window spread (K) & 0.031 & 0.031 & 0.031 & 0.032 \\
+$T$ inversions, generated & 10.2\,\% & 10.9\,\% & 10.4\,\% & 12.3\,\% \\
+$T$ inversions, truth & 7.7\,\% & 1.3\,\% & 4.2\,\% & 0.1\,\% \\
+max salinity error (psu) & 0.013 & 0.014 & 0.013 & 0.017 \\
 \midrule
-$W_1$ profile, diffusion (K) & 0.066 & 0.075 & 0.132 \\
-$W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.142 \\
-$W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.142 \\
-$W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
+$W_1$ profile, diffusion (K) & 0.066 & 0.075 & 0.073 & 0.132 \\
+$W_1$ profile, neighbour average (K) & 0.036 & 0.095 & 0.095 & 0.142 \\
+$W_1$ profile, nearest training run (K) & 0.044 & 0.095 & 0.095 & 0.142 \\
+$W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.166 & 0.420 \\
 \midrule
-same models, exact zeros after every step: RMSE (K) & 0.152 & 0.135 & 0.173 \\
-same models, exact zeros after every step: $W_1$ (K) & 0.127 & 0.111 & 0.143 \\
+same models, exact zeros (previous sampler): RMSE (K) & 0.152 & 0.135 & 0.136 & 0.173 \\
+same models, exact zeros (previous sampler): $W_1$ (K) & 0.127 & 0.111 & 0.122 & 0.143 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Last two rows:
@@ -157,18 +161,23 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
 \section{Findings}
 \begin{itemize}
   \item \textbf{The land/padding constraint was the main error source.} Same models, sampling only: exact zeros
-        after every step give 0.152 / 0.135 / \SI{0.173}{K}; zeros at the step's noise level give
-        0.061 / 0.076 / \SI{0.141}{K}. In training those cells carry noise like every other, so a solid block of
+        after every step give 0.152 / 0.135 / 0.136 / \SI{0.173}{K}; zeros at the step's noise level give
+        0.061 / 0.076 / 0.064 / \SI{0.141}{K}. In training those cells carry noise like every other, so a solid block of
         zeros at high noise levels is out of distribution. The gain is largest at the bottom
         (0.34 $\to$ \SI{0.07}{K}, scattered); the mean-state collapse of the first version was this artefact.
   \item \textbf{Model vs baselines.} Band: beats the nearest run at every level below \SI{26}{m} and in all
         three rows (0.063 / 0.074 / \SI{0.091}{K} vs 0.063 / 0.132 / \SI{0.152}{K} for $c_k$ = 0.126 / 0.2 / 0.3175).
+        Centre block: beats the nearest run at every level below the surface; over the block the error is flat,
+        0.04--\SI{0.12}{K} (centre $3\times3$ \SI{0.068}{K}, rim \SI{0.063}{K}), where the nearest run degrades from
+        \SI{0.10}{K} at the rim to \SI{0.18}{K} at the centre; it wins at the 28 runs where the state changes with the
+        parameters (nearest run 0.10--\SI{0.39}{K}) and loses by at most \SI{0.07}{K} at the 21 runs of the flat regime,
+        where a copied neighbour is already within \SI{0.05}{K} (Figure~\ref{fig:block}).
         Top row: beats the nearest run at every level but the surface and the bottom, and beats copying the row
         below for $c_\epsilon$ 0.14--1.4 (0.05--0.26 vs 0.08--\SI{0.31}{K}); loses at the corner (0.41 vs
         \SI{0.35}{K}) and in the flat regime ($c_\epsilon \ge 3.5$). Scattered: loses to the one-step neighbours
         (0.061 vs 0.037 / \SI{0.020}{K}) except between 490 and \SI{650}{m} (Figures~\ref{fig:scat}--\ref{fig:top}).
-  \item \textbf{Depth structure.} 0.04--\SI{0.08}{K} at every level in the scattered split; the bottom levels
-        are no longer special (\SI{0.07}{K}) except in the top row (\SI{0.29}{K}, the corner runs). Worst band:
+  \item \textbf{Depth structure.} 0.04--\SI{0.08}{K} at every level in the scattered and block splits; the
+        bottom levels are no longer special (\SI{0.07}{K}) except in the top row (\SI{0.29}{K}, the corner runs). Worst band:
         the top \SI{100}{m}, where $3\sigma_z \approx \SI{12}{K}$ amplifies sampler noise.
   \item \textbf{The clip is a regulariser, not a range limit.} Same models, exact zeros, scattered / top:
         clip at $|x'| \le 1$ gives 0.152 / \SI{0.173}{K}, at 1.5 0.194 / \SI{0.183}{K}, at 3 0.302 / \SI{0.277}{K},
@@ -177,7 +186,7 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
         bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated; the corner run is the largest top-row
         error.
   \item \textbf{Inversions.} 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
-        (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). Not learned.
+        (scattered), 4.2\,\% (block), 1.3\,\% (band), 0.1\,\% (top). Not learned.
   \item \textbf{$W_1$ agrees with the RMSE ranking.} Training grid points score like held-out ones (0.083 vs
         \SI{0.071}{K}, scattered); from \SI{490}{m} down the samples beat the point baselines in the band and top
         splits (0.058 vs \SI{0.115}{K} at \SI{650}{m}, band), which pay for the spread they cannot represent.
@@ -197,7 +206,7 @@ the same models sampled with DINO's constraint (exact zeros on land and padding 
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}.
-Training at \texttt{2b542aa}; sampling and evaluation at \texttt{bfee32f} (\texttt{fill\_mode} noised; the
+Training at \texttt{2b542aa} (\texttt{338997d} for the block split); sampling and evaluation at \texttt{bfee32f} (\texttt{fill\_mode} noised; the
 exact-zero rows: clean). Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
 the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 
@@ -232,6 +241,21 @@ the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=\textwidth]{../fs_block_3std/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.62\textwidth]{../fs_block_3std/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
+\end{subfigure}
+\caption{Centre block ($7\times7$ centre of the grid held out, 49 runs; training on the outer rows and columns), 32 samples per run.}
+\label{fig:block}
+\end{figure}
+
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
 \includegraphics[width=\textwidth]{../fs_top_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
@@ -257,6 +281,14 @@ the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three
 \caption{Band-of-three split, same condition ($c_k=0.2$, $c_\epsilon=2.222$, now in the middle held-out row).}
 \label{fig:samples_band}
 \end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../fs_block_3std/samples_levels.png}
+\caption{Centre-block split, same condition ($c_k=0.2$, $c_\epsilon=2.222$, inside the held-out block).}
+\label{fig:samples_block}
+\end{figure}
+
 
 \begin{figure}[p]
 \centering
