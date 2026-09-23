@@ -4,11 +4,11 @@
 #   jobs/submit.sh train          <train.py args, e.g. --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/x>
 #   jobs/submit.sh generate_eval  <run_dir> [n_samples, default 32] [tag] [key=value ...]   (tag + --set pairs: a sampling variant,
 #                                 written to samples/*_<tag>.npz and eval_<tag>/, e.g. cf fill_mode=clean)
-# Account / QoS / constraint / log paths come from jz_env.sh next to this file (never from the tracked files).
+# Account / QoS / constraint / log paths come from env.sh next to this file (never from the tracked files).
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-[ -f "$HERE/jz_env.sh" ] || { echo "missing $HERE/jz_env.sh - copy jz_env.example.sh and fill it in" >&2; exit 1; }
-source "$HERE/jz_env.sh"
+[ -f "$HERE/env.sh" ] || { echo "missing $HERE/env.sh - copy env.example.sh and fill it in" >&2; exit 1; }
+source "$HERE/env.sh"
 JOB=$1; shift || true
 mkdir -p "$MV_WORK/logs" "$MV_WORK/runs" "$MV_WORK/data"
 export MV_ARGS="$*"

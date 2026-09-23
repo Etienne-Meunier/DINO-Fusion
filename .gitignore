@@ -6,7 +6,7 @@ full_state/
 compute.md
 
 # miniveros package: site config, converted data, runs
-miniveros/jobs/jz_env.sh
+miniveros/jobs/env.sh
 miniveros/data/
 miniveros/runs/
 __pycache__/

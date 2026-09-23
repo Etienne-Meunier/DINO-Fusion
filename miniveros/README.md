@@ -67,22 +67,23 @@ python evaluate.py --data-file ... --samples runs/full_3std/samples/holdout_*.np
 Any `Config` field can be overridden with `--set key=value`. Re-running `train.py` with the same
 `run_dir` resumes from `ckpt.pt`, so a run can be chained across short jobs.
 
-## Cluster
+## SLURM jobs
 
-Compute nodes have no `git` and no `module` function unless inherited from a login shell, so `submit.sh`
-records the commit hash at submission time and the environment recipe sources the module init files itself.
-
-`jobs/` holds SLURM templates with only generic resources in the `#SBATCH` headers. Account, QoS,
-constraint, paths and the environment activation come from `jobs/jz_env.sh`, which is gitignored:
-copy `jz_env.example.sh`, fill it in on the cluster, then
+`jobs/` holds SLURM templates with only generic resources in their `#SBATCH` headers. Account, QoS,
+constraint, paths and the environment activation come from `jobs/env.sh`, which is gitignored: copy
+`env.example.sh`, fill it in, then
 
 ```bash
 jobs/submit.sh extract
 jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/fs_scattered_3std split_mode=interior_random
 jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std      # 32 samples per hold-out condition by default
+jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std 32 cf fill_mode=clean   # a sampling variant: samples/*_cf.npz, eval_cf/
 jobs/campaign.sh -s fs_scattered -p "split_mode=interior_random"      # whole chain: extract -> train -> generate_eval
 jobs/campaign.sh -n -s fs_band3 -p "split_mode=rows split_rows=0.126,0.2,0.3175"   # reuse the data file
 ```
+
+`submit.sh` records the commit hash at submission time and the environment recipe sources the module init
+files itself, so the jobs do not depend on `git` or on a login shell being available on the compute nodes.
 
 ## Evaluation
 

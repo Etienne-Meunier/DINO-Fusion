@@ -1,6 +1,6 @@
 """Per-level distribution of T over the whole extracted dataset (all runs, all snapshots, water cells).
 
-  python tdist.py compute <data_file.npz> <stats.npz>        # on the cluster, ~90 s, ~2 GB of RAM
+  python tdist.py compute <data_file.npz> <stats.npz>        # where the data file is, ~90 s, ~2 GB of RAM
   python tdist.py plot    <stats.npz> <figure.png>           # ridge plot, raw and 3-std normalised side by side
 """
 import sys, time

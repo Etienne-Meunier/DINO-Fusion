@@ -13,8 +13,8 @@
 # Each job exits non-zero on failure (set -e), so dependants never start on garbage.
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-[ -f "$HERE/jz_env.sh" ] || { echo "missing $HERE/jz_env.sh" >&2; exit 1; }
-source "$HERE/jz_env.sh"
+[ -f "$HERE/env.sh" ] || { echo "missing $HERE/env.sh - copy env.example.sh and fill it in" >&2; exit 1; }
+source "$HERE/env.sh"
 SPLIT=""; XARGS=""; PAIRS=""; NOEXTRACT=0
 while getopts "s:x:p:n" opt; do case $opt in s) SPLIT=$OPTARG ;; x) XARGS=$OPTARG ;; p) PAIRS=$OPTARG ;; n) NOEXTRACT=1 ;; *) exit 1 ;; esac; done
 shift $((OPTIND - 1))

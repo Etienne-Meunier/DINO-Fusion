@@ -1,4 +1,4 @@
-# Copy this file to jz_env.sh (gitignored) ON THE CLUSTER and fill in the values.
+# Copy this file to env.sh (gitignored) on the machine that submits the jobs and fill in the values.
 # submit.sh sources it; nothing site-specific (account, paths, login) lives in tracked files.
 export MV_WORK=/lustre/fswork/projects/rech/<proj>/<login>/miniveros      # permanent: code, data, runs, logs
 export MV_SCRATCH=/lustre/fsn1/projects/rech/<proj>/<login>/miniveros     # purgeable: raw runs
