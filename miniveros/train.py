@@ -2,7 +2,7 @@
 
 Usage examples (from the package directory):
     python train.py --preset dev  --set data_file=/path/veros_acc_TS.npz run_dir=/path/runs/dev
-    python train.py --preset full --set data_file=... run_dir=... norm_mode=3-std|minmax
+    python train.py --preset full --set data_file=... run_dir=... norm_mode=3-std
 Rerunning with the same run_dir resumes from run_dir/ckpt.pt (needed for the 2 h dev-QoS cap).
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from config import parse_cli
 from dataset import VerosTSDataset, build_transform, resolve_split
 from diffusion import Diffusion
 from model import ConditionalUNet
-from pipeline import LandFill, sample
+from pipeline import LandZero, sample
 
 
 def get_device() -> torch.device:
@@ -82,8 +82,7 @@ def final_samples(model, ema, diffusion, tr, cfg, device, run_dir: Path) -> None
         cond = ds.encoder([ck] * 2, [eps] * 2).to(device)
         g = torch.Generator(device).manual_seed(cfg.seed)
         x = sample(model, diffusion.scheduler, cond, cfg.num_inference_steps, generator=g,
-                   constraints=[LandFill(tr.fill_mask.to(device), tr.fill.to(device), mode=cfg.fill_mode,
-                                         scheduler=diffusion.scheduler, generator=g)])
+                   constraints=[LandZero(tr.zero_mask.to(device), mode=cfg.fill_mode, scheduler=diffusion.scheduler, generator=g)])
         gen = tr.denormalise(x)["temp"].cpu()                          # (2, Z, Y, X)
         truth = ds.run_fields(r)["temp"].mean(0)                       # (Z, Y, X) time mean
         truth = truth.masked_fill(torch.as_tensor(tr.masker.mask[: truth.shape[0]]), float("nan"))
@@ -122,7 +121,7 @@ def main(argv=None):
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     sched = get_cosine_schedule_with_warmup(opt, cfg.lr_warmup_steps, cfg.max_steps)
     ema = EMAModel(model.parameters(), decay=cfg.ema_decay) if cfg.use_ema else None
-    fill_mask = tr.fill_mask.to(device)
+    zero_mask = tr.zero_mask.to(device)
     print(f"device={device} | train samples={len(ds)} from {len(ds.runs())} runs | batch={cfg.batch_size} "
           f"| x shape=({tr.n_channels},{tr.padded_shape[0]},{tr.padded_shape[1]}) | params={model.n_params() / 1e6:.2f}M "
           f"| norm={cfg.norm_mode} | steps={cfg.max_steps}", flush=True)
@@ -156,7 +155,7 @@ def main(argv=None):
         except StopIteration:
             it = iter(dl); x, c = next(it)
         x = x.to(device, non_blocking=True); c = c.to(device, non_blocking=True)
-        loss = diffusion.training_loss(model, x, c, fill_mask)
+        loss = diffusion.training_loss(model, x, c, zero_mask)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)

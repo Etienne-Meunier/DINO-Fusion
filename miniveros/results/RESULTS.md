@@ -65,9 +65,7 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    where 3 sigma_z is about 12 K and sampler noise is amplified.
 4. **The sampler's clip is a regulariser, not a range limit.** Exact fill, scattered / top: clip at 1 gives
    0.152 / 0.173 K, at 1.5 0.194 / 0.183, at 3 0.302 / 0.277, although the final samples barely exceed
-   |x'| = 1 (0.1 %). Under min-max, where |x'| <= 1 is the data range, keeping the clip at mu +- 3 sigma instead
-   (`clip_ref=3-std`, per-channel bounds) is worth 0.126 -> 0.059 K (scattered) and 0.129 -> 0.079 (band); top
-   row unchanged (0.133 vs 0.137). The price is a range limit: 12 % of the held-out top row's true bottom values
+   |x'| = 1 (0.1 %). The price is a range limit: 12 % of the held-out top row's true bottom values
    lie above mu + 3 sigma and cannot be generated; the corner run is the largest top-row error in every variant.
 5. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
    sampler; the truth goes from 7.7 % (scattered set) to 1.3 % (band) to 0.1 % (top row). Not learned; this is
@@ -75,36 +73,12 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 6. **Plumbing.** Salinity within 0.02 psu of 35 without any constraint, land exact, spread 4x the true
    within-window spread.
 
-## Normalisation: per-level min-max (runs `fs_*_minmax`, training at `4fe5d51`)
-
-`norm_mode=minmax`: each level's data range [min_z, max_z] (all runs, water cells) -> [-1, 1]; land and padding
-hold the normalised level mean (within +-0.42 of the midpoint) instead of 0. Same splits and training settings
-as the 3-std runs; four samplers, sampling only (RMSE of the ensemble mean, K; W1 in brackets):
-
-| sampler | scattered | band of three | top row |
-|---|---|---|---|
-| noised fill, clip at mu +- 3 sigma (`eval_nfc3`, the 3-std reference sampler) | 0.059 (0.072) | 0.079 (0.083) | 0.137 (0.133) |
-| noised fill, clip at the data range (`eval`, default config) | 0.126 (0.105) | 0.129 (0.106) | 0.133 (0.104) |
-| exact fill, clip at the data range (`eval_cleanfill`, the first result) | 0.199 (0.165) | 0.233 (0.188) | 0.288 (0.241) |
-| exact fill, clip at mu +- 3 sigma (`eval_c3`) | 0.669 (0.361) | 0.701 (0.391) | 0.707 (0.423) |
-| 3-std reference, noised fill, clip at 1 | 0.061 (0.066) | 0.076 (0.075) | 0.141 (0.132) |
-
-- With the same sampler the two normalisations are on par: depth profiles within 0.02 K at every level except
-  106 m (0.11 vs 0.07 K, band); band rows 0.070 / 0.076 / 0.091 vs 0.063 / 0.074 / 0.091; grid W1 at training
-  points 0.085 vs 0.083. The normalisation is immaterial; the sampler is not.
-- The first min-max result (0.199 / 0.233 / 0.288, "worse on every split") was two sampler confounds at once:
-  the exact fill, up to +-0.42 there (0.199 -> 0.126 when noised), and the clip at the data range instead of
-  mu +- 3 sigma (0.126 -> 0.059 with the 3-sigma bounds).
-- Exact fill with the mu +- 3 sigma clip is pathological (0.67 to 0.71 K, |bias| 0.3 to 0.4 K): a fill the
-  network never saw plus asymmetric per-channel bounds drive the chain to a wrong state.
-- The smaller min-max salinity error (0.004 to 0.007 vs 0.013 to 0.017 psu) is the floor, not learning:
-  minmax floors the half-range at 0.05 where 3-std floors sigma at 0.05 and multiplies by 3.
-
 ## Cost
 
 Extraction 2.5 min on 8 CPU cores (once). Training 17 to 22 min on one A100 per split. Generation of the 32-sample
 hold-out and grid sets plus evaluation 14 to 18 min. A split costs under 40 GPU minutes end to end; a sampling
-variant 15 GPU minutes.
+variant 15 GPU minutes. Per-level min-max normalisation was tested (2026-09-22) and gave the same result as 3-std
+under the same sampler; removed (numbers in the git history at `e257917`).
 
 ## Suggested next steps
 
@@ -117,12 +91,11 @@ variant 15 GPU minutes.
 
 ## Figures
 
-Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`, and the min-max runs `fs_*_minmax/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`); `eval_cleanfill/` = the previous sampler (exact
-fill); for the min-max runs also `eval_c3/` (exact fill, clip at mu +- 3 sigma) and `eval_nfc3/` (noised fill, clip at
-mu +- 3 sigma, the sampler of the 3-std reference; the min-max figures of the report).
+zeros after every step).
 `data/T_distribution_per_level.png`, `data/T_per_level_stats.npz`: per-level T distribution (`tdist.py compute` on the
 cluster, `tdist.py plot` locally).
 `report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).

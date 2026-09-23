@@ -34,8 +34,8 @@
   \item The sampler's land/padding constraint was the main error source: re-imposing exact zeros after every
         step (DINO's constraint) instead of the noised fill the network saw in training cost 0.03--\SI{0.09}{K}
         (0.152 / 0.135 / \SI{0.173}{K} before; same models, sampling only).
-  \item Per-level min-max normalisation is on par with 3-std once the sampler is the same
-        (0.059 / 0.079 / \SI{0.137}{K}); the clip at $\mu_z \pm 3\sigma_z$ matters, the normalisation does not.
+  \item Per-level min-max normalisation was tested and gives the same result as 3-std under the same sampler;
+        dropped.
   \item Physical miss: the model generates temperature inversions at the rate of the weakly eddying runs
         in every regime.
 \end{itemize}
@@ -75,8 +75,6 @@ orange ticks: the 100 per-run level means.}
         \end{equation}
         $\mu_z, \sigma_z$ are computed once on all 100 runs and held fixed for every hold-out split (a deliberate,
         mild leakage of 30 scaling constants; no held-out state enters training). The sampler clips the predicted clean state at $|x'| \le 1$ (three standard deviations) at every step.
-        Alternative tested: per-level min-max, $x'_z = 2\,(x_z - \min_z)/(\max_z - \min_z) - 1$, with land and
-        padding cells at the normalised level mean instead of 0 (Table~\ref{tab:splits}, last rows).
   \item Denoiser: UNet2DModel (64, 64, 128, 128), 6.9\,M parameters. The condition $c$, the standardised
         pair $(\log c_k, \log c_\epsilon)$, enters through an MLP added to the timestep embedding.
   \item DDPM, $\epsilon$-prediction, 1000 steps, squared-cosine schedule, EMA:
@@ -137,17 +135,10 @@ $W_1$ profile, mean training state (K) & 0.136 & 0.160 & 0.420 \\
 \midrule
 same models, exact fill (previous sampler): RMSE (K) & 0.152 & 0.135 & 0.173 \\
 same models, exact fill (previous sampler): $W_1$ (K) & 0.127 & 0.111 & 0.143 \\
-\midrule
-min-max, noised fill, clip $\mu_z \pm 3\sigma_z$: RMSE (K) & 0.059 & 0.079 & 0.137 \\
-min-max, noised fill, clip $\mu_z \pm 3\sigma_z$: $W_1$ (K) & 0.072 & 0.083 & 0.133 \\
-min-max, noised fill, clip at data range: RMSE (K) & 0.126 & 0.129 & 0.133 \\
-min-max, exact fill, clip at data range: RMSE (K) & 0.199 & 0.233 & 0.288 \\
-min-max, exact fill, clip $\mu_z \pm 3\sigma_z$: RMSE (K) & 0.669 & 0.701 & 0.707 \\
 \bottomrule
 \end{tabular}
-\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run: 3-std
-normalisation with the noised fill (top two blocks); the same models with the previous sampler (exact fill);
-the models trained with the per-level min-max normalisation under four samplers.}
+\caption{Hold-out metrics per split, mean over the held-out runs, water cells only, 32 samples per run; last two
+rows: the same models with the previous sampler (exact zeros on land and padding after every step).}
 \label{tab:splits}
 \end{table}
 
@@ -175,19 +166,9 @@ the models trained with the per-level min-max normalisation under four samplers.
         (exact fill): clip at $|x'|\le 1$ gives 0.152 / \SI{0.173}{K} (scattered / top row), at 1.5 it gives
         0.194 / \SI{0.183}{K}, at 3 it gives 0.302 / \SI{0.277}{K}, although the final samples barely exceed
         $|x'| = 1$ (0.1\,\% of values): clipping the early, inaccurate clean-state estimates keeps the chain on
-        track. Under min-max, where $|x'| \le 1$ is the data range, keeping the clip at $\mu_z \pm 3\sigma_z$ instead
-        is worth 0.126 $\to$ \SI{0.059}{K} (scattered) and 0.129 $\to$ \SI{0.079}{K} (band); the top row is
-        unchanged (0.133 vs \SI{0.137}{K}). The price of the clip is a range limit for extrapolation: with the fixed
+        track. The price of the clip is a range limit for extrapolation: with the fixed
         statistics 12\,\% of the held-out top row's true bottom values lie above $\mu_z + 3\sigma_z$ and cannot be
         generated; the corner run is the top row's largest error in every variant.
-  \item \textbf{Normalisation is immaterial once the sampler is the same.} Min-max with the noised fill and the
-        $\mu_z \pm 3\sigma_z$ clip: 0.059 / 0.079 / \SI{0.137}{K} and $W_1$ 0.072 / 0.083 / \SI{0.133}{K} against
-        0.061 / 0.076 / 0.141 and 0.066 / 0.075 / \SI{0.132}{K} for 3-std; the depth profiles agree within
-        \SI{0.02}{K} except at \SI{106}{m} (Figures~\ref{fig:scat_mm}, \ref{fig:band_mm}, \ref{fig:top_mm};
-        samples in Figures~\ref{fig:samples_mm}, \ref{fig:samples_band_mm}, \ref{fig:samples_top_mm}). The first
-        min-max result (0.199 / 0.233 / \SI{0.288}{K}) was the exact fill, up to $\pm 0.42$ there, plus the range
-        clip. Exact fill with the $\mu_z \pm 3\sigma_z$ clip is pathological (0.67--\SI{0.71}{K}, bias
-        0.3--\SI{0.4}{K}): a fill the network never saw, plus asymmetric per-channel bounds.
   \item \textbf{Inversions.} Generated 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime;
         truth: 7.7\,\% (scattered) $\to$ 1.3\,\% (band) $\to$ 0.1\,\% (top). Unchanged by the sampler: not learned.
   \item \textbf{$W_1$ on the mean profiles agrees with the RMSE ranking} (right-hand panels of
@@ -213,9 +194,8 @@ the models trained with the per-level min-max normalisation under four samplers.
 \end{itemize}
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package
-\texttt{miniveros/}. Training at \texttt{2b542aa} (3-std) and \texttt{4fe5d51} (min-max); sampling and
-evaluation at \texttt{bfee32f}. Sampler switches: \texttt{fill\_mode} noised or clean; \texttt{clip\_ref} 3-std
-for the $\mu_z \pm 3\sigma_z$ clip under min-max. Extraction \SI{2.5}{min} (8 cores),
+\texttt{miniveros/}. Training at \texttt{2b542aa}; sampling and
+evaluation at \texttt{bfee32f} (\texttt{fill\_mode} noised; the exact-zero rows: clean). Extraction \SI{2.5}{min} (8 cores),
 training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets + evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]
@@ -235,20 +215,6 @@ training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets +
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_scattered_minmax/eval_nfc3/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_scattered_minmax/eval_nfc3/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Scattered split, \textbf{min-max normalisation}, same sampler (noised fill, clip at $\mu_z \pm 3\sigma_z$); compare with Figure~\ref{fig:scat}.}
-\label{fig:scat_mm}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
 \includegraphics[width=\textwidth]{../fs_band3_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
@@ -258,20 +224,6 @@ training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets +
 \end{subfigure}
 \caption{Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
 \label{fig:band}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_band3_minmax/eval_nfc3/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_band3_minmax/eval_nfc3/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Band of three rows, \textbf{min-max normalisation}, same sampler; compare with Figure~\ref{fig:band}.}
-\label{fig:band_mm}
 \end{figure}
 
 \begin{figure}[!htb]
@@ -288,33 +240,12 @@ training 17--\SI{22}{min} (one A100), generation of the hold-out and grid sets +
 \label{fig:top}
 \end{figure}
 
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_top_minmax/eval_nfc3/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_top_minmax/eval_nfc3/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Top row, \textbf{min-max normalisation}, same sampler; compare with Figure~\ref{fig:top}.}
-\label{fig:top_mm}
-\end{figure}
-
 \begin{figure}[p]
 \centering
 \includegraphics[width=0.72\textwidth]{../fs_scattered_3std/samples_levels.png}
 \caption{Scattered split, $c_k=0.2$, $c_\epsilon=2.222$: true 20-year mean (left) and three random samples at
 the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three rows). Grey: land.}
 \label{fig:samples}
-\end{figure}
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_scattered_minmax/samples_levels.png}
-\caption{Same condition as Figure~\ref{fig:samples}, \textbf{min-max normalisation}, same sampler.}
-\label{fig:samples_mm}
 \end{figure}
 
 \begin{figure}[p]
@@ -326,23 +257,9 @@ the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three
 
 \begin{figure}[p]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_band3_minmax/samples_levels.png}
-\caption{Same condition as Figure~\ref{fig:samples_band}, \textbf{min-max normalisation}, same sampler.}
-\label{fig:samples_band_mm}
-\end{figure}
-
-\begin{figure}[p]
-\centering
 \includegraphics[width=0.72\textwidth]{../fs_top_3std/samples_levels.png}
 \caption{Top-row split, $c_k=0.8$, $c_\epsilon=0.5556$ (extrapolation one row above the training grid).}
 \label{fig:samples_top}
-\end{figure}
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_top_minmax/samples_levels.png}
-\caption{Same condition as Figure~\ref{fig:samples_top}, \textbf{min-max normalisation}, same sampler.}
-\label{fig:samples_top_mm}
 \end{figure}
 
 \end{document}

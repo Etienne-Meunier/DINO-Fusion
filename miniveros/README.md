@@ -24,7 +24,7 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
 | `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
 | `holdout_runs`, `train_runs` | | optional stored split (normally empty; the split is chosen in the config) |
-| `lvl_mean/std/min/max` `(2, 15)` | | per-level normalisation statistics over water cells, all runs |
+| `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics over water cells, all runs |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
 
 Salinity is exactly 35 in every water cell of every run. It is carried through the whole pipeline
@@ -33,26 +33,24 @@ so the code handles two active fields, but it contains no information in this da
 ## Pipeline
 
 ```
-fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --fill land--> --pad--> (30,48,32)
+fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0--> --pad--> (30,48,32)
 ```
 
-* **Normalisation** (`norm_mode`): per vertical level, `"<k>-std"` = `(x - mean_z) / (k * std_z)` as in
-  DINO-Fusion, or `"minmax"` = the level's data range `[min_z, max_z]` mapped to `[-1, 1]`. Land and padding
-  cells hold the normalised level mean (0 for `"<k>-std"`). At sampling they are re-imposed after every step at the
-  noise level of that step (`fill_mode=noised`, as the training data had them); `fill_mode=clean` re-imposes the
-  exact fill (DINO's constraint) and costs 0.06 to 0.09 K of hold-out RMSE. `clip_ref="<k>-std"` keeps the
-  sampler's clip at `mean_z +- k std_z` in physical units whatever the normalisation (per-channel bounds). The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
+* **Normalisation** (`norm_mode`, `"<k>-std"`): per vertical level, `(x - mean_z) / (k * std_z)`, as in
+  DINO-Fusion. Land and padding cells are 0. At sampling they are re-imposed after every step at the noise level
+  of that step (`fill_mode=noised`, as the training data had them); `fill_mode=clean` re-imposes exact zeros
+  (DINO's constraint) and costs 0.03 to 0.09 K of hold-out RMSE. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
   constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
   choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`). The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
   (three standard deviations): this regularises the chain, and widening it to 3 doubled the hold-out RMSE.
-* **Padding**: the fill value (see above), `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
+* **Padding**: zeros, `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves
   four times. Padding equals the land value.
 * **Model**: diffusers `UNet2DModel` (64, 64, 128, 128), plus an MLP that maps the standardised
   `(log ck, log eps)` into the time-embedding space (`class_embed_type="identity"`). Optional
   classifier-free guidance via `cond_drop_prob`.
 * **Diffusion**: DDPM, 1000 steps, `squaredcos_cap_v2`, `clip_sample=True`, epsilon prediction, EMA.
-* **Sampling**: DDPM loop with a constraints hook; `LandFill` re-imposes the fill value (the normalised level mean, 0 for `<k>-std`) on land and padding.
+* **Sampling**: DDPM loop with a constraints hook; `LandZero` re-imposes the land and padding zeros, at the step's noise level by default.
 
 ## Usage (from this directory)
 

@@ -21,14 +21,11 @@ class Config:
 
     # ---- fields and grid
     fields: tuple[str, ...] = ("temp", "salt")    # channel order: all temp levels, then all salt levels
-    paddings: tuple[int, int, int, int] = (1, 1, 3, 3)  # cells added (x_left, x_right, y_low, y_high): 42x30 -> 48x32, holding the fill
+    paddings: tuple[int, int, int, int] = (1, 1, 3, 3)  # zeros added (x_left, x_right, y_low, y_high): 42x30 -> 48x32
 
     # ---- normalisation
     norm_mode: str = "3-std"     # "<k>-std": per vertical level, (x - mean_z) / (k * std_z), as in DINO-Fusion
-                                 # "minmax": per level, the data range [min_z, max_z] -> [-1, 1]; land and padding hold the
-                                 # normalised level mean in both modes (0 for "<k>-std")
-    std_floor: float = 0.05      # floor on the scale: std (then x k) for "<k>-std", half-range for "minmax"; constant fields (salinity)
-                                 # would otherwise divide by ~0. The floor sets how sampler noise maps back to psu: 0.15 vs 0.05 psu per unit
+    std_floor: float = 0.05      # std is floored before dividing: constant fields (salinity) would otherwise divide by ~0
 
     # ---- conditioning
     cond_keys: tuple[str, ...] = ("log_ck", "log_eps")
@@ -47,12 +44,9 @@ class Config:
     clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
                                      # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
-    fill_mode: str = "noised"    # land/padding at sampling: "noised" = the fill at the noise level of the step, as the training data
-                                 # had it; "clean" = the exact fill after every step (DINO's constraint), which the network never saw at
-                                 # high noise levels and which cost 0.06-0.09 K of hold-out RMSE on the 3-std runs (sampling only)
-    clip_ref: str = "norm"       # "norm": scalar clip at +-clip_sample_range in normalised units (diffusers); "<k>-std": per channel at
-                                 # mean_z +- k std_z in physical units (= |x'| <= 1 under "3-std"), so the clip stays put when the
-                                 # normalisation changes
+    fill_mode: str = "noised"    # land/padding at sampling: "noised" = zeros at the noise level of the step, as the training data had
+                                 # them; "clean" = exact zeros after every step (DINO's constraint), which the network never saw at high
+                                 # noise levels and which cost 0.03-0.09 K of hold-out RMSE (sampling only)
 
     # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)
     split_mode: str = "interior_random"   # "interior_random" | "rows" | "row_ck_max" | "none" | "file" (use the dataset's stored split)

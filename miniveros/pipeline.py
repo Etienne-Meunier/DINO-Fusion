@@ -5,35 +5,34 @@ import torch
 from diffusers.utils.torch_utils import randn_tensor
 
 
-class LandFill:
-    """Re-impose the fill value (the normalised level mean, 0 in the std modes) on land and padding cells after
-    every denoising step. ``mode="clean"``: the exact fill (DINO's BorderZeroConstraint). ``mode="noised"``: the fill
-    at the noise level of the state just produced, sqrt(abar_prev) fill + sqrt(1 - abar_prev) z, as those cells
-    looked in training; the exact fill at the last step."""
+class LandZero:
+    """Re-impose the land and padding cells after every denoising step. ``mode="noised"`` (default): zeros at the
+    noise level of the state just produced, sqrt(1 - abar_prev) z, as those cells looked in training, and exact
+    zeros at the last step. ``mode="clean"``: exact zeros after every step (DINO's BorderZeroConstraint), which the
+    network never saw at high noise levels and which cost 0.03-0.09 K of hold-out RMSE."""
 
-    def __init__(self, fill_mask: torch.Tensor, fill: torch.Tensor, mode: str = "clean", scheduler=None,
+    def __init__(self, zero_mask: torch.Tensor, mode: str = "noised", scheduler=None,
                  generator: torch.Generator | None = None):
-        self.mask = fill_mask                                  # (C, H, W) bool
-        self.fill = fill                                       # (C, 1, 1)
+        self.mask = zero_mask                                  # (C, H, W) bool
         self.mode, self.scheduler, self.generator = mode, scheduler, generator
         if mode not in ("clean", "noised"):
             raise ValueError(f"fill mode must be 'clean' or 'noised', got {mode!r}")
         if mode == "noised" and scheduler is None:
-            raise ValueError("noised fill needs the scheduler")
+            raise ValueError("the noised mode needs the scheduler")
 
     def __call__(self, x: torch.Tensor, t) -> torch.Tensor:
-        value = self.fill.to(x)
-        if self.mode == "noised":
-            s = self.scheduler
-            prev_t = int(t) - s.config.num_train_timesteps // s.num_inference_steps   # x is x_{prev_t}
-            if prev_t >= 0:
-                ab = s.alphas_cumprod[prev_t].to(x)
-                z = randn_tensor(x.shape, generator=self.generator, device=x.device, dtype=x.dtype)
-                value = ab.sqrt() * value + (1 - ab).sqrt() * z
-        return torch.where(self.mask, value, x)
+        if self.mode == "clean":
+            return x.masked_fill(self.mask, 0.0)
+        s = self.scheduler
+        prev_t = int(t) - s.config.num_train_timesteps // s.num_inference_steps   # x is x_{prev_t}
+        if prev_t < 0:
+            return x.masked_fill(self.mask, 0.0)
+        ab = s.alphas_cumprod[prev_t].to(x)
+        z = randn_tensor(x.shape, generator=self.generator, device=x.device, dtype=x.dtype)
+        return torch.where(self.mask, (1 - ab).sqrt() * z, x)
 
     def __str__(self):
-        return f"LandFill({int(self.mask.sum())} cells, {self.mode})"
+        return f"LandZero({int(self.mask.sum())} cells, {self.mode})"
 
 
 @torch.no_grad()
