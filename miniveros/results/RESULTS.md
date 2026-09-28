@@ -7,31 +7,32 @@ and held fixed (a deliberate, mild leakage of 30 scaling constants); the hold-ou
 choice, so one data file serves every split. 20,000 steps, batch 32, EMA, 1000 DDPM steps at sampling with the
 predicted clean state clipped at 3 sigma; land and padding re-imposed after every step at the noise level of the
 step (`fill_mode=noised`, the default since `609febe`); 32 samples per hold-out run and per grid point. Training
-at `2b542aa`, sampling and evaluation at `bfee32f`. Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_block_3std` (training at `338997d`), `fs_top_3std`.
+at `2b542aa`, sampling and evaluation at `bfee32f`. Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_block_3std` (training at `338997d`), `fs_ring_3std` (training at
+`61d0dd2`), `fs_top_3std`.
 
 ## Hold-out metrics (mean over the held-out runs, water cells, against the true 20-year time-mean)
 
-| | scattered (10 interior points) | band of three rows, `c_k` 0.126, 0.2, 0.3175 (30 runs) | centre block, 7 x 7 (49 runs) | top row, `c_k` 0.8 (10 runs) |
-|---|---|---|---|---|
-| training runs | 90 | 70 | 51 (outer rows and columns) | 90 |
-| gap the training rows bridge | one step, all four sides | 0.0794 to 0.504, factor 6.3 | `c_k` 0.0198 to 0.8 (x40), `c_eps` 0.139 to 5.6 (x40) | extrapolation, nothing above |
-| diffusion ensemble mean of 32 / RMSE (K) | 0.061 ± 0.013 | 0.076 ± 0.033 | 0.064 ± 0.016 | 0.141 ± 0.108 |
-| diffusion single sample / RMSE (K) | 0.147 | 0.160 | 0.153 | 0.208 |
-| neighbour average / RMSE (K) | 0.020 | 0.116 | 0.113 | 0.170 |
-| nearest training run / RMSE (K) | 0.037 | 0.116 | 0.114 | 0.170 |
-| training-set mean / RMSE (K) | 0.155 | 0.197 | 0.197 | 0.470 |
-| diffusion / domain-mean bias (K) | +0.042 | +0.020 | +0.032 | -0.016 |
-| ensemble spread / true spread (K) | 0.128 / 0.031 | 0.132 / 0.031 | 0.132 / 0.031 | 0.132 / 0.032 |
-| T-inversion fraction, generated / truth | 10.2 % / 7.7 % | 10.9 % / 1.3 % | 10.4 % / 4.2 % | 12.3 % / 0.1 % |
-| max salinity error (psu) | 0.013 | 0.014 | 0.013 | 0.017 |
-| W1 profile, diffusion (K) | 0.066 | 0.075 | 0.073 | 0.132 |
-| W1 profile, neighbour average (K) | 0.036 | 0.095 | 0.095 | 0.142 |
-| W1 profile, nearest training run (K) | 0.044 | 0.095 | 0.095 | 0.142 |
-| W1 profile, training-set mean (K) | 0.136 | 0.160 | 0.166 | 0.420 |
-| grid W1, all / hold-out / training points (K) | 0.082 / 0.071 / 0.083 | 0.079 / 0.076 / 0.080 | 0.084 / 0.072 / 0.095 | 0.079 / 0.133 / 0.073 |
-| grid domain-mean T RMSE, all / hold-out (K) | 0.047 / 0.041 | 0.044 / 0.034 | 0.048 / 0.036 | 0.043 / 0.073 |
-| same models, exact fill after every step (previous sampler) / RMSE (K) | 0.152 ± 0.007 | 0.135 ± 0.019 | 0.136 ± 0.018 | 0.173 ± 0.081 |
-| same models, exact fill / W1 (K) | 0.127 | 0.111 | 0.122 | 0.143 |
+| | scattered (10 interior points) | band of three rows, `c_k` 0.126, 0.2, 0.3175 (30 runs) | centre block, 7 x 7 (49 runs) | outer ring (51 runs) | top row, `c_k` 0.8 (10 runs) |
+|---|---|---|---|---|---|
+| training runs | 90 | 70 | 51 (outer rows and columns) | 49 (the 7 x 7 centre) | 90 |
+| gap the training rows bridge | one step, all four sides | 0.0794 to 0.504, factor 6.3 | `c_k` 0.0198 to 0.8 (x40), `c_eps` 0.139 to 5.6 (x40) | extrapolation outward on all four sides | extrapolation, nothing above |
+| diffusion ensemble mean of 32 / RMSE (K) | 0.061 ± 0.013 | 0.076 ± 0.033 | 0.064 ± 0.016 | 0.110 ± 0.136 (median 0.061) | 0.141 ± 0.108 |
+| diffusion single sample / RMSE (K) | 0.147 | 0.160 | 0.153 | 0.185 | 0.208 |
+| neighbour average / RMSE (K) | 0.020 | 0.116 | 0.113 | 0.131 | 0.170 |
+| nearest training run / RMSE (K) | 0.037 | 0.116 | 0.114 | 0.131 | 0.170 |
+| training-set mean / RMSE (K) | 0.155 | 0.197 | 0.197 | 0.258 | 0.470 |
+| diffusion / domain-mean bias (K) | +0.042 | +0.020 | +0.032 | -0.002 | -0.016 |
+| ensemble spread / true spread (K) | 0.128 / 0.031 | 0.132 / 0.031 | 0.132 / 0.031 | 0.124 / 0.030 | 0.132 / 0.032 |
+| T-inversion fraction, generated / truth | 10.2 % / 7.7 % | 10.9 % / 1.3 % | 10.4 % / 4.2 % | 11.0 % / 6.6 % | 12.3 % / 0.1 % |
+| max salinity error (psu) | 0.013 | 0.014 | 0.013 | 0.013 | 0.017 |
+| W1 profile, diffusion (K) | 0.066 | 0.075 | 0.073 | 0.100 | 0.132 |
+| W1 profile, neighbour average (K) | 0.036 | 0.095 | 0.095 | 0.117 | 0.142 |
+| W1 profile, nearest training run (K) | 0.044 | 0.095 | 0.095 | 0.117 | 0.142 |
+| W1 profile, training-set mean (K) | 0.136 | 0.160 | 0.166 | 0.223 | 0.420 |
+| grid W1, all / hold-out / training points (K) | 0.082 / 0.071 / 0.083 | 0.079 / 0.076 / 0.080 | 0.084 / 0.072 / 0.095 | 0.081 / 0.102 / 0.059 | 0.079 / 0.133 / 0.073 |
+| grid domain-mean T RMSE, all / hold-out (K) | 0.047 / 0.041 | 0.044 / 0.034 | 0.048 / 0.036 | 0.064 / 0.086 | 0.043 / 0.073 |
+| same models, exact fill after every step (previous sampler) / RMSE (K) | 0.152 ± 0.007 | 0.135 ± 0.019 | 0.136 ± 0.018 | not run | 0.173 ± 0.081 |
+| same models, exact fill / W1 (K) | 0.127 | 0.111 | 0.122 | not run | 0.143 |
 
 Band of three, by row (RMSE in K): diffusion 0.063 / 0.074 / 0.091 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
 0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
@@ -62,7 +63,12 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    nearest run degrades from 0.10 K at the rim to 0.18 K at the centre. Wins at the 28 runs where the state
    changes with the parameters (nearest run 0.10 to 0.39 K), loses by at most 0.07 K at the 21 runs of the flat
    regime (low `c_k`, high `c_eps`), where a copied neighbour is already within 0.05 K. Worst run ck0.504_eps0.2205
-   (0.12 K), the warm edge of the block. Top row:
+   (0.12 K), the warm edge of the block. Outer ring (training on the 7 x 7 centre, extrapolating outward on all
+   four sides): median 0.061 K, mean 0.110 K; the mean is set by five warm-corner runs (ck0.8_eps0.0875 0.77 K,
+   ck0.504_eps0.0875 0.52, ck0.8_eps0.1389 0.49, ck0.3175_eps0.0875 0.30, ck0.504_eps0.1389 0.27; cold bias down
+   to -0.43 K at the corner), the rest of the ring sits at 0.04 to 0.13 K; the top row alone 0.214 vs nearest
+   0.261 K, the ring without the top row 0.084 vs 0.100 K. Beats the nearest run from 106 to 1666 m and at 24 of
+   51 runs; losses in the flat regime; the nearest run is worse still at the corner (0.92 K). Top row:
    beats the nearest run at every level but the surface and the bottom, and copying the row below for
    `c_eps` 0.14 to 1.4; loses at the corner and in the flat regime. Scattered: loses to the one-step neighbours
    (0.061 vs 0.037 / 0.020 K) except at 490 to 650 m.
@@ -82,7 +88,7 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    |x'| = 1 (0.1 %). The price is a range limit: 12 % of the held-out top row's true bottom values
    lie above mu + 3 sigma and cannot be generated; the corner run is the largest top-row error in every variant.
 6. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
-   sampler; the truth is 7.7 % (scattered set), 4.2 % (block), 1.3 % (band), 0.1 % (top row). Not learned; this is
+   sampler; the truth is 7.7 % (scattered set), 6.6 % (ring), 4.2 % (block), 1.3 % (band), 0.1 % (top row). Not learned; this is
    the kind of constraint DINO-Fusion imposes at sampling time.
 7. **Plumbing.** Salinity within 0.02 psu of 35 without any constraint, land exact, spread 4x the true
    within-window spread.
@@ -104,7 +110,7 @@ variant 15 GPU minutes.
 
 ## Figures
 
-Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block_3std/`, `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`); `eval_cleanfill/` = the previous sampler (exact
