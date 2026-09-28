@@ -89,10 +89,11 @@ def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, s
         return np.sort(rng.choice(cand, size=min(n, len(cand)), replace=False))
     if mode == "row_ck_max":
         return np.where(ick == ick.max())[0]
-    if mode == "block":                      # a rectangular block of the grid: index ranges [i0, i1) on c_k, [j0, j1) on c_eps
-        assert block and len(block) == 4, "block mode needs (i0, i1, j0, j1)"
+    if mode in ("block", "ring"):            # a rectangular block of the grid: index ranges [i0, i1) on c_k, [j0, j1) on c_eps
+        assert block and len(block) == 4, f"{mode} mode needs (i0, i1, j0, j1)"
         i0, i1, j0, j1 = (int(b) for b in block)
-        return np.where((ick >= i0) & (ick < i1) & (ieps >= j0) & (ieps < j1))[0]
+        inside = (ick >= i0) & (ick < i1) & (ieps >= j0) & (ieps < j1)
+        return np.where(inside if mode == "block" else ~inside)[0]      # "ring": the complement, training on the block
     raise ValueError(f"unknown holdout mode {mode!r}")
 
 
@@ -105,11 +106,11 @@ def main(argv=None):
     p.add_argument("--last-years", type=float, default=20.0, help="keep snapshots in the last N years of each run")
     p.add_argument("--stride", type=int, default=1, help="keep every k-th of those snapshots")
     p.add_argument("--n-holdout", type=int, default=10)
-    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "block", "none"],
+    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "block", "ring", "none"],
                    help="optional split stored in the file (normally the split is chosen in the training config)")
     p.add_argument("--stats", default="all", choices=["all", "train"], help="runs used for the normalisation statistics")
     p.add_argument("--holdout-ck", default="", help="with --holdout-mode rows: comma-separated c_k values of the rows to hold out")
-    p.add_argument("--holdout-block", default="2,9,2,9", help="with --holdout-mode block: i0,i1,j0,j1 index ranges (c_k, c_eps), half-open")
+    p.add_argument("--holdout-block", default="2,9,2,9", help="with --holdout-mode block or ring: i0,i1,j0,j1 index ranges (c_k, c_eps), half-open")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--limit-runs", type=int, default=0, help="debug: only the first k runs (sorted by name)")
     args = p.parse_args(argv)

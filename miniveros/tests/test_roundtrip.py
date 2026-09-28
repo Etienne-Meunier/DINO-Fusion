@@ -120,7 +120,9 @@ def test_block_split():
     h = choose_holdout(run_ck, run_eps, "block", 0, 0, [], (2, 9, 2, 9))
     assert len(h) == 49 and run_ck[h].min() > 0.03 and run_ck[h].max() < 0.51 and run_eps[h].min() > 0.22 and run_eps[h].max() < 3.6
     assert len(choose_holdout(run_ck, run_eps, "block", 0, 0, [], (0, 10, 0, 10))) == 100
-    print("  block split: 49 runs held out, edge rows/columns kept")
+    r = choose_holdout(run_ck, run_eps, "ring", 0, 0, [], (2, 9, 2, 9))
+    assert len(r) == 51 and not set(r) & set(h) and len(set(r) | set(h)) == 100
+    print("  block split: 49 runs held out, edge rows/columns kept; ring split: the 51 others")
 
 
 if __name__ == "__main__":
