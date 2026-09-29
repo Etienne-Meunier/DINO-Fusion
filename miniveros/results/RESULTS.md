@@ -115,6 +115,8 @@ Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block_3std/`, `fs_ring_3std
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`); `eval_cleanfill/` = the previous sampler (exact
 zeros after every step).
+`data/level_density_150m.png`: one T and S density per run at 182 m (`level_density.py`, reads the raw run files);
+the narrow peaks of the T distribution are the zonally uniform southern rows y = 0 to 6 (restoring zone).
 `data/T_distribution_per_level.png`, `data/T_per_level_stats.npz`: per-level T distribution (`tdist.py compute` on the
 cluster, `tdist.py plot` locally).
 `report/report.tex`, `report/report.pdf`: the short report (compile with `tectonic report.tex`).
