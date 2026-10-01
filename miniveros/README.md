@@ -15,7 +15,7 @@ Raw input: one `ck<ck>_eps<eps>.npz` per run (100 runs on a 10 x 10 log-spaced g
 plus `psi`, `time` (s), `zt` (m). 100 years, 30-day output.
 
 `extract_data.py` reads only `temp` and `salt` (by seeking inside the zip), keeps the last 20 years
-of every run on the interior grid, and writes one npz (the analogue of DINO's `xarray_numpy.py`):
+of every run on the interior grid, and writes one npz (the analogue of DINO's `xarray_numpy.py`). The grid, common to all runs, comes from `<raw>/grid.npz` (or `--grid`), cropped to the interior:
 
 | key | shape | meaning |
 |---|---|---|
@@ -23,6 +23,10 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `ck`, `eps`, `run_id`, `time_s`, `year` | `(N,)` | per-sample parameters and time |
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
 | `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
+| `zt`, `zw`, `dzt`, `dzw` | `(15,)` | depths of cell centres and faces, and thicknesses (m) |
+| `xt`, `xu`, `dxt`, `dxu` | `(30,)` | longitude of cell centres and east faces (degrees), spacings (m) |
+| `yt`, `yu`, `dyt`, `dyu`, `cost`, `cosu`, `tantr` | `(42,)` | latitude of cell centres and north faces (degrees), spacings (m), metric factors |
+| `area_t`, `area_u`, `area_v`, `coriolis_t` | `(42, 30)` | cell areas (m^2) and Coriolis parameter (1/s), `(y, x)` |
 | `holdout_runs`, `train_runs` | | optional stored split (normally empty; the split is chosen in the config) |
 | `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics over water cells, all runs |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
@@ -41,7 +45,7 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
   of that step (`fill_mode=noised`, as the training data had them); `fill_mode=clean` re-imposes exact zeros
   (DINO's constraint) and costs 0.03 to 0.09 K of hold-out RMSE. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
   constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
-  choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`, `block` / `ring` + `split_block`). The std is floored (`std_floor`) so
+  choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`, `block` / `ring` + `split_block`). The resulting split is stored in `model.pt`, `model_ema.pt` and `ckpt.pt` (`training_run_id`, `held_out_run_id`, `training_run_names`, `held_out_run_names`); `generate.py --holdout` and `evaluate.py --config` read it from there, matching runs by name, and recompute it from the config only for weight files that predate it. The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
   (three standard deviations): this regularises the chain, and widening it to 3 doubled the hold-out RMSE.
 * **Padding**: zeros, `(1, 1, 3, 3)` in `(x_left, x_right, y_low, y_high)`, giving 48 x 32 which halves

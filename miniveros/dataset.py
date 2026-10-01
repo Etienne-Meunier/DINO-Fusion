@@ -1,6 +1,8 @@
 """Torch dataset over the converted Veros ACC file (analogue of DINO's DataLoader.py, in-memory instead of webdataset)."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -18,6 +20,42 @@ def resolve_split(cfg, ds):
         hold = choose_holdout(run_ck, run_eps, cfg.split_mode, cfg.n_holdout, cfg.split_seed, list(cfg.split_rows),
                               tuple(cfg.split_block))
     return np.setdiff1d(np.arange(len(run_ck)), hold), np.asarray(hold, dtype=np.int64)
+
+
+def split_record(ds, train_runs, holdout_runs) -> dict:
+    """The split as stored in the weight files: run ids into ``ds["run_names"]`` and the run names themselves,
+    so that the split survives a rebuilt or reordered dataset (ids alone are positions in one file)."""
+    names = [str(r) for r in ds["run_names"]]
+    return {"training_run_id": [int(r) for r in train_runs], "held_out_run_id": [int(r) for r in holdout_runs],
+            "training_run_names": [names[r] for r in train_runs], "held_out_run_names": [names[r] for r in holdout_runs]}
+
+
+def stored_split(weights_path, ds):
+    """(train_runs, holdout_runs) stored in a weight file by :func:`split_record`, as run ids into ``ds``;
+    None if the file predates the stored split. The ids are taken from the names, so they stay valid on a
+    dataset whose runs are ordered differently; a run missing from ``ds`` is an error."""
+    import torch
+    ck = torch.load(weights_path, map_location="cpu", weights_only=False)
+    if "held_out_run_names" not in ck:
+        return None
+    index = {str(r): i for i, r in enumerate(ds["run_names"])}
+    missing = [n for n in ck["training_run_names"] + ck["held_out_run_names"] if n not in index]
+    assert not missing, f"{weights_path}: runs {missing} are not in the dataset"
+    train = np.array([index[n] for n in ck["training_run_names"]], dtype=np.int64)
+    hold = np.array([index[n] for n in ck["held_out_run_names"]], dtype=np.int64)
+    if not (np.array_equal(train, ck["training_run_id"]) and np.array_equal(hold, ck["held_out_run_id"])):
+        print(f"note: {weights_path} was trained on a dataset with another run order; using the run names")
+    return train, hold
+
+
+def run_split(cfg, ds, weights_path):
+    """(train_runs, holdout_runs) of a trained model: the split stored in its weights, else recomputed from
+    its config with :func:`resolve_split` (weight files written before the split was stored)."""
+    split = stored_split(weights_path, ds) if weights_path is not None and Path(weights_path).exists() else None
+    if split is None:
+        print(f"note: no split stored in {weights_path}; recomputing it from the config ({cfg.split_mode})")
+        return resolve_split(cfg, ds)
+    return split
 
 
 class CondEncoder:

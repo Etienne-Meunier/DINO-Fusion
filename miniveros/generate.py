@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from config import Config, _coerce_all
-from dataset import CondEncoder, build_transform, resolve_split
+from dataset import CondEncoder, build_transform, run_split
 from diffusion import Diffusion
 from model import ConditionalUNet
 from pipeline import LandZero, sample
@@ -52,8 +52,9 @@ def main(argv=None):
     ds = np.load(cfg.data_file, allow_pickle=False)
     enc = CondEncoder(ds)
     run_ck, run_eps, run_names = np.asarray(ds["run_ck"]), np.asarray(ds["run_eps"]), [str(r) for r in ds["run_names"]]
+    weights = run_dir / ("model_ema.pt" if a.weights == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
     if a.holdout:
-        _, rid = resolve_split(cfg, ds); tag = "holdout"
+        _, rid = run_split(cfg, ds, weights); tag = "holdout"
     elif a.grid:
         rid = np.arange(len(run_ck)); tag = "grid"
     else:
@@ -63,7 +64,6 @@ def main(argv=None):
     epss = run_eps[rid] if tag != "custom" else np.array(a.eps)
     n_cond = len(cks)
 
-    weights = run_dir / ("model_ema.pt" if a.weights == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
     model = ConditionalUNet.load(weights, map_location=device).to(device).eval()
     tr = build_transform(cfg.data_file, cfg, device=device)
     scheduler = Diffusion(cfg).scheduler

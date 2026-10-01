@@ -42,7 +42,8 @@ def main(argv=None):
     p.add_argument("--samples", required=True)
     p.add_argument("--grid-samples", default=None)
     p.add_argument("--out-dir", default=None)
-    p.add_argument("--config", default=None, help="run config.json; its split_mode defines train/hold-out (default: the split stored in the data file)")
+    p.add_argument("--config", default=None, help="run config.json: train/hold-out is the split stored in the run's weights "
+                                                  "(the file named in the samples), else its split_mode (default: the split stored in the data file)")
     a = p.parse_args(argv)
     warnings.filterwarnings("ignore", category=RuntimeWarning)   # nanmean over all-NaN land columns is expected
     out_dir = Path(a.out_dir) if a.out_dir else Path(a.samples).parent.parent / "eval"
@@ -55,8 +56,9 @@ def main(argv=None):
     run_names = [str(r) for r in ds["run_names"]]
     if a.config:
         from config import Config
-        from dataset import resolve_split
-        tr_arr, hr = resolve_split(Config.load(a.config), ds)
+        from dataset import run_split
+        weights = Path(a.config).parent / str(gs["weights"]) if "weights" in gs.files else None
+        tr_arr, hr = run_split(Config.load(a.config), ds, weights)
     else:
         tr_arr, hr = np.asarray(ds["train_runs"]), np.asarray(ds["holdout_runs"])
     train_runs = set(tr_arr.tolist())

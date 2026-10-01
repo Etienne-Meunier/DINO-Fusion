@@ -20,7 +20,7 @@ from diffusers.training_utils import EMAModel
 from torch.utils.data import DataLoader
 
 from config import parse_cli
-from dataset import VerosTSDataset, build_transform, resolve_split
+from dataset import VerosTSDataset, build_transform, resolve_split, split_record
 from diffusion import Diffusion
 from model import ConditionalUNet
 from pipeline import LandZero, sample
@@ -53,11 +53,12 @@ def git_hash() -> str:
     return os.environ.get("MV_GIT_HASH", "unknown")
 
 
-def save_weights(model, ema, run_dir: Path) -> None:
-    model.save(run_dir / "model.pt")
+def save_weights(model, ema, run_dir: Path, split: dict) -> None:
+    """Write model.pt (and model_ema.pt with the EMA weights), each carrying the training split."""
+    model.save(run_dir / "model.pt", extra=split)
     if ema is not None:
         ema.store(model.parameters()); ema.copy_to(model.parameters())
-        model.save(run_dir / "model_ema.pt")
+        model.save(run_dir / "model_ema.pt", extra=split)
         ema.restore(model.parameters())
 
 
@@ -110,7 +111,9 @@ def main(argv=None):
     (run_dir / "git_hash.txt").write_text(git_hash() + "\n")
 
     tr = build_transform(cfg.data_file, cfg, device="cpu")
-    train_runs, hold = resolve_split(cfg, np.load(cfg.data_file, allow_pickle=False))
+    data = np.load(cfg.data_file, allow_pickle=False)
+    train_runs, hold = resolve_split(cfg, data)
+    split = split_record(data, train_runs, hold)
     print(f"split {cfg.split_mode}: {len(train_runs)} training runs, {len(hold)} held out", flush=True)
     ds = VerosTSDataset(cfg.data_file, "train", tr, cfg.fields, cfg.snapshot_stride, holdout_runs=hold)
     dl = DataLoader(ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, num_workers=cfg.num_workers,
@@ -144,8 +147,8 @@ def main(argv=None):
 
     def checkpoint():
         atomic_save({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
-                     "ema": ema.state_dict() if ema is not None else None, "step": step}, ckpt_path)
-        save_weights(model, ema, run_dir)
+                     "ema": ema.state_dict() if ema is not None else None, "step": step, **split}, ckpt_path)
+        save_weights(model, ema, run_dir, split)
 
     model.train()
     t0 = time.time(); running = []; it = iter(dl)

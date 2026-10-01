@@ -6,6 +6,8 @@ Output: one uncompressed npz with, for every kept snapshot of every run,
         temp/salt as float32 (N, Z, Y, X) on the interior grid, the run parameters, the land mask,
         an optional stored split, and the per-level normalisation statistics (by default on ALL runs, so that
         every hold-out split shares one normalised space; ``--stats train`` restricts them to the training runs).
+        The horizontal grid, common to all runs, is read from ``<raw_dir>/grid.npz`` and stored as top-level keys
+        (see ``load_grid``).
 
 Only T and S are read (by seeking inside the zip, the other variables are never touched).
 """
@@ -67,6 +69,32 @@ def to_zyx_interior(block: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(block.transpose(0, 3, 2, 1)[:, :, GHOST:-GHOST, GHOST:-GHOST], dtype=np.float32)
 
 
+# ----------------------------------------------------------------------------- grid
+GRID_X = ("xt", "xu", "dxt", "dxu")                                  # (x,) with ghost cells
+GRID_Y = ("yt", "yu", "dyt", "dyu", "cost", "cosu", "tantr")          # (y,) with ghost cells
+GRID_Z = ("zw", "dzt", "dzw")                                        # (z,)
+GRID_XY = ("area_t", "area_u", "area_v", "coriolis_t")               # (x, y) with ghost cells
+
+
+def load_grid(path: str, zt: np.ndarray) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Read the model grid shared by all runs and bring it to the dataset layout.
+
+    ``path`` is an npz of the Veros grid arrays with ghost cells (xt, yt, ... in degrees, dxt, dyt, ... in metres,
+    maskT of shape (x, y, z)). Returns ``(grid, mask_land)``: ``grid`` maps each name to its interior array,
+    (X,), (Y,), (Z,) or (Y, X), and ``mask_land`` is the (Z, Y, X) land mask derived from maskT. ``zt`` is the
+    vertical axis of the runs, checked against the grid's.
+    """
+    with np.load(path, allow_pickle=False) as g:
+        assert int(g["n_halo"]) == GHOST, f"{path}: n_halo={int(g['n_halo'])}, expected {GHOST}"
+        assert np.array_equal(g["zt"], zt), f"{path}: zt differs from the runs"
+        inner = slice(GHOST, -GHOST)
+        grid = {k: np.asarray(g[k][inner]) for k in GRID_X + GRID_Y}
+        grid.update({k: np.asarray(g[k]) for k in GRID_Z})
+        grid.update({k: np.ascontiguousarray(g[k][inner, inner].T) for k in GRID_XY})
+        mask_land = np.ascontiguousarray(g["maskT"][inner, inner].transpose(2, 1, 0) == 0)
+    return grid, mask_land
+
+
 # ----------------------------------------------------------------------------- split
 def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, seed: int,
                    rows: list[float] | None = None, block: tuple[int, int, int, int] | None = None) -> np.ndarray:
@@ -102,6 +130,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--raw-dir", required=True, help="folder with ck*_eps*.npz")
     p.add_argument("--out", required=True, help="output .npz path")
+    p.add_argument("--grid", default="", help="grid npz shared by all runs (default: <raw-dir>/grid.npz)")
     p.add_argument("--fields", default="temp,salt")
     p.add_argument("--last-years", type=float, default=20.0, help="keep snapshots in the last N years of each run")
     p.add_argument("--stride", type=int, default=1, help="keep every k-th of those snapshots")
@@ -131,6 +160,11 @@ def main(argv=None):
     keep = np.where(tvec > tvec[-1] - args.last_years * SECONDS_PER_YEAR - 1.0)[0][:: args.stride]
     a, b = int(keep[0]), int(keep[-1]) + 1
     nz, ny, nx = tshape[3], tshape[2] - 2 * GHOST, tshape[1] - 2 * GHOST
+    grid_path = args.grid or os.path.join(args.raw_dir, "grid.npz")
+    if not os.path.exists(grid_path):
+        raise SystemExit(f"no grid file {grid_path}")
+    grid, grid_land = load_grid(grid_path, zt)
+    assert grid_land.shape == (nz, ny, nx), f"{grid_path}: grid shape {grid_land.shape} != runs {(nz, ny, nx)}"
     n_run, n_keep = len(files), len(keep)
     N = n_run * n_keep
     print(f"{n_run} runs | keeping {n_keep} snapshots/run in the last {args.last_years:g} y (stride {args.stride}) "
@@ -165,6 +199,7 @@ def main(argv=None):
         if (r + 1) % 10 == 0 or r == n_run - 1:
             print(f"  read {r + 1}/{n_run} runs  ({clock.time() - t0:.0f}s)")
 
+    assert np.array_equal(land_mask, grid_land), f"{grid_path}: maskT differs from the zero cells of the runs"
     run_ck, run_eps = np.array(run_ck), np.array(run_eps)
     water = ~land_mask
     rows = [float(c) for c in args.holdout_ck.split(",") if c.strip()]
@@ -198,7 +233,9 @@ def main(argv=None):
 
     meta = dict(raw_dir=os.path.abspath(args.raw_dir), fields=fields, last_years=args.last_years, stride=args.stride,
                 n_runs=n_run, n_keep_per_run=n_keep, holdout_mode=args.holdout_mode, holdout_ck=rows, seed=args.seed,
-                stats_on=args.stats,
+                stats_on=args.stats, grid_file=os.path.abspath(grid_path),
+                grid="xt, xu (X,) and yt, yu (Y,) in degrees; dx*, dy*, dz*, zw in m; area_* (Y, X) in m^2; "
+                     "t = cell centre, u = east / north face",
                 dims="(N, Z, Y, X); Z index 0 = bottom (zt ascending to the surface); Y meridional; X zonal (periodic)",
                 created=clock.strftime("%Y-%m-%d %H:%M:%S"))
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
@@ -206,7 +243,7 @@ def main(argv=None):
     np.savez(tmp, **data, run_id=run_id, time_s=time_s, year=(time_s / SECONDS_PER_YEAR).astype(np.float32),
              ck=run_ck[run_id].astype(np.float32), eps=run_eps[run_id].astype(np.float32),
              run_names=np.array(run_names), run_ck=run_ck, run_eps=run_eps,
-             mask_land=land_mask, zt=zt, holdout_runs=holdout, train_runs=train_runs,
+             mask_land=land_mask, zt=zt, **grid, holdout_runs=holdout, train_runs=train_runs,
              stats_fields=np.array(fields), lvl_mean=lvl_mean, lvl_std=lvl_std,
              cond_keys=cond_keys, cond_mean=cond_mean, cond_std=cond_std, meta=json.dumps(meta))
     os.replace(tmp, args.out)

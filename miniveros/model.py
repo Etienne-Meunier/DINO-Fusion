@@ -51,8 +51,10 @@ class ConditionalUNet(nn.Module):
         return self.unet(x, t, class_labels=self.embed(cond, drop_mask), return_dict=False)[0]
 
     # ---- persistence (plain torch files; avoids depending on diffusers' pipeline save format)
-    def save(self, path) -> None:
-        torch.save({"kwargs": self.kwargs, "state_dict": self.state_dict()}, path)
+    def save(self, path, extra: dict | None = None) -> None:
+        """Write kwargs and weights to ``path``; ``extra`` adds top-level keys (e.g. the training split) that
+        :meth:`load` ignores."""
+        torch.save({"kwargs": self.kwargs, "state_dict": self.state_dict(), **(extra or {})}, path)
 
     @classmethod
     def load(cls, path, map_location="cpu") -> "ConditionalUNet":
