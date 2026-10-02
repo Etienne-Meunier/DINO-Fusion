@@ -38,8 +38,7 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
 
 * **Normalisation** (`norm_mode`, `"<k>-std"`): per vertical level, `(x - mean_z) / (k * std_z)`, as in
   DINO-Fusion. Land and padding cells are 0. At sampling they are re-imposed after every step at the noise level
-  of that step (`fill_mode=noised`, as the training data had them); `fill_mode=clean` re-imposes exact zeros
-  (DINO's constraint) and costs 0.03 to 0.09 K of hold-out RMSE. The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
+  of that step, as the training data had them (`LandZero`). The statistics are computed once on all 100 runs (a mild, deliberate leakage of 30 scaling
   constants) so every hold-out split shares one normalised space; the hold-out split itself is a training-config
   choice (`split_mode`: `interior_random`, `rows` + `split_rows`, `row_ck_max`, `block` / `ring` + `split_block`). The std is floored (`std_floor`) so
   the constant salinity maps to exactly 0. The DDPM sampler clips the predicted clean state to `clip_sample_range` = 1
@@ -77,7 +76,7 @@ constraint, paths and the environment activation come from `jobs/env.sh`, which 
 jobs/submit.sh extract
 jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/fs_scattered_3std split_mode=interior_random
 jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std      # 32 samples per hold-out condition by default
-jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std 32 cf fill_mode=clean   # a sampling variant: samples/*_cf.npz, eval_cf/
+jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std 32 c3 clip_sample_range=3   # a sampling variant: samples/*_c3.npz, eval_c3/
 jobs/campaign.sh -s fs_scattered -p "split_mode=interior_random"      # whole chain: extract -> train -> generate_eval
 jobs/campaign.sh -n -s fs_band3 -p "split_mode=rows split_rows=0.126,0.2,0.3175"   # reuse the data file
 ```

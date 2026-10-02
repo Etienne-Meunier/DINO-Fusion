@@ -6,7 +6,7 @@ Normalisation per vertical level as in DINO-Fusion (`3-std`), with the statistic
 and held fixed (a deliberate, mild leakage of 30 scaling constants); the hold-out split is a training-config
 choice, so one data file serves every split. 20,000 steps, batch 32, EMA, 1000 DDPM steps at sampling with the
 predicted clean state clipped at 3 sigma; land and padding re-imposed after every step at the noise level of the
-step (`fill_mode=noised`, the default since `609febe`); 32 samples per hold-out run and per grid point. Training
+step (`LandZero`); 32 samples per hold-out run and per grid point. Training
 at `2b542aa`, sampling and evaluation at `bfee32f`. Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_top_3std` (training at `2b542aa`), `fs_block_3std` (`338997d`),
 `fs_ring_3std` (`61d0dd2`), `fs_block5_3std` and `fs_ring5_3std` (`8f157d5`).
 
@@ -30,15 +30,15 @@ on 25 runs), top row (`c_k` 0.8; 10 runs). Runs `fs_scattered_3std`, `fs_band3_3
 | outer 75 | 75 | 0.138 ± 0.197 (median 0.064) | 0.213 | 0.155 | 0.155 | 0.220 | -0.021 | 0.126 (0.030) | 0.118 | 0.137 | 0.189 | 10.6 % / 6.1 % | 0.012 |
 | top row | 10 | 0.141 ± 0.108 | 0.208 | 0.170 | 0.170 | 0.470 | -0.016 | 0.132 (0.032) | 0.132 | 0.142 | 0.420 | 12.3 % / 0.1 % | 0.017 |
 
-| split | grid W1 all / hold-out / training (K) | grid domain-mean T RMSE all / hold-out (K) | previous sampler (exact zeros): RMSE / W1 |
-|---|---|---|---|
-| scattered | 0.082 / 0.071 / 0.083 | 0.047 / 0.041 | 0.152 / 0.127 |
-| band of three rows | 0.079 / 0.076 / 0.080 | 0.044 / 0.034 | 0.135 / 0.111 |
-| centre 5 x 5 | 0.082 / 0.068 / 0.087 | 0.046 / 0.038 | not run |
-| centre 7 x 7 | 0.084 / 0.072 / 0.095 | 0.048 / 0.036 | 0.136 / 0.122 |
-| outer 51 | 0.081 / 0.102 / 0.059 | 0.064 / 0.086 | not run |
-| outer 75 | 0.102 / 0.117 / 0.057 | 0.119 / 0.137 | not run |
-| top row | 0.079 / 0.133 / 0.073 | 0.043 / 0.073 | 0.173 / 0.143 |
+| split | grid W1 all / hold-out / training (K) | grid domain-mean T RMSE all / hold-out (K) |
+|---|---|---|
+| scattered | 0.082 / 0.071 / 0.083 | 0.047 / 0.041 |
+| band of three rows | 0.079 / 0.076 / 0.080 | 0.044 / 0.034 |
+| centre 5 x 5 | 0.082 / 0.068 / 0.087 | 0.046 / 0.038 |
+| centre 7 x 7 | 0.084 / 0.072 / 0.095 | 0.048 / 0.036 |
+| outer 51 | 0.081 / 0.102 / 0.059 | 0.064 / 0.086 |
+| outer 75 | 0.102 / 0.117 / 0.057 | 0.119 / 0.137 |
+| top row | 0.079 / 0.133 / 0.073 | 0.043 / 0.073 |
 
 Band of three, by row (RMSE in K): diffusion 0.063 / 0.074 / 0.091 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
 0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
@@ -55,22 +55,14 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
 
 ## What the results say
 
-1. **The land/padding constraint at sampling was the main error source.** Same models, sampling only: exact
-   zeros re-imposed after every DDPM step (DINO's BorderZeroConstraint) give 0.152 / 0.135 / 0.136 / 0.173 K
-   (scattered / band / block / top); zeros re-imposed at the noise level of the step (sqrt(1 - alpha_bar) z, as
-   those cells looked in training) give 0.061 / 0.076 / 0.064 / 0.141 K. At high noise levels the network had never seen a solid
-   block of zeros around the domain. Gain largest at the bottom (0.34 -> 0.07 K, scattered; 0.28 -> 0.10 band);
-   the earlier "mean-state collapse" was this artefact: 40 % of the mean-state error now, and grid W1 at the
-   training points 0.124 -> 0.083 K. The ensemble spread grows (0.11 -> 0.13 K), the single-sample RMSE hardly
-   moves (0.188 -> 0.147): the ensemble mean now averages real sampler spread instead of a shared bias.
-2. **Interpolation: the model's error is gap-independent, the baselines' is not.** Scattered / band / centre
+1. **Interpolation: the model's error is gap-independent, the baselines' is not.** Scattered / band / centre
    5 x 5 / centre 7 x 7: model 0.061 / 0.076 / 0.061 / 0.064 K, nearest run 0.037 / 0.116 / 0.077 / 0.114 K. Band:
    beats the nearest run at every level below 26 m and in all three rows. Centre blocks: the error is flat over
    the block (0.04 to 0.12 K) while the nearest run reaches 0.18 K at the centre of either block, where the model
    stays at 0.05 K; 11 of 25 and 28 of 49 wins, the losses in the flat regime (low `c_k`, high `c_eps`) where a
    copied neighbour is within 0.05 K. Beats the nearest run from 182 m (5 x 5) and 26 m (7 x 7) to the bottom.
    Worst run of either block: the warm edge (ck0.504_eps0.2205 in the 7 x 7, 0.12 K).
-2b. **Extrapolation: the warm corner sets the mean, the rest behaves like interpolation.** Outer 51 / outer 75
+2. **Extrapolation: the warm corner sets the mean, the rest behaves like interpolation.** Outer 51 / outer 75
    / top row: mean 0.110 / 0.138 / 0.141 K, median 0.061 / 0.064 / 0.11 K, nearest run 0.131 / 0.155 / 0.170 K. The
    corner run ck0.8_eps0.0875 errs by 0.77 / 1.10 / 0.41 K with a cold bias (-0.43 / -0.68 / -0.19 K): the model
    does not carry the warming beyond the last training row, and the error grows with the distance to it (two,
@@ -90,10 +82,11 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    surface. What remains is a per-sample offset of the surface mean: W1 on the horizontal-mean profile is 0.12 K
    at 14 m, above the 0.07 K cell RMSE of the ensemble mean, so each sample carries a nearly uniform shift of
    about 0.1 K (0.01 normalised) that the average of 32 mostly removes.
-5. **The sampler's clip is a regulariser, not a range limit.** Exact fill, scattered / top: clip at 1 gives
-   0.152 / 0.173 K, at 1.5 0.194 / 0.183, at 3 0.302 / 0.277, although the final samples barely exceed
-   |x'| = 1 (0.1 %). The price is a range limit: 12 % of the held-out top row's true bottom values
-   lie above mu + 3 sigma and cannot be generated; the corner run is the largest top-row error in every variant.
+5. **The sampler's clip is a regulariser, not a range limit.** Same models, sampling only, scattered / top row:
+   clip at |x'| <= 1 gives 0.061 / 0.141 K, at 1.5 CLIP15S / CLIP15T, at 3 CLIP3S / CLIP3T, although the final
+   samples barely exceed |x'| = 1. Clipping the early clean-state estimates keeps the chain on track. The price is
+   a range limit: 12 % of the held-out top row's true bottom values lie above mu + 3 sigma and cannot be
+   generated; the corner run is the largest error of the top-row and outer splits.
 6. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
    sampler; the truth is 7.7 % (scattered), 6.6 and 6.1 % (outer 51 and 75), 4.2 and 3.6 % (centre 7 x 7 and 5 x 5),
    1.3 % (band), 0.1 % (top row). Not learned; this is
@@ -122,8 +115,7 @@ Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3s
 `fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
-(+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`); `eval_cleanfill/` = the previous sampler (exact
-zeros after every step).
+(+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
 `data/level_density_150m.png`: one T and S density per run at 182 m (`level_density.py`, reads the raw run files);
 the narrow peaks of the T distribution are the zonally uniform southern rows y = 0 to 6 (restoring zone).
 `data/T_distribution_per_level.png`, `data/T_per_level_stats.npz`: per-level T distribution (`tdist.py compute` on the

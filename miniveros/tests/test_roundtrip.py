@@ -92,18 +92,12 @@ def test_model_and_loss(data_file: str):
     cfg.mask_loss = True
     assert torch.isfinite(Diffusion(cfg).training_loss(model, xb, cb, tr.zero_mask))
     sched = Diffusion(cfg).scheduler
-    s = sample(model.eval(), sched, cb, 3, generator=torch.Generator().manual_seed(0),
-               constraints=[LandZero(tr.zero_mask, mode="clean")])
+    g = torch.Generator().manual_seed(0)
+    s = sample(model.eval(), sched, cb, 3, generator=g, constraints=[LandZero(tr.zero_mask, sched, g)])
     assert s.shape == xb.shape and torch.isfinite(s).all()
-    assert (s.masked_select(tr.zero_mask.expand_as(s)) == 0).all()
-    g = torch.Generator().manual_seed(0)                                     # noised mode: exact zeros at the last step
-    s_n = sample(model.eval(), sched, cb, 3, generator=g, constraints=[LandZero(tr.zero_mask, mode="noised", scheduler=sched, generator=g)])
-    assert (s_n.masked_select(tr.zero_mask.expand_as(s_n)) == 0).all() and torch.isfinite(s_n).all()
-    assert not torch.equal(s_n, s), "the noised constraint must change the trajectory"
-    try:
-        LandZero(tr.zero_mask, mode="noised"); raise AssertionError("noised mode without scheduler must fail")
-    except ValueError:
-        pass
+    assert (s.masked_select(tr.zero_mask.expand_as(s)) == 0).all(), "land and padding must be exactly 0 at the end"
+    s_free = sample(model.eval(), sched, cb, 3, generator=torch.Generator().manual_seed(0))
+    assert not (s_free.masked_select(tr.zero_mask.expand_as(s_free)) == 0).all(), "without the constraint they are not"
     fields = tr.denormalise(s)
     assert set(fields) == {"temp", "salt"} and fields["temp"].shape[-3:] == (15, 42, 30)
     with tempfile.TemporaryDirectory() as d:

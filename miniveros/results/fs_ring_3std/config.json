@@ -32,7 +32,6 @@
   "clip_sample": true,
   "clip_sample_range": 1.0,
   "mask_loss": false,
-  "fill_mode": "noised",
   "split_mode": "ring",
   "split_rows": [],
   "split_block": [

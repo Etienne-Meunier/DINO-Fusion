@@ -82,7 +82,7 @@ def final_samples(model, ema, diffusion, tr, cfg, device, run_dir: Path) -> None
         cond = ds.encoder([ck] * 2, [eps] * 2).to(device)
         g = torch.Generator(device).manual_seed(cfg.seed)
         x = sample(model, diffusion.scheduler, cond, cfg.num_inference_steps, generator=g,
-                   constraints=[LandZero(tr.zero_mask.to(device), mode=cfg.fill_mode, scheduler=diffusion.scheduler, generator=g)])
+                   constraints=[LandZero(tr.zero_mask.to(device), diffusion.scheduler, g)])
         gen = tr.denormalise(x)["temp"].cpu()                          # (2, Z, Y, X)
         truth = ds.run_fields(r)["temp"].mean(0)                       # (Z, Y, X) time mean
         truth = truth.masked_fill(torch.as_tensor(tr.masker.mask[: truth.shape[0]]), float("nan"))

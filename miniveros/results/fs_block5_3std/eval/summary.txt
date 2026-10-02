@@ -1,4 +1,4 @@
-hold-out runs: 25 | samples/run: 32 | norm_mode=3-std | weights=model_ema.pt | steps=1000 | fill_mode=noised
+hold-out runs: 25 | samples/run: 32 | norm_mode=3-std | weights=model_ema.pt | steps=1000
 
 method                  RMSE(K) mean±std   |bias|(K)
 diffusion_mean            0.0606 ± 0.0128      0.0357

@@ -68,9 +68,9 @@ def main(argv=None):
     tr = build_transform(cfg.data_file, cfg, device=device)
     scheduler = Diffusion(cfg).scheduler
     gen = torch.Generator(device).manual_seed(a.seed)
-    constraints = [LandZero(tr.zero_mask, mode=cfg.fill_mode, scheduler=scheduler, generator=gen)]
+    constraints = [LandZero(tr.zero_mask, scheduler, gen)]
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"norm {cfg.norm_mode}, land/padding {cfg.fill_mode}, clip +-{cfg.clip_sample_range:g}, device {device}", flush=True)
+          f"norm {cfg.norm_mode}, clip +-{cfg.clip_sample_range:g}, device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}
@@ -93,7 +93,7 @@ def main(argv=None):
     np.savez(out_path, **out, ck=cks.astype(np.float32), eps=epss.astype(np.float32), run_id=rid,
              run_names=np.array([run_names[r] if r >= 0 else f"ck{c:g}_eps{e:g}" for r, c, e in zip(rid, cks, epss)]),
              mask_land=ds["mask_land"], zt=ds["zt"], n_samples=n_samples, steps=steps, weights=str(weights.name),
-             guidance=guidance, norm_mode=cfg.norm_mode, fill_mode=cfg.fill_mode)
+             guidance=guidance, norm_mode=cfg.norm_mode)
     print(f"wrote {out_path}")
 
 

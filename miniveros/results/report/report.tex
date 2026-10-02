@@ -105,12 +105,10 @@ that level with the same rows marked. Every narrow peak of the distribution is o
   \item Conditioning: DINO's UNet is unconditional and is steered at sampling time by constraints; here the UNet
         receives $(\log c_k, \log c_\epsilon)$ through the timestep embedding, and the data are an ensemble of 100
         runs split by run instead of one trajectory.
-  \item Sampling: DINO's BorderZeroConstraint resets land and padding to exact zeros after every step. In
-        training those cells carry noise like every other, so a solid block of zeros at high noise levels is out
-        of distribution; it is replaced by zeros at the step's noise level, $\sqrt{1-\bar\alpha_t}\,z$. On the same
-        trained models this alone takes the hold-out RMSE from 0.152 / 0.135 / 0.136 / \SI{0.173}{K} to
-        0.061 / 0.076 / 0.064 / \SI{0.141}{K} (scattered, band, centre $7\times7$, top row), with the largest gain at
-        the bottom. DINO's stratification constraints are not ported yet.
+  \item Sampling: DINO's BorderZeroConstraint resets land and padding to exact zeros after every step, which the
+        network never sees in training, where those cells carry noise like every other. Here they are reset to
+        zeros at the step's noise level, $\sqrt{1-\bar\alpha_t}\,z$, exactly as in training. DINO's stratification
+        constraints are not ported yet.
   \item Everything else is kept: transform chain, 3-std normalisation, DDPM settings, EMA.
 \end{itemize}
 
@@ -194,12 +192,12 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
         is a per-sample offset of the surface mean: $W_1$ on the horizontal-mean profile is \SI{0.12}{K} at
         \SI{14}{m}, above the \SI{0.07}{K} cell RMSE of the ensemble mean, so each sample carries a nearly uniform
         shift of about \SI{0.1}{K} (0.01 normalised) that the average of 32 mostly removes.
-  \item \textbf{The clip is a regulariser, not a range limit.} Same models, sampling only (with DINO's constraint), scattered / top:
-        clip at $|x'| \le 1$ gives 0.152 / \SI{0.173}{K}, at 1.5 0.194 / \SI{0.183}{K}, at 3 0.302 / \SI{0.277}{K},
-        although the final samples barely exceed $|x'| = 1$ (0.1\,\% of values): clipping the early clean-state
+  \item \textbf{The clip is a regulariser, not a range limit.} Same models, sampling only, scattered / top row:
+        clip at $|x'| \le 1$ gives 0.061 / \SI{0.141}{K}, at 1.5 it gives CLIP15S / CLIP15T, at 3 it gives
+        CLIP3S / CLIP3T, although the final samples barely exceed $|x'| = 1$: clipping the early clean-state
         estimates keeps the chain on track. Its price is a range limit: 12\,\% of the held-out top row's true
         bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated; the corner run is the largest error of
-        the top-row and ring splits.
+        the top-row and outer splits.
   \item \textbf{Inversions.} 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
         (scattered), 6.6 and 6.1\,\% (outer 51 and 75), 4.2 and 3.6\,\% (centre $7\times7$ and $5\times5$), 1.3\,\%
         (band), 0.1\,\% (top). Not learned.

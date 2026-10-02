@@ -3,7 +3,7 @@
 #   jobs/submit.sh extract        [extra extract_data.py args]
 #   jobs/submit.sh train          <train.py args, e.g. --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/x>
 #   jobs/submit.sh generate_eval  <run_dir> [n_samples, default 32] [tag] [key=value ...]   (tag + --set pairs: a sampling variant,
-#                                 written to samples/*_<tag>.npz and eval_<tag>/, e.g. cf fill_mode=clean)
+#                                 written to samples/*_<tag>.npz and eval_<tag>/, e.g. c3 clip_sample_range=3)
 # Account / QoS / constraint / log paths come from env.sh next to this file (never from the tracked files).
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
