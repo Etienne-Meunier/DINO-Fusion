@@ -17,8 +17,10 @@ rows (`c_k` 0.126, 0.2, 0.3175; 30 runs; training rows a factor 6.3 apart), cent
 `c_k` 0.05 to 0.3175, `c_eps` 0.35 to 2.222; 25 runs; training on 75), centre 7 x 7 (`split_block=2,9,2,9`: `c_k`
 0.0315 to 0.504, `c_eps` 0.2205 to 3.528; 49 runs; training on the outer rows and columns). Extrapolation: outer 51
 (the complement of the 7 x 7 block, training on its centre), outer 75 (the complement of the 5 x 5 block, training
-on 25 runs), top row (`c_k` 0.8; 10 runs). Runs `fs_scattered_3std`, `fs_band3_3std`, `fs_block5_3std`,
-`fs_block_3std`, `fs_ring_3std`, `fs_ring5_3std`, `fs_top_3std`.
+on 25 runs), top row (`c_k` 0.8; 10 runs). Four runs (`split_mode=points`, `split_points=1,1,1,8,8,1,8,8`): training
+on `c_k` {0.0198, 0.504} x `c_eps` {0.139, 3.53}, one step in from each corner; 96 held out. Runs `fs_scattered_3std`,
+`fs_band3_3std`, `fs_block5_3std`, `fs_block_3std`, `fs_ring_3std`, `fs_ring5_3std`, `fs_top_3std`, `fs_four_3std`
+(training at `812ff96`).
 
 | split | runs | RMSE mean of 32 | RMSE one sample | RMSE nearest run | RMSE neighbour avg | RMSE mean state | bias | spread (true) | W1 diffusion | W1 nearest | W1 mean state | inversions gen / truth | max S error |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -29,6 +31,7 @@ on 25 runs), top row (`c_k` 0.8; 10 runs). Runs `fs_scattered_3std`, `fs_band3_3
 | outer 51 | 51 | 0.110 ± 0.136 (median 0.061) | 0.185 | 0.131 | 0.131 | 0.258 | -0.002 | 0.124 (0.030) | 0.100 | 0.117 | 0.223 | 11.0 % / 6.6 % | 0.013 |
 | outer 75 | 75 | 0.138 ± 0.197 (median 0.064) | 0.213 | 0.155 | 0.155 | 0.220 | -0.021 | 0.126 (0.030) | 0.118 | 0.137 | 0.189 | 10.6 % / 6.1 % | 0.012 |
 | top row | 10 | 0.141 ± 0.108 | 0.208 | 0.170 | 0.170 | 0.470 | -0.016 | 0.132 (0.032) | 0.132 | 0.142 | 0.420 | 12.3 % / 0.1 % | 0.017 |
+| four runs | 96 | 0.154 ± 0.113 (median 0.120) | 0.214 | 0.179 (median 0.070) | 0.179 | 0.254 | +0.054 | 0.125 (0.031) | 0.106 | 0.156 | 0.208 | 10.5 % / 5.4 % | 0.014 |
 
 | split | grid W1 all / hold-out / training (K) | grid domain-mean T RMSE all / hold-out (K) |
 |---|---|---|
@@ -39,6 +42,7 @@ on 25 runs), top row (`c_k` 0.8; 10 runs). Runs `fs_scattered_3std`, `fs_band3_3
 | outer 51 | 0.081 / 0.102 / 0.059 | 0.064 / 0.086 |
 | outer 75 | 0.102 / 0.117 / 0.057 | 0.119 / 0.137 |
 | top row | 0.079 / 0.133 / 0.073 | 0.043 / 0.073 |
+| four runs | 0.106 / 0.107 / 0.084 | 0.105 / 0.107 |
 
 Band of three, by row (RMSE in K): diffusion 0.063 / 0.074 / 0.091 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
 0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
@@ -71,6 +75,13 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    bottom and at 24 / 51, 32 / 75, 7 / 10 runs; the nearest run is worse still at the corner (0.92 / 1.24 / 0.35
    K). Top row by `c_eps`: beats copying the row below from 0.139 to 1.4, ties at 2.222, loses at the corner and
    in the flat regime.
+2c. **Four training runs** (one step in from each corner). Mean 0.154 vs nearest 0.179 K and mean state 0.254 K,
+   W1 0.106 vs 0.156 K, but median 0.120 vs 0.070 K and 31 wins of 96. The model's error is a smooth field over
+   the grid: 0.05 to 0.16 K in the flat regime, 0.2 to 0.45 K on the warm side with a warm bias up to +0.27 K
+   between the two training rows, 0.70 K at the corner (cold). The nearest run is far better where the state
+   hardly changes (0.01 to 0.07 K) and far worse where it does (0.5 to 0.85 K in the warm half of the interior):
+   inside the training rectangle 0.159 vs 0.201 K, outside 0.146 vs 0.143 K. Beats the nearest run at every level
+   below 250 m.
 3. **Depth structure.** 0.03 to 0.08 K at every level in the interpolation splits; the bottom two levels are no longer
    special (0.07 K) except in the top row (0.29 K, the corner runs). Worst band: the top 100 m (0.07 to 0.12 K),
    where 3 sigma_z is about 12 K and sampler noise is amplified.
@@ -112,7 +123,7 @@ variant 15 GPU minutes.
 ## Figures
 
 Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_ring5_3std/`,
-`fs_top_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+`fs_top_3std/`, `fs_four_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).

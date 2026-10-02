@@ -16,7 +16,7 @@
 
 \title{Conditional diffusion emulator of Veros ACC equilibrium states:\\first end-to-end results}
 \author{}
-\date{30 September 2026}
+\date{2 October 2026}
 
 \begin{document}
 \maketitle
@@ -37,6 +37,9 @@
         corner, where the model is cold-biased (corner run 0.77 and \SI{1.10}{K} when it lies two and three cells
         from the training set); elsewhere 0.04--\SI{0.13}{K}. A Wasserstein metric on the stratification profiles
         gives the same ranking.
+  \item Four training runs only, one step in from each corner: the model still beats the nearest run on average
+        (0.154 vs \SI{0.179}{K}) and in $W_1$ (0.106 vs \SI{0.156}{K}) because it interpolates the warm-side trend
+        the baseline cannot, but its error is now 0.1--\SI{0.45}{K} over most of the grid.
   \item Physical miss: temperature inversions are generated at the rate of the weakly eddying runs in every
         regime.
 \end{itemize}
@@ -122,7 +125,8 @@ that level with the same rows marked. Every narrow peak of the distribution is o
         factor 6.3 apart), centre $5\times5$ ($c_k$ 0.05--0.32, $c_\epsilon$ 0.35--2.2; 25 runs) and centre $7\times7$
         ($c_k$ 0.0315--0.504, $c_\epsilon$ 0.22--3.5; 49 runs; training on the outer rows and columns only).
         Extrapolation: outer 51 (the complement of the $7\times7$ block, training on its centre), outer 75 (the
-        complement of the $5\times5$ block, training on 25 runs), top row ($c_k$ = 0.8; 10 runs).
+        complement of the $5\times5$ block, training on 25 runs), top row ($c_k$ = 0.8; 10 runs). Four runs: training
+        on $c_k \in \{0.0198, 0.504\} \times c_\epsilon \in \{0.139, 3.53\}$, one step in from each corner; 96 held out.
   \item Distributional metric: each state is reduced to its profile of horizontal means over water cells,
         $\bar T_z$; per level, the Wasserstein-1 distance between the 32 generated values and the 241 true
         snapshots of the window, through the quantile functions,
@@ -152,10 +156,13 @@ centre $7\times7$ & 49 & 0.064 & 0.153 & 0.114 & 0.197 & $+0.03$ & 0.073 & 0.095
 outer 51 & 51 & 0.110 & 0.185 & 0.131 & 0.258 & $-0.00$ & 0.100 & 0.117 & 0.223 & 11.0 / 6.6 \\
 outer 75 & 75 & 0.138 & 0.213 & 0.155 & 0.220 & $-0.02$ & 0.118 & 0.137 & 0.189 & 10.6 / 6.1 \\
 top row & 10 & 0.141 & 0.208 & 0.170 & 0.470 & $-0.02$ & 0.132 & 0.142 & 0.420 & 12.3 / 0.1 \\
+\midrule
+four runs & 96 & 0.154 & 0.214 & 0.179 & 0.254 & $+0.05$ & 0.106 & 0.156 & 0.208 & 10.5 / 5.4 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Outer 51 and
-outer 75: the complements of the $7\times7$ and $5\times5$ blocks, training on the block. Bias: domain mean of the
+outer 75: the complements of the $7\times7$ and $5\times5$ blocks, training on the block; four runs: training on one
+run one step in from each corner. Bias: domain mean of the
 ensemble mean. The neighbour-average baseline equals the nearest run except in the scattered split
 (RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{K}); the ensemble spread is 0.12--\SI{0.13}{K} against a true within-window
 spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every split.}
@@ -180,6 +187,14 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
         \SI{0.089}{K} against \SI{0.095}{K} for the nearest run. The model beats the nearest run from about
         \SI{150}{m} to the bottom and at 24 / 51, 32 / 75 and 7 / 10 runs; the nearest run is worse still at the
         corner (0.92 and \SI{1.24}{K}) (Figures~\ref{fig:ring}--\ref{fig:top}).
+  \item \textbf{Four training runs.} Mean 0.154 vs \SI{0.179}{K} for the nearest run and \SI{0.254}{K} for the
+        mean state, $W_1$ 0.106 vs \SI{0.156}{K}, but median 0.120 vs \SI{0.070}{K} and 31 wins of 96. The model
+        produces a smooth field over the grid, 0.05--\SI{0.16}{K} in the flat regime and 0.2--\SI{0.45}{K} on the warm
+        side with a warm bias of up to \SI{+0.27}{K} between the two $c_k$ rows it was trained on, and \SI{0.70}{K} at
+        the corner (cold). The nearest run is far better where the state hardly changes (0.01--\SI{0.07}{K}) and far
+        worse where it does (0.5--\SI{0.85}{K} in the warm half of the interior), so the two average out differently:
+        inside the training rectangle 0.159 vs \SI{0.201}{K}, outside 0.146 vs \SI{0.143}{K}. Below \SI{250}{m} the
+        model wins at every level (Figure~\ref{fig:four}).
   \item \textbf{Depth structure.} 0.03--\SI{0.08}{K} at every level in the interpolation splits; the bottom
         levels are no longer special (0.05--\SI{0.07}{K}) except where the warm corner is held out (top row
         \SI{0.29}{K}, outer 51 \SI{0.17}{K}, outer 75 \SI{0.19}{K}).
@@ -223,7 +238,7 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}.
 Training at \texttt{2b542aa} (\texttt{338997d} for the $7\times7$ block, \texttt{61d0dd2} for the outer 51,
-\texttt{8f157d5} for the $5\times5$ pair); sampling and evaluation at \texttt{bfee32f}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
+\texttt{8f157d5} for the $5\times5$ pair, \texttt{812ff96} for the four-run split); sampling and evaluation at \texttt{bfee32f}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
 the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]
@@ -328,6 +343,21 @@ the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 \label{fig:top}
 \end{figure}
 
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=\textwidth]{../fs_four_3std/eval/grid_maps.png}
+\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[b]{\textwidth}\centering
+\includegraphics[width=0.62\textwidth]{../fs_four_3std/eval/profiles.png}
+\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
+\end{subfigure}
+\caption{Four training runs (one step in from each corner; 96 held out), 32 samples per run.}
+\label{fig:four}
+\end{figure}
+
+
 \begin{figure}[p]
 \centering
 \includegraphics[width=0.72\textwidth]{../fs_scattered_3std/samples_levels.png}
@@ -381,5 +411,13 @@ the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three
 \caption{Top-row split, $c_k=0.8$, $c_\epsilon=0.5556$ (extrapolation one row above the training grid).}
 \label{fig:samples_top}
 \end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.72\textwidth]{../fs_four_3std/samples_levels.png}
+\caption{Four-run split, same condition ($c_k=0.2$, $c_\epsilon=2.222$).}
+\label{fig:samples_four}
+\end{figure}
+
 
 \end{document}
