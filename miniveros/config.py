@@ -40,6 +40,8 @@ class Config:
     num_train_timesteps: int = 1000
     num_inference_steps: int = 1000
     beta_schedule: str = "squaredcos_cap_v2"
+    prediction_type: str = "epsilon"  # network target: "epsilon" | "v_prediction" | "sample" (diffusers DDPMScheduler). With v_prediction
+                                      # the predicted clean state stays bounded at high noise, so the sampler can run with clip_sample=False
     clip_sample: bool = True
     clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
                                      # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1

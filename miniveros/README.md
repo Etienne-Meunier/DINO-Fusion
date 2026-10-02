@@ -49,6 +49,8 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
   `(log ck, log eps)` into the time-embedding space (`class_embed_type="identity"`). Optional
   classifier-free guidance via `cond_drop_prob`.
 * **Diffusion**: DDPM, 1000 steps, `squaredcos_cap_v2`, `clip_sample=True`, epsilon prediction, EMA.
+  `prediction_type=v_prediction` trains on the velocity target instead; its predicted clean state stays bounded,
+  so it is meant to run with `clip_sample=false`.
 * **Sampling**: DDPM loop with a constraints hook; `LandZero` re-imposes the land and padding zeros, at the step's noise level by default.
 
 ## Usage (from this directory)

@@ -98,6 +98,14 @@ def test_model_and_loss(data_file: str):
     assert (s.masked_select(tr.zero_mask.expand_as(s)) == 0).all(), "land and padding must be exactly 0 at the end"
     s_free = sample(model.eval(), sched, cb, 3, generator=torch.Generator().manual_seed(0))
     assert not (s_free.masked_select(tr.zero_mask.expand_as(s_free)) == 0).all(), "without the constraint they are not"
+    cfg_v = Config(**{**cfg.__dict__, "prediction_type": "v_prediction", "clip_sample": False}); dv = Diffusion(cfg_v)
+    assert dv.scheduler.config.prediction_type == "v_prediction" and not dv.scheduler.config.clip_sample
+    lv = dv.training_loss(model, xb, cb, tr.zero_mask); assert torch.isfinite(lv)
+    xt = torch.randn_like(xb); tt = torch.tensor([3, 7])
+    assert torch.allclose(dv.target(xb, xt, tt), dv.scheduler.get_velocity(xb, xt, tt))
+    g = torch.Generator().manual_seed(0)
+    sv = sample(model.eval(), dv.scheduler, cb, 3, generator=g, constraints=[LandZero(tr.zero_mask, dv.scheduler, g)])
+    assert torch.isfinite(sv).all() and (sv.masked_select(tr.zero_mask.expand_as(sv)) == 0).all()
     fields = tr.denormalise(s)
     assert set(fields) == {"temp", "salt"} and fields["temp"].shape[-3:] == (15, 42, 30)
     with tempfile.TemporaryDirectory() as d:
