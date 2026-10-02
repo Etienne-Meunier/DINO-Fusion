@@ -69,7 +69,8 @@ def to_zyx_interior(block: np.ndarray) -> np.ndarray:
 
 # ----------------------------------------------------------------------------- split
 def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, seed: int,
-                   rows: list[float] | None = None, block: tuple[int, int, int, int] | None = None) -> np.ndarray:
+                   rows: list[float] | None = None, block: tuple[int, int, int, int] | None = None,
+                   points: tuple[int, ...] = ()) -> np.ndarray:
     cks, epss = np.unique(run_ck), np.unique(run_eps)
     ick = np.searchsorted(cks, run_ck)
     ieps = np.searchsorted(epss, run_eps)
@@ -94,6 +95,10 @@ def choose_holdout(run_ck: np.ndarray, run_eps: np.ndarray, mode: str, n: int, s
         i0, i1, j0, j1 = (int(b) for b in block)
         inside = (ick >= i0) & (ick < i1) & (ieps >= j0) & (ieps < j1)
         return np.where(inside if mode == "block" else ~inside)[0]      # "ring": the complement, training on the block
+    if mode == "points":                     # train on the listed grid points only (i_ck, j_eps pairs), hold out everything else
+        assert points and len(points) % 2 == 0, "points mode needs i0,j0,i1,j1,..."
+        keep = {(int(points[k]), int(points[k + 1])) for k in range(0, len(points), 2)}
+        return np.where([(i, j) not in keep for i, j in zip(ick, ieps)])[0]
     raise ValueError(f"unknown holdout mode {mode!r}")
 
 
@@ -106,11 +111,12 @@ def main(argv=None):
     p.add_argument("--last-years", type=float, default=20.0, help="keep snapshots in the last N years of each run")
     p.add_argument("--stride", type=int, default=1, help="keep every k-th of those snapshots")
     p.add_argument("--n-holdout", type=int, default=10)
-    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "block", "ring", "none"],
+    p.add_argument("--holdout-mode", default="none", choices=["interior_random", "row_ck_max", "rows", "block", "ring", "points", "none"],
                    help="optional split stored in the file (normally the split is chosen in the training config)")
     p.add_argument("--stats", default="all", choices=["all", "train"], help="runs used for the normalisation statistics")
     p.add_argument("--holdout-ck", default="", help="with --holdout-mode rows: comma-separated c_k values of the rows to hold out")
     p.add_argument("--holdout-block", default="2,9,2,9", help="with --holdout-mode block or ring: i0,i1,j0,j1 index ranges (c_k, c_eps), half-open")
+    p.add_argument("--holdout-points", default="", help="with --holdout-mode points: i0,j0,i1,j1,... grid indices of the TRAINING runs")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--limit-runs", type=int, default=0, help="debug: only the first k runs (sorted by name)")
     args = p.parse_args(argv)
@@ -169,7 +175,8 @@ def main(argv=None):
     water = ~land_mask
     rows = [float(c) for c in args.holdout_ck.split(",") if c.strip()]
     block = tuple(int(b) for b in args.holdout_block.split(","))
-    holdout = choose_holdout(run_ck, run_eps, args.holdout_mode, args.n_holdout, args.seed, rows, block)
+    points = tuple(int(v) for v in args.holdout_points.split(",") if v.strip())
+    holdout = choose_holdout(run_ck, run_eps, args.holdout_mode, args.n_holdout, args.seed, rows, block, points)
     train_runs = np.setdiff1d(np.arange(n_run), holdout)
     is_train = np.isin(run_id, train_runs)
     print(f"split: {len(train_runs)} train runs, {len(holdout)} hold-out runs -> {[run_names[i] for i in holdout]}")

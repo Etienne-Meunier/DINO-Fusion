@@ -116,7 +116,9 @@ def test_block_split():
     assert len(choose_holdout(run_ck, run_eps, "block", 0, 0, [], (0, 10, 0, 10))) == 100
     r = choose_holdout(run_ck, run_eps, "ring", 0, 0, [], (2, 9, 2, 9))
     assert len(r) == 51 and not set(r) & set(h) and len(set(r) | set(h)) == 100
-    print("  block split: 49 runs held out, edge rows/columns kept; ring split: the 51 others")
+    q = choose_holdout(run_ck, run_eps, "points", 0, 0, [], None, (1, 1, 1, 8, 8, 1, 8, 8))
+    assert len(q) == 96 and {(1, 1), (1, 8), (8, 1), (8, 8)} == {(i, j) for i, j in zip(np.searchsorted(ck, run_ck), np.searchsorted(eps, run_eps)) if (i * 10 + j) not in set(q)}
+    print("  block split: 49 runs held out, edge rows/columns kept; ring split: the 51 others; points split: 4 training runs")
 
 
 if __name__ == "__main__":

@@ -46,11 +46,13 @@ class Config:
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
 
     # ---- hold-out split (statistics are fixed on all runs, so the split is a training-time choice)
-    split_mode: str = "interior_random"   # "interior_random" | "rows" | "row_ck_max" | "block" | "ring" | "none" | "file" (stored split)
+    split_mode: str = "interior_random"   # "interior_random" | "rows" | "row_ck_max" | "block" | "ring" | "points" | "none" | "file"
     split_rows: tuple[float, ...] = ()    # with "rows": c_k values of the held-out rows
     split_block: tuple[int, int, int, int] = (2, 9, 2, 9)  # with "block" / "ring": index ranges [i0, i1) on c_k, [j0, j1) on c_eps of
                                           # the sorted 10 x 10 grid. "block" holds out the block (default: the 7 x 7 centre, 49 runs,
                                           # training on the edge); "ring" holds out its complement (51 runs, training on the centre)
+    split_points: tuple[int, ...] = (1, 1, 1, 8, 8, 1, 8, 8)  # with "points": (i_ck, j_eps) pairs of the TRAINING runs, everything
+                                          # else held out; the default is one run one step in from each corner
     split_seed: int = 0
     n_holdout: int = 10                   # with "interior_random"
 

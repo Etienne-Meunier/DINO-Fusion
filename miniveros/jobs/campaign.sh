@@ -12,6 +12,7 @@
 #     jobs/campaign.sh -n -s fs_top       -p "split_mode=row_ck_max"
 #     jobs/campaign.sh -n -s fs_block     -p "split_mode=block"                     (7 x 7 centre block held out)
 #     jobs/campaign.sh -n -s fs_ring      -p "split_mode=ring"                      (the 51 outer runs held out)
+#     jobs/campaign.sh -n -s fs_four      -p "split_mode=points"                    (train on 4 runs, one step in from each corner)
 # Each job exits non-zero on failure (set -e), so dependants never start on garbage.
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
