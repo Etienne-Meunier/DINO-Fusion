@@ -192,12 +192,13 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
         is a per-sample offset of the surface mean: $W_1$ on the horizontal-mean profile is \SI{0.12}{K} at
         \SI{14}{m}, above the \SI{0.07}{K} cell RMSE of the ensemble mean, so each sample carries a nearly uniform
         shift of about \SI{0.1}{K} (0.01 normalised) that the average of 32 mostly removes.
-  \item \textbf{The clip is a regulariser, not a range limit.} Same models, sampling only, scattered / top row:
-        clip at $|x'| \le 1$ gives 0.061 / \SI{0.141}{K}, at 1.5 it gives CLIP15S / CLIP15T, at 3 it gives
-        CLIP3S / CLIP3T, although the final samples barely exceed $|x'| = 1$: clipping the early clean-state
-        estimates keeps the chain on track. Its price is a range limit: 12\,\% of the held-out top row's true
-        bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated; the corner run is the largest error of
-        the top-row and outer splits.
+  \item \textbf{The clip trades regularisation for range.} Same models, sampling only, scattered / top row:
+        clip at $|x'| \le 1$ gives 0.061 / \SI{0.141}{K}, at 1.5 it gives 0.061 / \SI{0.108}{K}, at 3 it gives
+        0.091 / \SI{0.123}{K}; $W_1$ 0.066 / 0.132, 0.086 / 0.117, 0.147 / \SI{0.154}{K}. Widening to 1.5 costs
+        nothing in interpolation RMSE, widens the sample spread ($W_1$), and frees the top-row corner, where 12\,\%
+        of the true bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated under the clip at 1; at 3
+        the regularisation is lost (0.091 and \SI{0.147}{K} in the scattered split). The corner run is the largest
+        error of the top-row and outer splits under the clip at 1.
   \item \textbf{Inversions.} 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
         (scattered), 6.6 and 6.1\,\% (outer 51 and 75), 4.2 and 3.6\,\% (centre $7\times7$ and $5\times5$), 1.3\,\%
         (band), 0.1\,\% (top). Not learned.
@@ -211,8 +212,9 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
 \section{Next steps}
 \begin{itemize}
   \item Stratification constraint at sampling time (DINO's isotonic projection on $T$): targets the inversions.
-  \item Top-row corner: the clip's range limit is now the dominant extrapolation error; a clip that follows the
-        conditioning (bounds from the nearest training rows) is the next sampling-only test.
+  \item Top-row corner: the clip's range limit is the dominant extrapolation error; a clip at 1.5 recovers
+        \SI{0.03}{K} there at no interpolation cost (sampling only), a clip that follows the conditioning is the
+        next test.
   \item Stronger conditioning: classifier-free guidance; the year as a third condition (bottom drift of
         \SI{0.45}{K} inside the window). A second training seed to size the seed noise.
   \item Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread--skill).

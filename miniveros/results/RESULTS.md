@@ -82,11 +82,11 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    surface. What remains is a per-sample offset of the surface mean: W1 on the horizontal-mean profile is 0.12 K
    at 14 m, above the 0.07 K cell RMSE of the ensemble mean, so each sample carries a nearly uniform shift of
    about 0.1 K (0.01 normalised) that the average of 32 mostly removes.
-5. **The sampler's clip is a regulariser, not a range limit.** Same models, sampling only, scattered / top row:
-   clip at |x'| <= 1 gives 0.061 / 0.141 K, at 1.5 CLIP15S / CLIP15T, at 3 CLIP3S / CLIP3T, although the final
-   samples barely exceed |x'| = 1. Clipping the early clean-state estimates keeps the chain on track. The price is
-   a range limit: 12 % of the held-out top row's true bottom values lie above mu + 3 sigma and cannot be
-   generated; the corner run is the largest error of the top-row and outer splits.
+5. **The sampler's clip trades regularisation for range.** Same models, sampling only, scattered / top row
+   (`eval_c15`, `eval_c3` on the cluster): clip at |x'| <= 1 gives 0.061 / 0.141 K, at 1.5 0.061 / 0.108 K, at 3
+   0.091 / 0.123 K; W1 0.066 / 0.132, 0.086 / 0.117, 0.147 / 0.154 K. Widening to 1.5 costs nothing in
+   interpolation RMSE, widens the sample spread (W1) and frees the top-row corner (12 % of its true bottom values
+   lie above mu + 3 sigma); at 3 the regularisation is lost.
 6. **Inversions.** 10 to 12 % of interfaces with temperature decreasing upward whatever the regime and the
    sampler; the truth is 7.7 % (scattered), 6.6 and 6.1 % (outer 51 and 75), 4.2 and 3.6 % (centre 7 x 7 and 5 x 5),
    1.3 % (band), 0.1 % (top row). Not learned; this is
