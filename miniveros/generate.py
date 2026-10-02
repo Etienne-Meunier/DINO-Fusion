@@ -70,7 +70,7 @@ def main(argv=None):
     gen = torch.Generator(device).manual_seed(a.seed)
     constraints = [LandZero(tr.zero_mask, mode=cfg.fill_mode, scheduler=scheduler, generator=gen)]
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"norm {cfg.norm_mode}, land/padding {cfg.fill_mode}, clip +-{cfg.clip_sample_range:g}, device {device}", flush=True)
+          f"norm {cfg.norm_mode}, land/padding {cfg.fill_mode}, {cfg.prediction_type}, clip {f'+-{cfg.clip_sample_range:g}' if cfg.clip_sample else 'off'}, device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}

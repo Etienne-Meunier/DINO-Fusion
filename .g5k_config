@@ -1,0 +1,4 @@
+mamba_env: diffusion
+model_store_path: models/DINO-Fusion
+project_name: DINO-Fusion
+unison_profile: DINO-Fusion_cp_arennes

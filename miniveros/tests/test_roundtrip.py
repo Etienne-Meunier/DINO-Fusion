@@ -91,6 +91,16 @@ def test_model_and_loss(data_file: str):
     loss.backward()
     cfg.mask_loss = True
     assert torch.isfinite(Diffusion(cfg).training_loss(model, xb, cb, tr.zero_mask))
+    cfg_v = Config(**{**cfg.__dict__, "prediction_type": "v_prediction", "clip_sample": False})
+    dv = Diffusion(cfg_v)
+    assert torch.isfinite(dv.training_loss(model, xb, cb, tr.zero_mask))
+    noise, tt = torch.randn_like(xb), torch.tensor([3, 17])
+    v = dv.target(xb, noise, tt)                                             # v target inverts to x0 via the scheduler
+    ab = dv.scheduler.alphas_cumprod[tt].view(-1, 1, 1, 1)
+    xt = dv.scheduler.add_noise(xb, noise, tt)
+    assert torch.allclose(ab.sqrt() * xt - (1 - ab).sqrt() * v, xb, atol=1e-5)
+    s_v = sample(model.eval(), dv.scheduler, cb, 3, generator=torch.Generator().manual_seed(0))
+    assert s_v.shape == xb.shape and torch.isfinite(s_v).all()
     sched = Diffusion(cfg).scheduler
     s = sample(model.eval(), sched, cb, 3, generator=torch.Generator().manual_seed(0),
                constraints=[LandZero(tr.zero_mask, mode="clean")])

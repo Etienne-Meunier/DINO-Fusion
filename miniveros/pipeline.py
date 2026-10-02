@@ -50,11 +50,11 @@ def sample(model, scheduler, cond: torch.Tensor, num_inference_steps: int,
         steps = tqdm(steps, leave=False)
     all_drop = torch.ones(n, dtype=torch.bool, device=cond.device)
     for t in steps:
-        eps = model(x, t, cond)
+        pred = model(x, t, cond)
         if guidance_scale != 1.0:
-            eps_u = model(x, t, cond, all_drop)
-            eps = eps_u + guidance_scale * (eps - eps_u)
-        x = scheduler.step(eps, t, x, generator=generator).prev_sample
+            pred_u = model(x, t, cond, all_drop)
+            pred = pred_u + guidance_scale * (pred - pred_u)
+        x = scheduler.step(pred, t, x, generator=generator).prev_sample
         for c in constraints:
             x = c(x, t)
     return x

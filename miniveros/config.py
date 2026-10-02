@@ -40,9 +40,12 @@ class Config:
     num_train_timesteps: int = 1000
     num_inference_steps: int = 1000
     beta_schedule: str = "squaredcos_cap_v2"
+    prediction_type: str = "epsilon"  # network target: "epsilon" | "v_prediction" | "sample" (diffusers DDPMScheduler)
     clip_sample: bool = True
     clip_sample_range: float = 1.0   # sampling only. Clipping the predicted clean state at 3 sigma regularises the chain:
                                      # range 3 doubled the hold-out RMSE (0.15 -> 0.30 K) although the data barely exceed 1
+                                     # (with epsilon prediction). It also caps the deep levels, whose data reach +2.7 in
+                                     # normalised units; v_prediction keeps x0_hat bounded and is meant to run unclipped
     mask_loss: bool = False      # True: land and padding cells are excluded from the MSE
     fill_mode: str = "noised"    # land/padding at sampling: "noised" = zeros at the noise level of the step, as the training data had
                                  # them; "clean" = exact zeros after every step (DINO's constraint), which the network never saw at high
