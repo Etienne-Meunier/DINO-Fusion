@@ -95,6 +95,10 @@ def main(argv=None):
     gen_rid = np.asarray(gs["run_id"]); gT = gs["temp"]; gS = gs["salt"]                # (n_cond, n_s, Z, Y, X)
     lvl_rmse = {"diffusion_mean": [], "neighbour_avg": [], "nearest_train": [], "train_mean": []}
     w1_levels = {}
+    # localised-artefact screen: per column (y, x), the single-sample squared error summed over samples and levels,
+    # and its product with the zonal neighbour (periodic): a column of large error with no zonal coherence is a
+    # network defect (an activation spike in the decoder), not a sampling error
+    col_sq = np.zeros(water.shape[1:]); col_xy = np.zeros(water.shape[1:]); n_col = 0
     for k, r in enumerate(gen_rid):
         r = int(r)
         truth = tmean[r]; gen = np.nan_to_num(gT[k]); ens = gen.mean(0)
@@ -105,6 +109,8 @@ def main(argv=None):
             add(r, m, "bias_domain_mean_K", st[water].mean() - truth[water].mean())
             lvl_rmse[m].append([rmse(st[z], truth[z], water[z]) if water[z].any() else np.nan for z in range(len(zt))])
         add(r, "diffusion_sample", "rmse_K", np.mean([rmse(g, truth, water) for g in gen]))
+        e = np.where(water[None], gen - truth[None], 0.0)
+        col_sq += (e ** 2).sum((0, 1)); col_xy += (e * np.roll(e, -1, axis=-1)).sum((0, 1)); n_col += e.shape[0]
         add(r, "diffusion", "spread_K", gen.std(0)[water].mean())
         add(r, "truth", "spread_K", tstd[r][water].mean())
         add(r, "diffusion", "salt_max_abs_err", np.nanmax(np.abs(gS[k][:, water] - SALT_REF)))
@@ -136,6 +142,14 @@ def main(argv=None):
               "", f"ensemble spread (K): generated {agg('diffusion', 'spread_K')[0]:.4f} vs truth-in-window {agg('truth', 'spread_K')[0]:.4f}",
               f"interfaces with T decreasing upward: generated {100 * agg('diffusion', 'temp_inversion_frac')[0]:.3f}% vs truth {100 * agg('truth', 'temp_inversion_frac')[0]:.3f}% (truth has real inversions; compare, do not expect 0)",
               f"salinity max |S-35| over water: {agg('diffusion', 'salt_max_abs_err')[0]:.2e}"]
+    col_ok = water.all(0) & np.roll(water.all(0), -1, axis=-1)
+    col_rms = np.where(col_ok, np.sqrt(col_sq / (max(n_col, 1) * water.sum(0).clip(1))), np.nan)
+    col_corr = np.where(col_ok, col_xy / np.sqrt(col_sq * np.roll(col_sq, -1, axis=-1) + 1e-12), np.nan)
+    y, x = np.unravel_index(np.nanargmax(col_rms), col_rms.shape)
+    flag = col_rms[y, x] > 3 * np.nanmedian(col_rms) and col_corr[y, x] < 0.5
+    lines += [f"localised artefact screen: worst water column (y={y}, x={x}) single-sample RMS {col_rms[y, x]:.3f} K "
+              f"(median column {np.nanmedian(col_rms):.3f}), lag-1 zonal correlation of its error {col_corr[y, x]:.2f} "
+              f"(median {np.nanmedian(col_corr):.2f}){' -> SPIKE: large and incoherent, check the network' if flag else ''}"]
     (out_dir / "summary.txt").write_text("\n".join(lines) + "\n"); print("\n".join(lines))
 
     # ---- figures

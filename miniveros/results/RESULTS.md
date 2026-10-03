@@ -20,7 +20,8 @@ rows (`c_k` 0.126, 0.2, 0.3175; 30 runs; training rows a factor 6.3 apart), cent
 on 25 runs), top row (`c_k` 0.8; 10 runs). Four runs (`split_mode=points`, `split_points=1,1,1,8,8,1,8,8`): training
 on `c_k` {0.0198, 0.504} x `c_eps` {0.139, 3.53}, one step in from each corner; 96 held out. Runs `fs_scattered_3std`,
 `fs_band3_3std`, `fs_block5_3std`, `fs_block_3std`, `fs_ring_3std`, `fs_ring5_3std`, `fs_top_3std`, `fs_four_3std`
-(training at `812ff96`), `fs_block5_v_3std` and `fs_ring5_v_3std` (`1601947`, v-prediction without clip).
+(training at `812ff96`), `fs_block5_v_3std` and `fs_ring5_v_3std` (`1601947`, v-prediction without clip),
+`fs_block5_v1_3std` (the centre 5 x 5 v model with `seed=1`, a diagnostic for finding 2e).
 
 | split | runs | RMSE mean of 32 | RMSE one sample | RMSE nearest run | RMSE neighbour avg | RMSE mean state | bias | spread (true) | W1 diffusion | W1 nearest | W1 mean state | inversions gen / truth | max S error |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -94,7 +95,26 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    0.118, wins 44 vs 32 of 75, flat regime 0.03 to 0.05 K; the warm corner is unchanged (1.03 vs 1.10 K at the
    corner run), so its error is the extrapolation, not the clip. Control (`eval_noclip` on the eps models): without
    the clip the eps chain diverges (RMSE 552 and 572 K), so under eps-prediction the clip is what keeps it finite.
-   Caveat: every v sample carries a small spot of wrong values at the tip of the ridge (S error 0.046 vs 0.013 psu).
+   Caveat: every v sample carries a small patch of wrong values (S error 0.046 vs 0.013 psu), diagnosed in 2e.
+2e. **Each v network carries one localised defect, in the network, not the sampler.** A 3 x 3 patch through the
+   whole water column next to a zero border: beside the ridge (y 29 to 31, x 3 to 5) for `fs_block5_v_3std`, in the
+   southern restoring rows (y 1 to 2, x 15 to 19) for `fs_ring5_v_3std` and for the second seed `fs_block5_v1_3std`
+   (`seed=1`, otherwise identical). In the patch: single-sample error 0.3 to 0.9 K where the truth varies by
+   0.01 K in time, generated values outside the data range (10.9 to 16.5 K at 106 m against 13.4 to 14.4 K in all
+   100 runs), checkerboard (lag-1 zonal correlation of the error 0.0 against 0.7 elsewhere), S off by up to
+   0.05 psu, same amplitude at all 25 conditions. Sampling variants of `fs_block5_v_3std` (`eval_clip1`, `eval_s250`,
+   `eval_raw`, `eval_nolz`: clip at 1, 250 steps, raw weights, no land constraint): patch single-sample RMS 0.30 /
+   0.30 / 0.38 / 0.30 / 0.33 K, spread 0.20 / 0.20 / 0.26 / 0.20 / 0.23, lag-1 corr -0.02 / -0.02 / -0.04 / -0.02 /
+   0.03 (eps model: 0.15 K, corr 0.90; the land constraint only matters for the interior: 0.11 vs 0.05 K without it).
+   `diag_spot.py` (true snapshots noised to t, denoised in one step): v network error in the patch 0.16 vs 0.04
+   normalised in the interior at t = 600 (4x, T and S alike, hold-out and training run), eps network uniform
+   (0.095 vs 0.090). `diag_act.py` (per-layer activation RMS maps): flat through the encoder and mid block
+   (max / median 1.1 to 1.4), spike in one cell of `up_blocks[1]` at 12 x 8 resolution (2.7x), amplified to 6x at
+   24 x 16 and 15x at 48 x 32 (`up_blocks[3]`), identical with raw and EMA weights; eps network at most 1.7x
+   anywhere. Seed 1: same growth at its own patch (2.4x at `up_blocks[1]`, 5x at `up_blocks[2]`), one-step error
+   0.17 vs 0.04 there, and the ridge patch of seed 0 is clean (0.044). The loss is blind to it (9 of 1200 columns at 0.15 normalised: 2e-4 of a 1e-2 MSE; the two seeds'
+   loss curves coincide). Seed 1 hold-out: 0.042 / 0.070 K mean / single sample, W1 0.027, spread 0.042, S 0.034
+   psu (seed 0: 0.044 / 0.079, 0.027, 0.048, 0.046). Figure `fs_block5_v_3std/spot_diag.png`.
 3. **Depth structure.** 0.03 to 0.08 K at every level in the interpolation splits; the bottom two levels are no longer
    special (0.07 K) except in the top row (0.29 K, the corner runs). Worst band: the top 100 m (0.07 to 0.12 K),
    where 3 sigma_z is about 12 K and sampler noise is amplified.
@@ -126,20 +146,25 @@ variant 15 GPU minutes.
 
 ## Suggested next steps
 
+- Retrain the remaining splits with v-prediction and no clip; screen each training for the decoder spike (the
+  evaluation summary now reports the worst column of the single-sample error and its lag-1 correlation) and keep a
+  clean seed, or find what removes it (loss mask on the zero cells, activation penalty, another normalisation layer).
 - Stratification constraint at sampling time (DINO-Fusion's isotonic projection, on T since S is constant).
 - Top-row corner: the clip's range limit is now the dominant extrapolation error; a clip that follows the
   conditioning (bounds from the nearest training rows) is the next sampling-only test.
 - Stronger conditioning: classifier-free guidance; the year as a third condition (drift of 0.45 K at the bottom
-  inside the window). A second training seed to size the seed noise.
+  inside the window).
 - Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread-skill).
 
 ## Figures
 
 Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_ring5_3std/`,
-`fs_top_3std/`, `fs_four_3std/`, `fs_block5_v_3std/`, `fs_ring5_v_3std/`): `config.json`, `git_hash.txt`, `train_log.csv`,
+`fs_top_3std/`, `fs_four_3std/`, `fs_block5_v_3std/`, `fs_ring5_v_3std/`, `fs_block5_v1_3std/` (no sample figure)): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
+`fs_block5_v_3std/spot_diag.png`: the decoder-spike diagnosis (one-step denoising error maps and curves, per-layer
+activation maps; `diag_spot.py`, `diag_act.py`, run on the cluster, analysed locally).
 `data/level_density_150m.png`: one T and S density per run at 182 m (`level_density.py`, reads the raw run files);
 the narrow peaks of the T distribution are the zonally uniform southern rows y = 0 to 6 (restoring zone).
 `data/T_distribution_per_level.png`, `data/T_per_level_stats.npz`: per-level T distribution (`tdist.py compute` on the
