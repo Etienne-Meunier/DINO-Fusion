@@ -44,7 +44,9 @@
         diverge without the clip. The warm corner is unchanged: its error is extrapolation, not the clip. Each
         $v$ network carries one localised defect, a $3\times3$ patch of wrong values at a seed-dependent place
         next to a zero border, traced to an activation spike in the decoder; it is invisible to the loss and to
-        every sampler variant, and inflates the single-sample and salinity errors but not the mean.
+        every sampler variant, and inflates the single-sample and salinity errors but not the mean. Restricting the
+        loss to the water cells removes it (two seeds) and lowers the hold-out RMSE to \SI{0.037}{K}; the mask as an
+        input channel and an activation penalty do not.
   \item Four training runs only, one step in from each corner: the model still beats the nearest run on average
         (0.154 vs \SI{0.179}{K}) and in $W_1$ (0.106 vs \SI{0.156}{K}) because it interpolates the warm-side trend
         the baseline cannot, but its error is now 0.1--\SI{0.45}{K} over most of the grid.
@@ -173,12 +175,14 @@ four runs & 96 & 0.154 & 0.214 & 0.179 & 0.254 & $+0.05$ & 0.106 & 0.156 & 0.208
 \midrule
 centre $5\times5$, $v$-pred. & 25 & 0.044 & 0.079 & 0.077 & 0.157 & $+0.01$ & 0.027 & 0.069 & 0.133 & 9.7 / 3.6 \\
 outer 75, $v$-pred. & 75 & 0.128 & 0.145 & 0.155 & 0.220 & $-0.06$ & 0.101 & 0.137 & 0.189 & 10.2 / 6.1 \\
+centre $5\times5$, $v$-pred.\ + mask & 25 & 0.037 & 0.070 & 0.077 & 0.157 & $+0.01$ & 0.031 & 0.069 & 0.133 & 9.2 / 3.6 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Outer 51 and
 outer 75: the complements of the $7\times7$ and $5\times5$ blocks, training on the block; four runs: training on one
-run one step in from each corner. Last two rows: the $5\times5$ splits retrained with $v$-prediction and sampled
-without clip (ensemble spread \SI{0.04}{K}). Bias: domain mean of the ensemble mean. The neighbour-average baseline equals the nearest run except in the scattered split
+run one step in from each corner. Last three rows: the $5\times5$ splits retrained with $v$-prediction and sampled
+without clip (ensemble spread \SI{0.04}{K}); + mask'': the loss restricted to the water cells (spread
+\SI{0.05}{K}), which removes the decoder spike. Bias: domain mean of the ensemble mean. The neighbour-average baseline equals the nearest run except in the scattered split
 (RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{K}); the ensemble spread is 0.12--\SI{0.13}{K} against a true within-window
 spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every split.}
 \label{tab:splits}
@@ -252,6 +256,23 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
         see it: nine columns of 1200 at 0.15 normalised are $2\times10^{-4}$ of a $10^{-2}$ MSE, and the loss curves
         of the two seeds coincide. The headline numbers are robust to it (seed 1: 0.042 / \SI{0.070}{K} mean /
         single sample, against 0.044 / 0.079 for seed 0), the single-sample and salinity errors are not.
+  \item \textbf{Excluding the zero cells from the loss removes the spike.} Five retrainings of the centre-$5\times5$
+        $v$ model (Table~\ref{tab:spot}). Loss on the water cells only, seeds 0 and 1: no spike (worst column
+        0.14--\SI{0.15}{K}, at the warm-corner front and coherent), $S$ within \SI{0.008}{psu}, hold-out RMSE
+        0.037 / \SI{0.038}{K} (from 0.044), single sample 0.070 / 0.073, $W_1$ 0.031, 18 and 17 wins of 25 against
+        the nearest run (from 15), spread 0.054--\SI{0.057}{K} against a true 0.031
+        (Figure~\ref{fig:samples_block5vml}). The land-and-padding mask as an extra input channel: the spike persists
+        and moves (south-east corner, \SI{0.79}{K}, seed 0; the ridge, \SI{0.24}{K}, seed 1). A penalty of 0.01 on
+        $\log(\max/\mathrm{mean})$ of each decoder block's activation map: weakened to \SI{0.17}{K} but still
+        incoherent, with the lowest single-sample RMSE (0.059) and spread (0.038). Probes of the retrained models:
+        with the loss on the water cells the one-step error is uniform (0.044 against 0.040 at $t$ = 600) and the
+        largest decoder activations sit in the padding rows, which the loss no longer constrains; with the penalty
+        every map is flat (maximum over median 1.0) yet the column remains, so the penalty is gamed; with the mask
+        input the spike reaches $25\times$ at full resolution. Reading: the $v$ target has a
+        step at the zero border, $\sqrt{\bar\alpha}\,\epsilon$ on land and padding against
+        $\sqrt{\bar\alpha}\,\epsilon - \sqrt{1-\bar\alpha}\,x_0$ in the water, which the $\epsilon$ target
+        ($\epsilon$ everywhere) does not have; removing the step from the loss removes the spike, telling the network
+        where the border is does not.
   \item \textbf{The clip trades regularisation for range ($\epsilon$-prediction).} Same models, sampling only, scattered / top row:
         clip at $|x'| \le 1$ gives 0.061 / \SI{0.141}{K}, at 1.5 it gives 0.061 / \SI{0.108}{K}, at 3 it gives
         0.091 / \SI{0.123}{K}; $W_1$ 0.066 / 0.132, 0.086 / 0.117, 0.147 / \SI{0.154}{K}. Widening to 1.5 costs
@@ -275,7 +296,10 @@ spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every sp
 error (K) and ensemble spread (K) over the patch ($y$ = 28--33, $x$ = 2--6, all levels) and over an interior box,
 lag-1 zonal correlation of the error in the patch (1 = smooth, 0 = checkerboard); 25 held-out runs, 32 samples.
 Default sampler: EMA weights, 1000 steps, land constraint. Seed 1 has its own patch at $y$ = 1--2, $x$ = 16--19
-(\SI{0.49}{K}, correlation 0.01).}
+(\SI{0.49}{K}, correlation 0.01). Lower block: retrainings against the spike; with the mask as an input channel the
+spike sits at $y$ = 0--1, $x$ = 28--29 for seed 0 (\SI{0.79}{K}, correlation 0.06) and at $y$ = 28--29, $x$ = 4--6 for
+seed 1 (\SI{0.24}{K}, 0.11); with the penalty a residual column of \SI{0.17}{K} (correlation $-0.26$) remains at
+$y$ = 34, $x$ = 2; with the loss on the water cells none.}
 \label{tab:spot}
 \begin{tabular}{lcccc}
 \toprule
@@ -288,16 +312,21 @@ $v$ seed 0, default sampler & 0.30 & 0.20 & $-0.02$ & 0.05 \\
 \quad no land constraint    & 0.33 & 0.23 & $0.03$  & 0.11 \\
 $v$ seed 1                   & 0.06 & 0.04 & 0.45 & 0.05 \\
 $\epsilon$ seed 0, clip 1   & 0.15 & 0.12 & 0.90 & 0.15 \\
+\midrule
+$v$ seed 0, loss on the water cells   & 0.07 & 0.05 & 0.64 & 0.06 \\
+$v$ seed 1, loss on the water cells   & 0.07 & 0.05 & 0.69 & 0.07 \\
+$v$ seed 0, mask as an input channel  & 0.06 & 0.04 & 0.48 & 0.05 \\
+$v$ seed 1, mask as an input channel  & 0.12 & 0.08 & 0.17 & 0.05 \\
+$v$ seed 0, activation penalty 0.01   & 0.06 & 0.04 & 0.41 & 0.05 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section{Next steps}
 \begin{itemize}
-  \item Retrain the remaining splits with $v$-prediction and no clip, and make it the default; screen every
-        training for the decoder spike (worst column of the single-sample error and its lag-1 correlation, now
-        in the evaluation summary) and keep a clean seed, or find what removes it (loss mask on the zero cells,
-        activation penalty, a different normalisation layer).
+  \item Retrain the remaining splits with $v$-prediction, no clip and the loss on the water cells, and make that
+        the default; keep the spike screen of the evaluation summary (worst column of the single-sample error and
+        its lag-1 correlation) on every training.
   \item Stratification constraint at sampling time (DINO's isotonic projection on $T$): targets the inversions.
   \item Warm corner: unchanged by $v$-prediction, so it is a limit of the extrapolation, not of the sampler;
         stronger conditioning or an explicit trend prior is the lever.
@@ -309,7 +338,8 @@ $\epsilon$ seed 0, clip 1   & 0.15 & 0.12 & 0.90 & 0.15 \\
 
 \paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}.
 Training at \texttt{2b542aa} (\texttt{338997d} for the $7\times7$ block, \texttt{61d0dd2} for the outer 51,
-\texttt{8f157d5} for the $5\times5$ pair, \texttt{812ff96} for the four-run split, \texttt{1601947} for the $v$-prediction pair and its second seed); sampling and evaluation at \texttt{bfee32f}; the defect diagnostics (\texttt{diag\_spot.py}, \texttt{diag\_act.py}) at \texttt{c59f936}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
+\texttt{8f157d5} for the $5\times5$ pair, \texttt{812ff96} for the four-run split, \texttt{1601947} for the $v$-prediction pair and its second seed); sampling and evaluation at \texttt{bfee32f}; the defect diagnostics (\texttt{diag\_spot.py}, \texttt{diag\_act.py}) at \texttt{c59f936}; the five retrainings
+against the spike at \texttt{3155a6b}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
 the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 
 \begin{figure}[!htb]
@@ -486,6 +516,14 @@ the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three
 \includegraphics[width=0.72\textwidth]{../fs_block5_v_3std/samples_levels.png}
 \caption{Centre-$5\times5$ split, \textbf{$v$-prediction, no clip}, same condition as Figure~\ref{fig:samples_block5}: the samples are far less noisy.}
 \label{fig:samples_block5v}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.9\textwidth]{../fs_block5_vml_3std/samples_levels.png}
+\caption{Centre $5\times5$, $v$-prediction with the loss on the water cells, same condition and samples as
+Figure~\ref{fig:samples_block5v}: the patch is gone and $S$ stays within \SI{0.01}{psu}.}
+\label{fig:samples_block5vml}
 \end{figure}
 
 
