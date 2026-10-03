@@ -155,7 +155,7 @@ that level with the same rows marked. Every narrow peak of the distribution is o
 \end{itemize}
 
 \begin{table}[H]
-\centering\scriptsize\setlength{\tabcolsep}{3pt}
+\centering\scriptsize\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{lrrrrrrrrrr}
 \toprule
  & & \multicolumn{4}{c}{RMSE (K)} & bias & \multicolumn{3}{c}{$W_1$ (K)} & inversions (\%) \\
@@ -175,13 +175,13 @@ four runs & 96 & 0.154 & 0.214 & 0.179 & 0.254 & $+0.05$ & 0.106 & 0.156 & 0.208
 \midrule
 centre $5\times5$, $v$-pred. & 25 & 0.044 & 0.079 & 0.077 & 0.157 & $+0.01$ & 0.027 & 0.069 & 0.133 & 9.7 / 3.6 \\
 outer 75, $v$-pred. & 75 & 0.128 & 0.145 & 0.155 & 0.220 & $-0.06$ & 0.101 & 0.137 & 0.189 & 10.2 / 6.1 \\
-centre $5\times5$, $v$-pred.\ + mask & 25 & 0.037 & 0.070 & 0.077 & 0.157 & $+0.01$ & 0.031 & 0.069 & 0.133 & 9.2 / 3.6 \\
+centre $5\times5$, $v$ + mask & 25 & 0.037 & 0.070 & 0.077 & 0.157 & $+0.01$ & 0.031 & 0.069 & 0.133 & 9.2 / 3.6 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Outer 51 and
 outer 75: the complements of the $7\times7$ and $5\times5$ blocks, training on the block; four runs: training on one
 run one step in from each corner. Last three rows: the $5\times5$ splits retrained with $v$-prediction and sampled
-without clip (ensemble spread \SI{0.04}{K}); + mask'': the loss restricted to the water cells (spread
+without clip (ensemble spread \SI{0.04}{K}); $v$ + mask'': $v$-prediction with the loss restricted to the water cells (spread
 \SI{0.05}{K}), which removes the decoder spike. Bias: domain mean of the ensemble mean. The neighbour-average baseline equals the nearest run except in the scattered split
 (RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{K}); the ensemble spread is 0.12--\SI{0.13}{K} against a true within-window
 spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every split.}
