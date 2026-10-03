@@ -115,6 +115,34 @@ def test_model_and_loss(data_file: str):
           f"train set {len(ds)} samples from runs {ds.runs()} | cond example {c.numpy().round(3)}")
 
 
+def test_mask_input_and_penalty(data_file: str):
+    cfg = Config(num_train_timesteps=20, num_inference_steps=3, block_out_channels=(32, 32, 64, 64), split_mode="file",
+                 prediction_type="v_prediction", clip_sample=False, mask_input=True, act_penalty=0.01)
+    tr = build_transform(data_file, cfg)
+    ds = VerosTSDataset(data_file, "train", tr, cfg.fields, snapshot_stride=1)
+    model = ConditionalUNet(tr.n_channels, tr.padded_shape, ds.encoder.dim, cfg.block_out_channels, cfg.layers_per_block, 64,
+                            mask_input=True, act_penalty=True, in_mask=tr.zero_mask.all(0))
+    assert model.unet.config.in_channels == tr.n_channels + 1 and model.unet.config.out_channels == tr.n_channels
+    assert torch.equal(model.in_mask[0, 0].bool(), tr.zero_mask.all(0))
+    xb = torch.stack([ds[i][0] for i in range(2)]); cb = torch.stack([ds[i][1] for i in range(2)])
+    out = model(xb, torch.tensor([3, 7]), cb)
+    assert out.shape == xb.shape and torch.isfinite(out).all()
+    r = model.activation_ratio()
+    assert r.requires_grad and r.item() >= 0 and len(model._act_maps) == sum(len(b.resnets) for b in model.unet.up_blocks)
+    loss = Diffusion(cfg).training_loss(model, xb, cb, tr.zero_mask)
+    assert torch.isfinite(loss); loss.backward()
+    sched = Diffusion(cfg).scheduler; g = torch.Generator().manual_seed(0)
+    s = sample(model.eval(), sched, cb, 3, generator=g, constraints=[LandZero(tr.zero_mask, sched, g)])
+    assert s.shape == xb.shape and torch.isfinite(s).all()
+    with tempfile.TemporaryDirectory() as d:
+        model.save(f"{d}/m.pt"); m2 = ConditionalUNet.load(f"{d}/m.pt")
+        assert m2.kwargs["mask_input"] and torch.equal(m2.in_mask, model.in_mask)
+        assert torch.allclose(m2.eval()(xb, torch.tensor([3, 7]), cb), model.eval()(xb, torch.tensor([3, 7]), cb))
+    plain = ConditionalUNet(tr.n_channels, tr.padded_shape, ds.encoder.dim, cfg.block_out_channels, cfg.layers_per_block, 64)
+    plain(xb, torch.tensor([3, 7]), cb); assert plain.activation_ratio().item() == 0 and not hasattr(plain, "in_mask")
+    print("  mask input channel + activation penalty: forward/loss/sample/save-load OK")
+
+
 def test_block_split():
     from extract_data import choose_holdout
     ck = np.logspace(np.log10(0.0125), np.log10(0.8), 10); eps = np.logspace(np.log10(0.0875), np.log10(5.6), 10)
@@ -136,5 +164,6 @@ if __name__ == "__main__":
         data_file = synthetic_dataset(os.path.join(tempfile.gettempdir(), "miniveros_synth.npz")); print("using synthetic dataset")
     print("test_transforms"); test_transforms(data_file)
     print("test_model_and_loss"); test_model_and_loss(data_file)
+    print("test_mask_input_and_penalty"); test_mask_input_and_penalty(data_file)
     print("test_block_split"); test_block_split()
     print("ALL TESTS PASSED")

@@ -50,7 +50,9 @@ fields {temp, salt} (15,42,30) --concat--> (30,42,30) --normalise--> --land to 0
   classifier-free guidance via `cond_drop_prob`.
 * **Diffusion**: DDPM, 1000 steps, `squaredcos_cap_v2`, `clip_sample=True`, epsilon prediction, EMA.
   `prediction_type=v_prediction` trains on the velocity target instead; its predicted clean state stays bounded,
-  so it is meant to run with `clip_sample=false`.
+  so it is meant to run with `clip_sample=false`. Every v-prediction training so far grew one localised activation
+  spike in the decoder (a 3 x 3 patch of wrong values; the evaluation summary flags it); `mask_loss`, `mask_input`
+  (the land+padding mask as an input channel) and `act_penalty` are the options being tested against it.
 * **Sampling**: DDPM loop with a constraints hook; `LandZero` re-imposes the land and padding zeros, at the step's noise level by default.
 
 ## Usage (from this directory)

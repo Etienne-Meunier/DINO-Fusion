@@ -27,9 +27,13 @@ class Diffusion:
         pred = model(xt, t, cond, drop)
         target = self.target(x0, noise, t)
         if zero_mask is None or not self.cfg.mask_loss:
-            return F.mse_loss(pred, target)
-        w = (~zero_mask).to(pred.dtype)
-        return ((pred - target) ** 2 * w).sum() / (w.sum() * bs)
+            loss = F.mse_loss(pred, target)
+        else:
+            w = (~zero_mask).to(pred.dtype)
+            loss = ((pred - target) ** 2 * w).sum() / (w.sum() * bs)
+        if self.cfg.act_penalty > 0:
+            loss = loss + self.cfg.act_penalty * model.activation_ratio()
+        return loss
 
     def target(self, x0: torch.Tensor, noise: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Regression target of the network for clean states ``x0``, their noise and timesteps ``t``."""

@@ -14,6 +14,7 @@
 #     jobs/campaign.sh -n -s fs_ring      -p "split_mode=ring"                      (the 51 outer runs held out)
 #     jobs/campaign.sh -n -s fs_four      -p "split_mode=points"                    (train on 4 runs, one step in from each corner)
 #     jobs/campaign.sh -n -s fs_block5_v  -p "split_mode=block split_block=3,8,3,8 prediction_type=v_prediction clip_sample=false"
+#     ... against the decoder spike of the v models: add mask_loss=true | mask_input=true | act_penalty=0.01 (and seed=1)
 # Each job exits non-zero on failure (set -e), so dependants never start on garbage.
 set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
