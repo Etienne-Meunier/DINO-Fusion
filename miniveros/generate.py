@@ -37,13 +37,20 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--out", default=None)
     p.add_argument("--tag", default="", help="suffix for the sample file name (sampling variants of one run)")
-    p.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE", help="override config fields (e.g. data_file=...)")
+    p.add_argument("--constraint", choices=["landzero", "none"], default="landzero",
+                   help="land/padding handling in the sampler (none: unconstrained, a diagnostic)")
+    p.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE",
+                   help="override config fields (e.g. data_file=...); weights=raw|ema and constraint=landzero|none are "
+                        "accepted here too, for the job scripts that only forward key=value pairs")
     a = p.parse_args(argv)
 
     run_dir = Path(a.run_dir)
     cfg = Config.load(run_dir / "config.json")
-    if a.set:
-        cfg = Config(**{**cfg.__dict__, **_coerce_all(dict(kv.split("=", 1) for kv in a.set))})
+    pairs = dict(kv.split("=", 1) for kv in a.set)
+    weights_kind = pairs.pop("weights", a.weights)
+    constraint = pairs.pop("constraint", a.constraint)
+    if pairs:
+        cfg = Config(**{**cfg.__dict__, **_coerce_all(pairs)})
     n_samples = a.n_samples or cfg.n_samples
     steps = a.steps or cfg.num_inference_steps
     guidance = a.guidance if a.guidance is not None else cfg.guidance_scale
@@ -63,14 +70,15 @@ def main(argv=None):
     epss = run_eps[rid] if tag != "custom" else np.array(a.eps)
     n_cond = len(cks)
 
-    weights = run_dir / ("model_ema.pt" if a.weights == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
+    weights = run_dir / ("model_ema.pt" if weights_kind == "ema" and (run_dir / "model_ema.pt").exists() else "model.pt")
     model = ConditionalUNet.load(weights, map_location=device).to(device).eval()
     tr = build_transform(cfg.data_file, cfg, device=device)
     scheduler = Diffusion(cfg).scheduler
     gen = torch.Generator(device).manual_seed(a.seed)
-    constraints = [LandZero(tr.zero_mask, scheduler, gen)]
+    constraints = [LandZero(tr.zero_mask, scheduler, gen)] if constraint == "landzero" else []
     print(f"{tag}: {n_cond} conditions x {n_samples} samples, {steps} steps, guidance {guidance}, weights {weights.name}, "
-          f"norm {cfg.norm_mode}, clip +-{cfg.clip_sample_range:g}, device {device}", flush=True)
+          f"norm {cfg.norm_mode}, clip {cfg.clip_sample_range:g} ({'on' if cfg.clip_sample else 'off'}), "
+          f"{cfg.prediction_type}, constraint {constraint}, device {device}", flush=True)
 
     Z, Y, X = ds["mask_land"].shape
     out = {f: np.full((n_cond, n_samples, Z, Y, X), np.nan, np.float32) for f in cfg.fields}
@@ -88,7 +96,7 @@ def main(argv=None):
         print(f"  {min(s + a.batch, total)}/{total} samples  {time.time() - t0:.0f}s", flush=True)
 
     suffix = f"_{a.tag}" if a.tag else ""
-    out_path = Path(a.out) if a.out else run_dir / "samples" / f"{tag}_n{n_samples}_s{steps}_{a.weights}{suffix}.npz"
+    out_path = Path(a.out) if a.out else run_dir / "samples" / f"{tag}_n{n_samples}_s{steps}_{weights_kind}{suffix}.npz"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path, **out, ck=cks.astype(np.float32), eps=epss.astype(np.float32), run_id=rid,
              run_names=np.array([run_names[r] if r >= 0 else f"ck{c:g}_eps{e:g}" for r, c, e in zip(rid, cks, epss)]),

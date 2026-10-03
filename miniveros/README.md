@@ -79,6 +79,8 @@ jobs/submit.sh extract
 jobs/submit.sh train --preset full --set data_file=$MV_DATA run_dir=$MV_WORK/runs/fs_scattered_3std split_mode=interior_random
 jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std      # 32 samples per hold-out condition by default
 jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std 32 c3 clip_sample_range=3   # a sampling variant: samples/*_c3.npz, eval_c3/
+jobs/submit.sh generate_eval $MV_WORK/runs/fs_scattered_3std 32 nolz constraint=none     # weights=raw|ema and constraint=landzero|none ride along
+jobs/submit.sh script diag_spot.py --run-dir $MV_WORK/runs/fs_scattered_3std --run-name ck0.126_eps0.8819 --out $MV_WORK/runs/fs_scattered_3std/diag.npz
 jobs/campaign.sh -s fs_scattered -p "split_mode=interior_random"      # whole chain: extract -> train -> generate_eval
 jobs/campaign.sh -n -s fs_band3 -p "split_mode=rows split_rows=0.126,0.2,0.3175"   # reuse the data file
 ```
