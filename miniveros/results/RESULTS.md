@@ -22,8 +22,9 @@ on `c_k` {0.0198, 0.504} x `c_eps` {0.139, 3.53}, one step in from each corner; 
 `fs_band3_3std`, `fs_block5_3std`, `fs_block_3std`, `fs_ring_3std`, `fs_ring5_3std`, `fs_top_3std`, `fs_four_3std`
 (training at `812ff96`), `fs_block5_v_3std` and `fs_ring5_v_3std` (`1601947`, v-prediction without clip),
 `fs_block5_v1_3std` (the centre 5 x 5 v model with `seed=1`, a diagnostic for finding 2e), `fs_block5_vml_3std`,
-`fs_block5_vml1_3std`, `fs_block5_vmi_3std`, `fs_block5_vmi1_3std`, `fs_block5_vap_3std` (`3155a6b`, the retrainings
-against the spike of finding 2f: loss on water cells x 2 seeds, mask input channel x 2 seeds, activation penalty).
+`fs_block5_vml1_3std`, `fs_block5_vmi_3std`, `fs_block5_vmi1_3std`, `fs_block5_vap_3std`, `fs_ring5_vml_3std` (`3155a6b`,
+the retrainings against the spike of finding 2f: loss on water cells x 2 seeds and on the outer-75 split, mask input
+channel x 2 seeds, activation penalty).
 
 | split | runs | RMSE mean of 32 | RMSE one sample | RMSE nearest run | RMSE neighbour avg | RMSE mean state | bias | spread (true) | W1 diffusion | W1 nearest | W1 mean state | inversions gen / truth | max S error |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -39,6 +40,7 @@ against the spike of finding 2f: loss on water cells x 2 seeds, mask input chann
 | outer 75, v-prediction, no clip | 75 | 0.128 ± 0.195 (median 0.048) | 0.145 | 0.155 | 0.155 | 0.220 | -0.063 | 0.041 (0.030) | 0.101 | 0.137 | 0.189 | 10.2 % / 6.1 % | 0.028 |
 | centre 5 x 5, v-prediction, no clip, loss on water cells (seed 0) | 25 | 0.037 ± 0.011 | 0.070 | 0.077 | 0.076 | 0.157 | +0.006 | 0.054 (0.031) | 0.031 | 0.069 | 0.133 | 9.2 % / 3.6 % | 0.008 |
 | centre 5 x 5, v-prediction, no clip, loss on water cells (seed 1) | 25 | 0.038 ± 0.012 | 0.073 | 0.077 | 0.076 | 0.157 | +0.008 | 0.057 (0.031) | 0.031 | 0.069 | 0.133 | 9.3 % / 3.6 % | 0.008 |
+| outer 75, v-prediction, no clip, loss on water cells | 75 | 0.123 ± 0.194 (median 0.049) | 0.149 | 0.155 | 0.155 | 0.220 | -0.069 | 0.059 (0.030) | 0.094 | 0.137 | 0.189 | 10.4 % / 6.1 % | 0.010 |
 
 | split | grid W1 all / hold-out / training (K) | grid domain-mean T RMSE all / hold-out (K) |
 |---|---|---|
@@ -53,6 +55,7 @@ against the spike of finding 2f: loss on water cells x 2 seeds, mask input chann
 | centre 5 x 5, v-prediction | 0.028 / 0.027 / 0.028 | 0.014 / 0.017 |
 | outer 75, v-prediction | 0.083 / 0.101 / 0.028 | 0.136 / 0.157 |
 | centre 5 x 5, v-prediction, loss on water cells | 0.032 / 0.031 / 0.032 | 0.012 / 0.014 |
+| outer 75, v-prediction, loss on water cells | 0.078 / 0.094 / 0.028 | 0.135 / 0.156 |
 
 Band of three, by row (RMSE in K): diffusion 0.063 / 0.074 / 0.091 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
 0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
@@ -134,8 +137,10 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    penalty on the channel-RMS map is gamed); RMSE 0.041, single sample 0.059 and spread 0.038 (the lowest), S 0.008
    psu. Reading: the v target has a step at the zero border (sqrt(abar) eps on land and padding, sqrt(abar) eps -
    sqrt(1 - abar) x0 in the water) that the eps target does not; removing the step from the loss removes the spike,
-   telling the network where the border is does not. The outer-75 counterpart `fs_ring5_vml_3std` is reported below
-   when available.
+   telling the network where the border is does not. Outer-75 counterpart `fs_ring5_vml_3std` (`mask_loss=true`):
+   the restoring-row spike is gone (column y 1, x 16: 0.19 K, corr 0.95, spread 0.075, from 0.44 K, 0.32, 0.30),
+   screen clean, S 0.010 psu, RMSE 0.123 (from 0.128), median 0.049, wins 48 / 75 (from 44), W1 0.094 (from 0.101),
+   spread 0.059 (truth 0.030), corner run 1.05 K (unchanged).
 3. **Depth structure.** 0.03 to 0.08 K at every level in the interpolation splits; the bottom two levels are no longer
    special (0.07 K) except in the top row (0.29 K, the corner runs). Worst band: the top 100 m (0.07 to 0.12 K),
    where 3 sigma_z is about 12 K and sampler noise is amplified.
@@ -180,8 +185,8 @@ variant 15 GPU minutes.
 
 Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_ring5_3std/`,
 `fs_top_3std/`, `fs_four_3std/`, `fs_block5_v_3std/`, `fs_ring5_v_3std/`, `fs_block5_v1_3std/`, `fs_block5_vml_3std/`,
-`fs_block5_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/` (sample figure only for the
-main runs and `fs_block5_vml_3std`)): `config.json`, `git_hash.txt`, `train_log.csv`,
+`fs_block5_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/`, `fs_ring5_vml_3std/` (sample
+figure only for the main runs and `fs_block5_vml_3std`)): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
