@@ -54,10 +54,17 @@ class ConditionalUNet(nn.Module):
     def save(self, path) -> None:
         torch.save({"kwargs": self.kwargs, "state_dict": self.state_dict()}, path)
 
+    LEGACY_KWARGS = ("mask_input", "act_penalty")   # options tested at 3155a6b and removed; weight files of that era carry them
+
     @classmethod
     def load(cls, path, map_location="cpu") -> "ConditionalUNet":
         ck = torch.load(path, map_location=map_location, weights_only=False)
-        m = cls(**ck["kwargs"])
+        kwargs = dict(ck["kwargs"])
+        if kwargs.get("mask_input"):
+            raise ValueError(f"{path}: trained with the removed mask_input option (an extra input channel); not loadable")
+        for k in cls.LEGACY_KWARGS:
+            kwargs.pop(k, None)
+        m = cls(**kwargs)
         m.load_state_dict(ck["state_dict"])
         return m
 

@@ -111,6 +111,9 @@ def test_model_and_loss(data_file: str):
     with tempfile.TemporaryDirectory() as d:
         model.save(f"{d}/m.pt"); m2 = ConditionalUNet.load(f"{d}/m.pt")
         assert all(torch.equal(a, b) for a, b in zip(model.state_dict().values(), m2.state_dict().values()))
+        ck = torch.load(f"{d}/m.pt", weights_only=False); ck["kwargs"].update(mask_input=False, act_penalty=False)
+        torch.save(ck, f"{d}/legacy.pt"); m3 = ConditionalUNet.load(f"{d}/legacy.pt")       # weight files from 3155a6b..a94136b
+        assert all(torch.equal(a, b) for a, b in zip(model.state_dict().values(), m3.state_dict().values()))
     print(f"  model {model.n_params() / 1e6:.2f}M params | forward/loss/sample/save-load OK | "
           f"train set {len(ds)} samples from runs {ds.runs()} | cond example {c.numpy().round(3)}")
 
