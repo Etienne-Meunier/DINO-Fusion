@@ -10,6 +10,37 @@ step (`LandZero`); 32 samples per hold-out run and per grid point. Training
 at `2b542aa`, sampling and evaluation at `bfee32f`. Runs: `fs_scattered_3std`, `fs_band3_3std`, `fs_top_3std` (training at `2b542aa`), `fs_block_3std` (`338997d`),
 `fs_ring_3std` (`61d0dd2`), `fs_block5_3std` and `fs_ring5_3std` (`8f157d5`).
 
+## Reference configuration on all eight splits (5 Oct 2026)
+
+`prediction_type=v_prediction clip_sample=false mask_loss=true`; runs `fs_scattered_vml_3std`, `fs_band3_vml_3std`,
+`fs_block5_vml_3std`, `fs_block_vml_3std`, `fs_ring_vml_3std`, `fs_ring5_vml_3std`, `fs_top_vml_3std`,
+`fs_four_vml_3std` (training at `3155a6b` / `a94136b` / `dd05902`, identical training code). The report now covers
+only this configuration; the epsilon-prediction rows below are the earlier round, kept here as the record.
+
+| split | runs | RMSE mean of 32 | median | sample | nearest | mean state | bias | W1 diff / nearest / mean state | inv gen / truth | wins | spread (truth) | S max psu |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| scattered | 10 | 0.029 ± 0.005 | 0.027 | 0.065 | 0.037 | 0.155 | -0.002 | 0.029 / 0.044 / 0.136 | 9.1 % / 7.7 % | 5 / 10 | 0.054 (0.031) | 0.008 |
+| band of three rows | 30 | 0.048 ± 0.014 | 0.048 | 0.078 | 0.116 | 0.197 | +0.000 | 0.037 / 0.095 / 0.160 | 10.0 % / 1.3 % | 22 / 30 | 0.056 (0.031) | 0.022 |
+| centre 5 x 5 | 25 | 0.037 ± 0.011 | 0.034 | 0.070 | 0.077 | 0.157 | +0.006 | 0.031 / 0.069 / 0.133 | 9.2 % / 3.6 % | 18 / 25 | 0.054 (0.031) | 0.010 |
+| centre 7 x 7 | 49 | 0.041 ± 0.012 | 0.038 | 0.074 | 0.114 | 0.197 | +0.003 | 0.032 / 0.095 / 0.166 | 9.5 % / 4.2 % | 35 / 49 | 0.057 (0.031) | 0.014 |
+| outer 51 | 51 | 0.079 ± 0.108 | 0.041 | 0.110 | 0.131 | 0.258 | -0.024 | 0.051 / 0.117 / 0.223 | 10.6 % / 6.6 % | 30 / 51 | 0.062 (0.030) | 0.032 |
+| outer 75 | 75 | 0.123 ± 0.194 | 0.049 | 0.149 | 0.155 | 0.219 | -0.069 | 0.094 / 0.137 / 0.189 | 10.4 % / 6.1 % | 48 / 75 | 0.059 (0.030) | 0.027 |
+| top row | 10 | 0.074 ± 0.048 | 0.054 | 0.108 | 0.170 | 0.470 | +0.006 | 0.049 / 0.142 / 0.420 | 11.6 % / 0.1 % | 9 / 10 | 0.067 (0.031) | 0.051 |
+| four runs | 96 | 0.150 ± 0.120 | 0.107 | 0.168 | 0.179 | 0.254 | +0.006 | 0.090 / 0.156 / 0.208 | 10.5 % / 5.4 % | 32 / 96 | 0.058 (0.031) | 0.017 |
+
+Corner run (ck 0.8, eps 0.0875): outer 51 0.61 K (nearest 0.92), outer 75 1.05 (1.24), top row 0.21 (0.35), four
+runs 0.51 (0.67). Grid metrics (W1 all / hold-out / train, domain-mean RMSE all / hold-out): scattered
+0.031 / 0.028 / 0.032, 0.011 / 0.007; band 0.032 / 0.037 / 0.030, 0.014 / 0.021; centre 5 x 5 0.032 / 0.031 / 0.032,
+0.012 / 0.014; centre 7 x 7 0.033 / 0.033 / 0.033, 0.011 / 0.012; outer 51 0.040 / 0.051 / 0.028, 0.040 / 0.055;
+outer 75 0.078 / 0.094 / 0.028, 0.135 / 0.156; top row 0.032 / 0.049 / 0.030, 0.013 / 0.025; four runs
+0.087 / 0.090 / 0.029, 0.059 / 0.060. Spike screen: clean on seven; the top-row model is flagged at its corner run's
+front on the northern boundary (column y 41, x 28, 0.37 K, lag-1 corr 0.31, coherent cold bias of 1 to 2 K in the
+corner run): the front, not a decoder patch (a second seed, `fs_top_vml1_3std`, was run to check).
+
+Against the epsilon round (same splits, `epsilon` + clip 1): 0.061 -> 0.029, 0.076 -> 0.048, 0.061 -> 0.037,
+0.064 -> 0.041, 0.110 -> 0.079, 0.138 -> 0.123, 0.141 -> 0.074, 0.154 -> 0.150 K; corner runs 0.77 -> 0.61,
+1.10 -> 1.05, 0.41 -> 0.21, 0.70 -> 0.51 K; spreads 0.12 to 0.13 -> 0.05 to 0.07 K.
+
 ## Hold-out metrics (mean over the held-out runs, water cells, against the true 20-year time-mean)
 
 Seven splits of the 10 x 10 grid. Interpolation: scattered (10 interior points, 90 training runs), band of three

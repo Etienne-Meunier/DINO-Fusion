@@ -14,9 +14,9 @@
 \setlist[itemize]{nosep, leftmargin=1.2em}
 \setlength{\parskip}{3pt}
 
-\title{Conditional diffusion emulator of Veros ACC equilibrium states:\\first end-to-end results}
+\title{Conditional diffusion emulator of Veros ACC equilibrium states:\\results}
 \author{}
-\date{3 October 2026}
+\date{5 October 2026}
 
 \begin{document}
 \maketitle
@@ -25,32 +25,25 @@
 \begin{itemize}
   \item Goal: generate the post-spin-up $(T, S)$ state of the Veros ACC channel from the EKE-closure
         coefficients $(c_k, c_\epsilon)$, skipping the spin-up.
-  \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble; one split runs end to end in
-        under one A100 hour.
+  \item Pipeline: DINO-Fusion diffusion code adapted to a parameter ensemble, with a velocity target, an
+        unclipped sampler and the loss restricted to the water cells; one split runs end to end in under one
+        A100 hour. A first round with DINO-Fusion's $\epsilon$-prediction and clipped sampler gave
+        0.06--\SI{0.15}{K} on the same splits; the present configuration is better on every metric and is used
+        throughout.
   \item Interpolation (scattered points, a band of three rows, the $5\times5$ and $7\times7$ centre blocks held
-        out): hold-out RMSE 0.061 / 0.076 / 0.061 / \SI{0.064}{K} against 0.037 / 0.116 / 0.077 / \SI{0.114}{K}
+        out): hold-out RMSE 0.029 / 0.048 / 0.037 / \SI{0.041}{K} against 0.037 / 0.116 / 0.077 / \SI{0.114}{K}
         for the nearest training run and 0.155--\SI{0.197}{K} for the mean state. The model's error does not
         depend on the size of the gap; the baselines' does, so the model wins as soon as the gap exceeds one
         grid step.
-  \item Extrapolation (the 51 or 75 outer runs held out, training on the centre; the top row): 0.110 / 0.138 /
-        \SI{0.141}{K} against 0.131 / 0.155 / \SI{0.170}{K}, medians 0.061 / 0.064. The mean is set by the warm
-        corner, where the model is cold-biased (corner run 0.77 and \SI{1.10}{K} when it lies two and three cells
-        from the training set); elsewhere 0.04--\SI{0.13}{K}. A Wasserstein metric on the stratification profiles
-        gives the same ranking.
-  \item Training on the velocity target ($v$-prediction) lets the sampler run without any clip, and improves
-        every metric on the two $5\times5$ splits: hold-out RMSE 0.044 and \SI{0.128}{K} (from 0.061 and 0.138),
-        single-sample RMSE 0.079 and 0.145 (from 0.153 and 0.213), $W_1$ 0.027 and 0.101 (from 0.070 and 0.118),
-        and an ensemble spread of \SI{0.04}{K} against a true \SI{0.03}{K} (from 0.13). The $\epsilon$ models
-        diverge without the clip. The warm corner is unchanged: its error is extrapolation, not the clip. Each
-        $v$ network carries one localised defect, a $3\times3$ patch of wrong values at a seed-dependent place
-        next to a zero border, traced to an activation spike in the decoder; it is invisible to the loss and to
-        every sampler variant, and inflates the single-sample and salinity errors but not the mean. Restricting the
-        loss to the water cells removes it (two seeds, both $5\times5$ splits) and lowers the hold-out RMSE to 0.037
-        and \SI{0.123}{K}; the mask as an input channel and an activation penalty do not.
-  \item Four training runs only, one step in from each corner: the model still beats the nearest run on average
-        (0.154 vs \SI{0.179}{K}) and in $W_1$ (0.106 vs \SI{0.156}{K}) because it interpolates the warm-side trend
-        the baseline cannot, but its error is now 0.1--\SI{0.45}{K} over most of the grid. With the reference
-        configuration: 0.150 and \SI{0.090}{K}, the corner at \SI{0.51}{K} instead of 0.70.
+  \item Extrapolation (the 51 or 75 outer runs held out, training on the centre; the top row): 0.079 / 0.123 /
+        \SI{0.074}{K} against 0.131 / 0.155 / \SI{0.170}{K}, medians 0.041 / 0.049 / 0.054. The mean is set by the
+        warm corner, where the model is cold-biased (corner run 0.61, 1.05 and \SI{0.21}{K} when it lies two,
+        three and one cells from the training set); elsewhere 0.03--\SI{0.15}{K}.
+  \item Four training runs only, one step in from each corner: 0.150 vs \SI{0.179}{K} for the nearest run and
+        $W_1$ 0.090 vs \SI{0.156}{K}; the model interpolates the warm-side trend the baseline cannot, and loses
+        where the state hardly changes.
+  \item Samples: single-sample RMSE 0.07--\SI{0.11}{K} in interpolation, ensemble spread 0.05--\SI{0.07}{K} against
+        a true within-window \SI{0.03}{K}; $S$ within \SI{0.05}{psu} of its constant; land exact.
   \item Physical miss: temperature inversions are generated at the rate of the weakly eddying runs in every
         regime.
 \end{itemize}
@@ -103,19 +96,28 @@ that level with the same rows marked. Every narrow peak of the distribution is o
         leakage of 30 scaling constants; no held-out state enters training).
   \item Denoiser: UNet2DModel (64, 64, 128, 128), 6.9\,M parameters. The condition $c$, the standardised pair
         $(\log c_k, \log c_\epsilon)$, enters through an MLP added to the timestep embedding.
-  \item DDPM, $\epsilon$-prediction, 1000 steps, squared-cosine schedule, EMA:
+  \item DDPM with the velocity target, 1000 steps, squared-cosine schedule, EMA; the loss runs over the water
+        cells only:
         \begin{equation}
           \mathcal L(\theta) = \mathbb E_{t,\,x_0,\,\epsilon}\,
-          \big\| \epsilon - \epsilon_\theta\big(\sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon,\; t,\; c\big) \big\|^2 .
+          \big\| v_t - v_\theta(x_t, t, c) \big\|^2_{\mathrm{water}}, \qquad
+          x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon, \quad
+          v_t = \sqrt{\bar\alpha_t}\,\epsilon - \sqrt{1-\bar\alpha_t}\,x_0 .
         \end{equation}
-        20\,000 steps, batch 32, AdamW $10^{-4}$ with cosine decay; \SI{22}{min} on one A100.
-  \item Sampling: 1000-step DDPM loop with EMA weights; the predicted clean state is clipped at $|x'| \le 1$;
-        after every step the land and padding cells are reset to zero at the step's noise level,
-        $\sqrt{1-\bar\alpha_t}\,z$, as in training. 32 samples per condition.
-  \item Variant: $v$-prediction, the network regresses $v = \sqrt{\bar\alpha_t}\,\epsilon - \sqrt{1-\bar\alpha_t}\,x_0$
-        instead of $\epsilon$ (same architecture, schedule and steps), and the sampler runs unclipped: the clean-state
-        estimate $\hat x_0 = \sqrt{\bar\alpha_t}\,x_t - \sqrt{1-\bar\alpha_t}\,\hat v$ stays bounded at high noise, where
-        the $\epsilon$ form divides by $\sqrt{\bar\alpha_t}$.
+        20\,000 steps, batch 32, AdamW $10^{-4}$ with cosine decay; 17--\SI{25}{min} on one A100.
+  \item Sampling: 1000-step DDPM loop with EMA weights; the clean-state estimate
+        $\hat x_0 = \sqrt{\bar\alpha_t}\,x_t - \sqrt{1-\bar\alpha_t}\,\hat v$ is used unclipped; after every step
+        the land and padding cells are reset to zero at the step's noise level, $\sqrt{1-\bar\alpha_t}\,z$, as in
+        training. 32 samples per condition.
+  \item Why the velocity target and the water-only loss. With $\epsilon$-prediction the clean-state estimate
+        divides by $\sqrt{\bar\alpha_t}$, so the chain needs a clip on $\hat x_0$, and the clip at $|x'| \le 1$
+        caps the deep levels, whose data reach $+2.7$; the velocity form stays bounded and runs unclipped. Its
+        target, however, has a step at the land and padding border (noise only there, noise minus the clean state
+        in the water), and with the loss on all cells the network built that step with a localised activation
+        spike in its decoder: a $3\times3$ patch of wrong values, 0.3--\SI{0.9}{K} through the water column, at a
+        seed-dependent place next to a zero border, invisible to the loss. Restricting the loss to the water cells
+        removes the step and the spike (Figure~\ref{fig:spot}); the evaluation summary flags any such patch
+        (worst column of the single-sample error and the zonal correlation of its error).
 \end{itemize}
 
 \paragraph{Differences from the DINO-Fusion code.}
@@ -127,6 +129,7 @@ that level with the same rows marked. Every narrow peak of the distribution is o
         network never sees in training, where those cells carry noise like every other. Here they are reset to
         zeros at the step's noise level, $\sqrt{1-\bar\alpha_t}\,z$, exactly as in training. DINO's stratification
         constraints are not ported yet.
+  \item Training target: velocity instead of noise, loss on the water cells only, no clip at sampling.
   \item Everything else is kept: transform chain, 3-std normalisation, DDPM settings, EMA.
 \end{itemize}
 
@@ -156,212 +159,109 @@ that level with the same rows marked. Every narrow peak of the distribution is o
 \end{itemize}
 
 \begin{table}[H]
-\centering\scriptsize\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{lrrrrrrrrrr}
+\centering\scriptsize\setlength{\tabcolsep}{2pt}
+\begin{tabular}{lrrrrrrrrrrr}
 \toprule
- & & \multicolumn{4}{c}{RMSE (K)} & bias & \multicolumn{3}{c}{$W_1$ (K)} & inversions (\%) \\
-\cmidrule(lr){3-6}\cmidrule(lr){8-10}
-split & runs & mean of 32 & sample & nearest & mean state & (K) & diffusion & nearest & mean state & generated / truth \\
+ & & \multicolumn{4}{c}{RMSE (K)} & median & bias & \multicolumn{3}{c}{$W_1$ (K)} & inversions (\%) \\
+\cmidrule(lr){3-6}\cmidrule(lr){9-11}
+split & runs & mean of 32 & sample & nearest & mean state & (K) & (K) & diffusion & nearest & mean state & generated / truth \\
 \midrule
-scattered & 10 & 0.061 & 0.147 & 0.037 & 0.155 & $+0.04$ & 0.066 & 0.044 & 0.136 & 10.2 / 7.7 \\
-band of three rows & 30 & 0.076 & 0.160 & 0.116 & 0.197 & $+0.02$ & 0.075 & 0.095 & 0.160 & 10.9 / 1.3 \\
-centre $5\times5$ & 25 & 0.061 & 0.153 & 0.077 & 0.157 & $+0.04$ & 0.070 & 0.069 & 0.133 & 10.4 / 3.6 \\
-centre $7\times7$ & 49 & 0.064 & 0.153 & 0.114 & 0.197 & $+0.03$ & 0.073 & 0.095 & 0.166 & 10.4 / 4.2 \\
+scattered & 10 & 0.029 & 0.065 & 0.037 & 0.155 & 0.027 & $-0.00$ & 0.029 & 0.044 & 0.136 & 9.1 / 7.7 \\
+band (three rows) & 30 & 0.048 & 0.078 & 0.116 & 0.197 & 0.048 & $+0.00$ & 0.037 & 0.095 & 0.160 & 10.0 / 1.3 \\
+centre $5\times5$ & 25 & 0.037 & 0.070 & 0.077 & 0.157 & 0.034 & $+0.01$ & 0.031 & 0.069 & 0.133 & 9.2 / 3.6 \\
+centre $7\times7$ & 49 & 0.041 & 0.074 & 0.114 & 0.197 & 0.038 & $+0.00$ & 0.032 & 0.095 & 0.166 & 9.5 / 4.2 \\
 \midrule
-outer 51 & 51 & 0.110 & 0.185 & 0.131 & 0.258 & $-0.00$ & 0.100 & 0.117 & 0.223 & 11.0 / 6.6 \\
-outer 75 & 75 & 0.138 & 0.213 & 0.155 & 0.220 & $-0.02$ & 0.118 & 0.137 & 0.189 & 10.6 / 6.1 \\
-top row & 10 & 0.141 & 0.208 & 0.170 & 0.470 & $-0.02$ & 0.132 & 0.142 & 0.420 & 12.3 / 0.1 \\
+outer 51 & 51 & 0.079 & 0.110 & 0.131 & 0.258 & 0.041 & $-0.02$ & 0.051 & 0.117 & 0.223 & 10.6 / 6.6 \\
+outer 75 & 75 & 0.123 & 0.149 & 0.155 & 0.219 & 0.049 & $-0.07$ & 0.094 & 0.137 & 0.189 & 10.4 / 6.1 \\
+top row & 10 & 0.074 & 0.108 & 0.170 & 0.470 & 0.054 & $+0.01$ & 0.049 & 0.142 & 0.420 & 11.6 / 0.1 \\
 \midrule
-four runs & 96 & 0.154 & 0.214 & 0.179 & 0.254 & $+0.05$ & 0.106 & 0.156 & 0.208 & 10.5 / 5.4 \\
-\midrule
-centre $5\times5$, $v$-pred. & 25 & 0.044 & 0.079 & 0.077 & 0.157 & $+0.01$ & 0.027 & 0.069 & 0.133 & 9.7 / 3.6 \\
-outer 75, $v$-pred. & 75 & 0.128 & 0.145 & 0.155 & 0.220 & $-0.06$ & 0.101 & 0.137 & 0.189 & 10.2 / 6.1 \\
-centre $5\times5$, $v$ + mask & 25 & 0.037 & 0.070 & 0.077 & 0.157 & $+0.01$ & 0.031 & 0.069 & 0.133 & 9.2 / 3.6 \\
-outer 75, $v$ + mask & 75 & 0.123 & 0.149 & 0.155 & 0.220 & $-0.07$ & 0.094 & 0.137 & 0.189 & 10.4 / 6.1 \\
-four runs, $v$ + mask & 96 & 0.150 & 0.168 & 0.179 & 0.254 & $+0.01$ & 0.090 & 0.156 & 0.208 & 10.5 / 5.4 \\
+four runs & 96 & 0.150 & 0.168 & 0.179 & 0.254 & 0.107 & $+0.01$ & 0.090 & 0.156 & 0.208 & 10.5 / 5.4 \\
 \bottomrule
 \end{tabular}
 \caption{Hold-out metrics per split, mean over the held-out runs, water cells, 32 samples per run. Outer 51 and
 outer 75: the complements of the $7\times7$ and $5\times5$ blocks, training on the block; four runs: training on one
-run one step in from each corner. Last five rows: the $5\times5$ splits retrained with $v$-prediction and sampled
-without clip (ensemble spread \SI{0.04}{K}); ``$v$ + mask'': $v$-prediction with the loss restricted to the water
-cells (spread 0.05--\SI{0.06}{K}), which removes the decoder spike, the reference configuration, also run on the
-four-run split. Bias: domain mean of the ensemble mean. The neighbour-average baseline equals the nearest run except in the scattered split
-(RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{K}); the ensemble spread is 0.12--\SI{0.13}{K} against a true within-window
-spread of \SI{0.03}{K}; the salinity error is 0.012--\SI{0.017}{psu} in every split.}
-\label{tab:splits}
+run one step in from each corner. Bias: domain mean of the ensemble mean. The neighbour-average baseline equals the
+nearest run except in the scattered split (RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{K}); the ensemble spread is
+0.05--\SI{0.07}{K} against a true within-window spread of \SI{0.03}{K}.}
+\label{tab:main}
 \end{table}
 
 \section{Findings}
 \begin{itemize}
-  \item \textbf{Interpolation: the model's error is gap-independent, the baselines' is not.} Band: beats the
-        nearest run at every level below \SI{26}{m} and in all three rows (0.063 / 0.074 / \SI{0.091}{K} vs
-        0.063 / 0.132 / \SI{0.152}{K} for $c_k$ = 0.126 / 0.2 / 0.3175). Centre $5\times5$ and $7\times7$: the same
-        error, 0.061 and \SI{0.064}{K}, flat over the block (0.04--\SI{0.12}{K}), while the nearest run goes from
-        0.077 to \SI{0.114}{K} and reaches \SI{0.18}{K} at the centre of either block, where the model stays at
-        \SI{0.05}{K}. In every split the losses are the runs of the flat regime (low $c_k$, high $c_\epsilon$), where
-        a copied neighbour is already within \SI{0.05}{K}; the scattered split, whose neighbours are all one step
-        away, is the one where the nearest run wins overall (Figures~\ref{fig:scat}--\ref{fig:block}).
+  \item \textbf{Interpolation: the model's error is gap-independent, the baselines' is not.} Band: 0.048 against
+        \SI{0.116}{K} for the nearest run, 22 wins of 30, better at every level below \SI{14}{m}. Centre $5\times5$
+        and $7\times7$: 0.037 and \SI{0.041}{K}, flat over the block (0.02--\SI{0.08}{K}), while the nearest run goes
+        from 0.077 to \SI{0.114}{K} and reaches \SI{0.19}{K} at the centre of either block, where the model stays
+        at \SI{0.03}{K}; 18 of 25 and 35 of 49 wins. The losses are the runs of the flat regime (low $c_k$, high
+        $c_\epsilon$), where a copied neighbour is already within \SI{0.03}{K}; in the scattered split, whose
+        neighbours are all one step away, the two tie (0.029 vs \SI{0.037}{K}, 5 wins of 10)
+        (Figures~\ref{fig:scat}--\ref{fig:block}).
   \item \textbf{Extrapolation: the warm corner sets the mean, the rest behaves like interpolation.} Outer 51 /
-        outer 75 / top row: mean 0.110 / 0.138 / \SI{0.141}{K}, median 0.061 / 0.064 / \SI{0.11}{K}. The corner run
-        ($c_k$ = 0.8, $c_\epsilon$ = 0.0875) errs by 0.77, 1.10 and \SI{0.41}{K} with a cold bias ($-0.43$, $-0.68$,
-        \SI{-0.19}{K}): the model does not carry the warming beyond the last training row, and the error grows
-        with the distance to it (two, three and one cells). Away from the corner the outer 75 sit at
-        \SI{0.089}{K} against \SI{0.095}{K} for the nearest run. The model beats the nearest run from about
-        \SI{150}{m} to the bottom and at 24 / 51, 32 / 75 and 7 / 10 runs; the nearest run is worse still at the
-        corner (0.92 and \SI{1.24}{K}) (Figures~\ref{fig:ring}--\ref{fig:top}).
-  \item \textbf{Four training runs.} Mean 0.154 vs \SI{0.179}{K} for the nearest run and \SI{0.254}{K} for the
-        mean state, $W_1$ 0.106 vs \SI{0.156}{K}, but median 0.120 vs \SI{0.070}{K} and 31 wins of 96. The model
-        produces a smooth field over the grid, 0.05--\SI{0.16}{K} in the flat regime and 0.2--\SI{0.45}{K} on the warm
-        side with a warm bias of up to \SI{+0.27}{K} between the two $c_k$ rows it was trained on, and \SI{0.70}{K} at
-        the corner (cold). The nearest run is far better where the state hardly changes (0.01--\SI{0.07}{K}) and far
-        worse where it does (0.5--\SI{0.85}{K} in the warm half of the interior), so the two average out differently:
-        inside the training rectangle 0.159 vs \SI{0.201}{K}, outside 0.146 vs \SI{0.143}{K}. Below \SI{250}{m} the
-        model wins at every level (Figure~\ref{fig:four}). Retrained with the reference configuration
-        ($v$-prediction, no clip, loss on the water cells): mean 0.150, median \SI{0.107}{K} (from 0.120), 32 wins of
-        96, $W_1$ 0.090 (from 0.106), the bias range narrowed from $-0.46$..$+0.27$ to $-0.23$..\SI{+0.14}{K}, the
-        corner run at \SI{0.51}{K} (from 0.70; nearest run 0.67), the grid domain-mean error halved (0.060 from
-        \SI{0.107}{K}), spread 0.058 (from 0.125) and no spike (Figure~\ref{fig:fourvml}). The flat regime is
-        unchanged: the nearest run still wins there.
-  \item \textbf{Depth structure.} 0.03--\SI{0.08}{K} at every level in the interpolation splits; the bottom
-        levels are no longer special (0.05--\SI{0.07}{K}) except where the warm corner is held out (top row
-        \SI{0.29}{K}, outer 51 \SI{0.17}{K}, outer 75 \SI{0.19}{K}).
-  \item \textbf{Why the surface is worst in kelvin.} The per-level scale $3\sigma_z$ is \SI{12}{K} at the surface
-        and \SI{1.6}{K} at the bottom, and the sampler's precision is roughly uniform in normalised units: the
-        surface RMSE is 0.6\,\% of its scale (\SI{0.073}{K}, scattered), against 1\,\% at \SI{650}{m} and 4.5\,\% at
-        the bottom. The run-to-run surface signal is 0.7\,\% of the scale (\SI{0.085}{K}), the same size, so the
-        model cannot tell the runs apart there and matches the mean state (0.076 vs \SI{0.073}{K}); the nearest
-        run wins (\SI{0.026}{K}) only because neighbouring runs are nearly identical at the surface. What remains
-        is a per-sample offset of the surface mean: $W_1$ on the horizontal-mean profile is \SI{0.12}{K} at
-        \SI{14}{m}, above the \SI{0.07}{K} cell RMSE of the ensemble mean, so each sample carries a nearly uniform
-        shift of about \SI{0.1}{K} (0.01 normalised) that the average of 32 mostly removes.
-  \item \textbf{$v$-prediction removes the clip and halves the single-sample error.} Retrained on the two
-        $5\times5$ splits with the velocity target and sampled unclipped: centre $5\times5$ 0.044 vs \SI{0.061}{K},
-        outer 75 0.128 vs \SI{0.138}{K} for the $\epsilon$ models with the clip; single samples 0.079 / 0.145 vs
-        0.153 / \SI{0.213}{K}; $W_1$ 0.027 / 0.101 vs 0.070 / \SI{0.118}{K}; the ensemble spread falls from 0.13 to
-        \SI{0.04}{K}, close to the true within-window \SI{0.03}{K}, so the $\epsilon$ models were overdispersed by the
-        sampler, not by the data. Wins against the nearest run rise from 11 to 15 of 25 and from 32 to 44 of 75,
-        with the flat regime now at 0.03--\SI{0.05}{K}. Grid $W_1$ at the training points drops from 0.087 to
-        \SI{0.028}{K}. The warm corner does not move (1.03 vs \SI{1.10}{K} at the corner run, cold bias): its error is
-        the extrapolation itself, not the clip. Control: the $\epsilon$ models sampled without clip diverge
-        (hold-out RMSE above \SI{500}{K}), so under $\epsilon$-prediction the clip is what keeps the chain finite.
-        One caveat, diagnosed in the next item: every $v$-prediction sample carries a small patch of wrong values
-        (Figure~\ref{fig:samples_block5v}), and the salinity error rises from 0.013 to \SI{0.046}{psu}
-        (Figures~\ref{fig:block5v}, \ref{fig:ring5v}).
-  \item \textbf{The $v$ models carry one localised defect of the network, not of the sampler.} A $3\times3$ patch
-        through the whole water column, next to a zero border: beside the ridge ($y$ = 29--31, $x$ = 3--5) for the
-        centre-$5\times5$ model, in the southern restoring rows ($y$ = 1--2, $x$ = 15--19) for the outer-75 model and
-        for a second seed of the centre model. In the patch the single-sample error is 0.3--\SI{0.9}{K} where the
-        truth varies by \SI{0.01}{K} in time, the generated values leave the data range, the error has no spatial
-        coherence (lag-1 zonal correlation 0.0 against 0.7 elsewhere: a checkerboard), $S$ is off by up to
-        \SI{0.05}{psu}, and the amplitude is the same at every condition. It survives sampling with the clip, with
-        250 steps, with the raw instead of the EMA weights, and without the land constraint (Table~\ref{tab:spot}).
-        It is in the network: true snapshots noised to $t$ and denoised in one step come back with a $4\times$
-        larger error in the patch for $t$ = 200--800 (0.16 against 0.04 normalised at $t$ = 600, in $T$ and $S$
-        alike), where the $\epsilon$ network is uniform; and the activation maps are flat through the encoder and the
-        mid block but spike in one cell of the second decoder block ($12\times8$ resolution, $2.7\times$ the median),
-        amplified by each following layer to $15\times$ at full resolution (Figure~\ref{fig:spot}); the second seed
-        shows the same growth at its own patch. The loss cannot
-        see it: nine columns of 1200 at 0.15 normalised are $2\times10^{-4}$ of a $10^{-2}$ MSE, and the loss curves
-        of the two seeds coincide. The headline numbers are robust to it (seed 1: 0.042 / \SI{0.070}{K} mean /
-        single sample, against 0.044 / 0.079 for seed 0), the single-sample and salinity errors are not.
-  \item \textbf{Excluding the zero cells from the loss removes the spike.} Five retrainings of the centre-$5\times5$
-        $v$ model and one of the outer-75 model (Table~\ref{tab:spot}). Loss on the water cells only, seeds 0 and 1: no spike (worst column
-        0.14--\SI{0.15}{K}, at the warm-corner front and coherent), $S$ within \SI{0.008}{psu}, hold-out RMSE
-        0.037 / \SI{0.038}{K} (from 0.044), single sample 0.070 / 0.073, $W_1$ 0.031, 18 and 17 wins of 25 against
-        the nearest run (from 15), spread 0.054--\SI{0.057}{K} against a true 0.031
-        (Figure~\ref{fig:samples_block5vml}). The outer-75 model retrained the same way loses its restoring-row spike
-        too (that column 0.19 K and coherent, from 0.44 K and incoherent), $S$ within \SI{0.010}{psu}, RMSE 0.123
-        (from 0.128), 48 wins of 75 (from 44), $W_1$ 0.094 (from 0.101); the warm corner stays at \SI{1.05}{K}.
-        The land-and-padding mask as an extra input channel: the spike persists
-        and moves (south-east corner, \SI{0.79}{K}, seed 0; the ridge, \SI{0.24}{K}, seed 1). A penalty of 0.01 on
-        $\log(\max/\mathrm{mean})$ of each decoder block's activation map: weakened to \SI{0.17}{K} but still
-        incoherent, with the lowest single-sample RMSE (0.059) and spread (0.038). Probes of the retrained models:
-        with the loss on the water cells the one-step error is uniform (0.044 against 0.040 at $t$ = 600) and the
-        largest decoder activations sit in the padding rows, which the loss no longer constrains; with the penalty
-        every map is flat (maximum over median 1.0) yet the column remains, so the penalty is gamed; with the mask
-        input the spike reaches $25\times$ at full resolution. Reading: the $v$ target has a
-        step at the zero border, $\sqrt{\bar\alpha}\,\epsilon$ on land and padding against
-        $\sqrt{\bar\alpha}\,\epsilon - \sqrt{1-\bar\alpha}\,x_0$ in the water, which the $\epsilon$ target
-        ($\epsilon$ everywhere) does not have; removing the step from the loss removes the spike, telling the network
-        where the border is does not.
-  \item \textbf{The clip trades regularisation for range ($\epsilon$-prediction).} Same models, sampling only, scattered / top row:
-        clip at $|x'| \le 1$ gives 0.061 / \SI{0.141}{K}, at 1.5 it gives 0.061 / \SI{0.108}{K}, at 3 it gives
-        0.091 / \SI{0.123}{K}; $W_1$ 0.066 / 0.132, 0.086 / 0.117, 0.147 / \SI{0.154}{K}. Widening to 1.5 costs
-        nothing in interpolation RMSE, widens the sample spread ($W_1$), and frees the top-row corner, where 12\,\%
-        of the true bottom values lie above $\mu_z + 3\sigma_z$ and cannot be generated under the clip at 1; at 3
-        the regularisation is lost (0.091 and \SI{0.147}{K} in the scattered split) and without any clip the chain
-        diverges. The corner run is the largest error of the top-row and outer splits whatever the clip.
-  \item \textbf{Inversions.} 10--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
+        outer 75 / top row: mean 0.079 / 0.123 / \SI{0.074}{K}, median 0.041 / 0.049 / \SI{0.054}{K}. The corner run
+        ($c_k$ = 0.8, $c_\epsilon$ = 0.0875) errs by 0.61, 1.05 and \SI{0.21}{K} with a cold bias ($-0.28$, $-0.76$,
+        \SI{+0.05}{K} domain mean): the model does not carry the warming beyond the last training row, and the
+        error grows with the distance to it (two, three and one cells). Away from the corner the outer 75 sit at
+        0.03--\SI{0.15}{K}. Wins against the nearest run: 30 / 51, 48 / 75 and 9 / 10; the nearest run is worse
+        still at the corner (0.92, 1.24 and \SI{0.35}{K}) (Figures~\ref{fig:ring}--\ref{fig:top}).
+  \item \textbf{Four training runs.} Mean 0.150 vs \SI{0.179}{K} for the nearest run and \SI{0.254}{K} for the
+        mean state, $W_1$ 0.090 vs \SI{0.156}{K}, but median 0.107 vs \SI{0.070}{K} and 32 wins of 96. The model
+        produces a smooth field over the grid, 0.03--\SI{0.13}{K} in the flat regime and 0.15--\SI{0.5}{K} on the
+        warm side, \SI{0.51}{K} at the corner (cold); the nearest run is better where the state hardly changes
+        (0.01--\SI{0.07}{K}) and worse where it does (0.3--\SI{0.85}{K} in the warm half of the interior): inside
+        the training rectangle 0.157 vs \SI{0.191}{K}, outside 0.141 vs \SI{0.165}{K}. Below \SI{250}{m} the model
+        wins at every level (Figure~\ref{fig:four}).
+  \item \textbf{Depth structure.} 0.01--\SI{0.06}{K} at every level in the interpolation splits, with the bottom
+        two levels at 0.02--\SI{0.05}{K}; the warm corner lifts the extrapolation splits to 0.09--\SI{0.18}{K} between
+        the surface and \SI{500}{m}, where its front lives. The surface is the worst level in kelvin for the
+        distribution: $W_1$ on the horizontal-mean profile is 0.065--\SI{0.08}{K} at \SI{14}{m} against a cell RMSE
+        of 0.035--\SI{0.05}{K} for the ensemble mean, so each sample carries a nearly uniform offset of the surface
+        mean (0.005 of the \SI{12}{K} scale) that the average of 32 removes.
+  \item \textbf{The decoder spike and its fix.} With the loss on all cells, every velocity-target training grew
+        one $3\times3$ patch of wrong values next to a zero border, in temperature and salinity alike, the same at
+        every condition and unchanged by any sampler variant. Probing the network showed a flat encoder and one cell
+        of the second decoder block at $2.7\times$ the median activation, amplified to $15\times$ at full resolution;
+        true snapshots noised to a mid noise level and denoised in one step came back with a $4\times$ larger error
+        in the patch (Figure~\ref{fig:spot}). With the loss on the water cells the maps are flat in the water, the
+        one-step error is uniform, and the eight models above show no patch; the top-row model's largest column
+        (\SI{0.37}{K}) is the front of its corner run at the northern boundary.
+  \item \textbf{Inversions.} 9--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
         (scattered), 6.6 and 6.1\,\% (outer 51 and 75), 4.2 and 3.6\,\% (centre $7\times7$ and $5\times5$), 1.3\,\%
         (band), 0.1\,\% (top). Not learned.
-  \item \textbf{$W_1$ agrees with the RMSE ranking.} Training grid points score like held-out ones (0.083 vs
-        \SI{0.071}{K}, scattered); from \SI{490}{m} down the samples beat the point baselines in the band and top
-        splits (0.058 vs \SI{0.115}{K} at \SI{650}{m}, band), which pay for the spread they cannot represent.
-  \item \textbf{Plumbing.} $S$ within \SI{0.02}{psu} of 35 with no constraint; land exact; ensemble spread
-        $4\times$ the true within-window spread (Figures~\ref{fig:samples}--\ref{fig:samples_top}).
+  \item \textbf{$W_1$ agrees with the RMSE ranking.} Training grid points score like held-out ones (0.028--0.033 vs
+        0.028--\SI{0.037}{K} in the interpolation splits); from \SI{250}{m} down the samples beat the point baselines in
+        every split, which pay for the spread they cannot represent.
+  \item \textbf{Plumbing.} $S$ within 0.01--\SI{0.05}{psu} of 35 with no constraint; land exact; ensemble spread
+        0.05--\SI{0.07}{K} against a true within-window \SI{0.03}{K}
+        (Figures~\ref{fig:samples}--\ref{fig:samples_four}).
 \end{itemize}
-
-\begin{table}[!htb]
-\centering\footnotesize
-\caption{The patch of the centre-$5\times5$ $v$ model under sampling variants and across trainings. Single-sample RMS
-error (K) and ensemble spread (K) over the patch ($y$ = 28--33, $x$ = 2--6, all levels) and over an interior box,
-lag-1 zonal correlation of the error in the patch (1 = smooth, 0 = checkerboard); 25 held-out runs, 32 samples.
-Default sampler: EMA weights, 1000 steps, land constraint. Seed 1 has its own patch at $y$ = 1--2, $x$ = 16--19
-(\SI{0.49}{K}, correlation 0.01). Lower block: retrainings against the spike; with the mask as an input channel the
-spike sits at $y$ = 0--1, $x$ = 28--29 for seed 0 (\SI{0.79}{K}, correlation 0.06) and at $y$ = 28--29, $x$ = 4--6 for
-seed 1 (\SI{0.24}{K}, 0.11); with the penalty a residual column of \SI{0.17}{K} (correlation $-0.26$) remains at
-$y$ = 34, $x$ = 2; with the loss on the water cells none.}
-\label{tab:spot}
-\begin{tabular}{lcccc}
-\toprule
- & patch RMS & patch spread & patch lag-1 corr. & interior RMS \\
-\midrule
-$v$ seed 0, default sampler & 0.30 & 0.20 & $-0.02$ & 0.05 \\
-\quad with the clip at 1    & 0.30 & 0.20 & $-0.02$ & 0.05 \\
-\quad 250 steps             & 0.38 & 0.26 & $-0.04$ & 0.05 \\
-\quad raw weights           & 0.30 & 0.20 & $-0.02$ & 0.05 \\
-\quad no land constraint    & 0.33 & 0.23 & $0.03$  & 0.11 \\
-$v$ seed 1                   & 0.06 & 0.04 & 0.45 & 0.05 \\
-$\epsilon$ seed 0, clip 1   & 0.15 & 0.12 & 0.90 & 0.15 \\
-\midrule
-$v$ seed 0, loss on the water cells   & 0.07 & 0.05 & 0.64 & 0.06 \\
-$v$ seed 1, loss on the water cells   & 0.07 & 0.05 & 0.69 & 0.07 \\
-$v$ seed 0, mask as an input channel  & 0.06 & 0.04 & 0.48 & 0.05 \\
-$v$ seed 1, mask as an input channel  & 0.12 & 0.08 & 0.17 & 0.05 \\
-$v$ seed 0, activation penalty 0.01   & 0.06 & 0.04 & 0.41 & 0.05 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \section{Next steps}
 \begin{itemize}
-  \item Retrain the remaining splits with $v$-prediction, no clip and the loss on the water cells, and make that
-        the default; keep the spike screen of the evaluation summary (worst column of the single-sample error and
-        its lag-1 correlation) on every training.
   \item Stratification constraint at sampling time (DINO's isotonic projection on $T$): targets the inversions.
-  \item Warm corner: unchanged by $v$-prediction, so it is a limit of the extrapolation, not of the sampler;
-        stronger conditioning or an explicit trend prior is the lever.
+  \item Warm corner: a limit of the extrapolation, not of the sampler; stronger conditioning or an explicit trend
+        prior is the lever.
   \item Stronger conditioning: classifier-free guidance; the year as a third condition (bottom drift of
         \SI{0.45}{K} inside the window).
   \item Evaluate against snapshots as well as the time mean (nearest-snapshot RMSE, spread--skill).
   \item Then the same pipeline on a global Veros configuration (active $S$, seasonal cycle, multi-century spin-up).
 \end{itemize}
 
-\paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/}.
-Training at \texttt{2b542aa} (\texttt{338997d} for the $7\times7$ block, \texttt{61d0dd2} for the outer 51,
-\texttt{8f157d5} for the $5\times5$ pair, \texttt{812ff96} for the four-run split, \texttt{1601947} for the $v$-prediction pair and its second seed); sampling and evaluation at \texttt{bfee32f}; the defect diagnostics (\texttt{diag\_spot.py}, \texttt{diag\_act.py}) at \texttt{c59f936}; the six retrainings
-against the spike at \texttt{3155a6b}. Extraction \SI{2.5}{min} (8 cores), training 17--\SI{22}{min} (one A100), generation of
-the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
+\paragraph{Reproducibility.} Branch \texttt{miniveros} of the DINO-Fusion repository, package \texttt{miniveros/};
+configuration \texttt{prediction\_type=v\_prediction}, \texttt{clip\_sample=false}, \texttt{mask\_loss=true}.
+Training at
+\texttt{3155a6b} (centre $5\times5$, outer 75), \texttt{a94136b} (four runs) and \texttt{dd05902} (the others), with
+identical training code; sampling and evaluation at \texttt{004eb36} or later; the spike diagnostics
+(\texttt{diag\_spot.py}, \texttt{diag\_act.py}) at \texttt{c59f936}. Extraction \SI{2.5}{min} (8 cores), training
+17--\SI{25}{min} (one A100), generation of the hold-out and grid sets plus evaluation 15--\SI{35}{min}.
 
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_scattered_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_scattered_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_scattered_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_scattered_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
 \caption{Scattered split (10 interior held-out runs), 32 samples per run.}
@@ -371,11 +271,11 @@ the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_band3_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_band3_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_band3_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_band3_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
 \caption{Band of three rows ($c_k$ = 0.126, 0.2, 0.3175 held out), 32 samples per run.}
@@ -385,119 +285,71 @@ the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_block5_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_block5_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_block5_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_block5_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Centre $5\times5$ ($c_k$ 0.05--0.32, $c_\epsilon$ 0.35--2.2 held out, 25 runs), 32 samples per run.}
+\caption{Centre $5\times5$ block held out (25 runs; training on the 75 outer runs), 32 samples per run.}
 \label{fig:block5}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_block5_v_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_block_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_block5_v_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_block_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Centre $5\times5$, \textbf{$v$-prediction, no clip}; compare with Figure~\ref{fig:block5}.}
-\label{fig:block5v}
-\end{figure}
-
-
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_block_3std/eval/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_block_3std/eval/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Centre $7\times7$ ($c_k$ 0.0315--0.504, $c_\epsilon$ 0.22--3.5 held out, 49 runs; training on the outer rows and columns), 32 samples per run.}
+\caption{Centre $7\times7$ block held out (49 runs; training on the 51 edge runs), 32 samples per run.}
 \label{fig:block}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_ring_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_ring_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_ring_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_ring_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Outer 51 (the complement of the $7\times7$ block held out; training on its centre), 32 samples per run.}
+\caption{Outer 51 held out (training on the $7\times7$ centre), 32 samples per run.}
 \label{fig:ring}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_ring5_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_ring5_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_ring5_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_ring5_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Outer 75 (the complement of the $5\times5$ block held out; training on 25 runs), 32 samples per run.}
+\caption{Outer 75 held out (training on the $5\times5$ centre), 32 samples per run.}
 \label{fig:ring5}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_ring5_v_3std/eval/grid_maps.png}
+\includegraphics[width=\textwidth]{../fs_top_vml_3std/eval/grid_maps.png}
 \caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
 \end{subfigure}\\[4pt]
 \begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_ring5_v_3std/eval/profiles.png}
+\includegraphics[width=0.62\textwidth]{../fs_top_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Outer 75, \textbf{$v$-prediction, no clip}; compare with Figure~\ref{fig:ring5}.}
-\label{fig:ring5v}
-\end{figure}
-
-
-
-
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_top_3std/eval/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_top_3std/eval/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Top row ($c_k$ = 0.8 held out, extrapolation), 32 samples per run.}
+\caption{Top row held out ($c_k$ = 0.8, 10 runs), 32 samples per run.}
 \label{fig:top}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=\textwidth]{../fs_four_3std/eval/grid_maps.png}
-\caption{Over the parameter grid: domain-mean $T$ of the truth and of the generated states, their difference, and $W_1$ of the profile distribution. White dots: training runs; red crosses: held-out runs.}
-\end{subfigure}\\[4pt]
-\begin{subfigure}[b]{\textwidth}\centering
-\includegraphics[width=0.62\textwidth]{../fs_four_3std/eval/profiles.png}
-\caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
-\end{subfigure}
-\caption{Four training runs (one step in from each corner; 96 held out), 32 samples per run.}
-\label{fig:four}
 \end{figure}
 
 \begin{figure}[!htb]
@@ -510,107 +362,76 @@ the hold-out and grid sets plus evaluation 14--\SI{18}{min}.
 \includegraphics[width=0.62\textwidth]{../fs_four_vml_3std/eval/profiles.png}
 \caption{RMSE (left) and $W_1$ (right) by depth, mean over the held-out runs.}
 \end{subfigure}
-\caption{Four-run split retrained with the reference configuration ($v$-prediction, no clip, loss on the water cells), 32 samples per run; compare with Figure~\ref{fig:four}.}
-\label{fig:fourvml}
+\caption{Four training runs, one step in from each corner (96 held out), 32 samples per run.}
+\label{fig:four}
 \end{figure}
 
-
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_scattered_3std/samples_levels.png}
-\caption{Scattered split, $c_k=0.2$, $c_\epsilon=2.222$: true 20-year mean (left) and three random samples at
-the surface, \SI{650}{m} and the bottom; $T$ (top three rows), $S$ (bottom three rows). Grey: land.}
+\includegraphics[width=0.9\textwidth]{../fs_scattered_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the scattered split (grey: land; $x$ zonal and periodic, $y$ meridional).}
 \label{fig:samples}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_band3_3std/samples_levels.png}
-\caption{Band-of-three split, same condition ($c_k=0.2$, $c_\epsilon=2.222$, now in the middle held-out row).}
+\includegraphics[width=0.9\textwidth]{../fs_band3_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the band split (grey: land; $x$ zonal and periodic, $y$ meridional).}
 \label{fig:samples_band}
-\end{figure}
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_block5_3std/samples_levels.png}
-\caption{Centre-$5\times5$ split, same condition ($c_k=0.2$, $c_\epsilon=2.222$, inside the held-out block).}
-\label{fig:samples_block5}
-\end{figure}
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_block5_v_3std/samples_levels.png}
-\caption{Centre-$5\times5$ split, \textbf{$v$-prediction, no clip}, same condition as Figure~\ref{fig:samples_block5}: the samples are far less noisy.}
-\label{fig:samples_block5v}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \includegraphics[width=0.9\textwidth]{../fs_block5_vml_3std/samples_levels.png}
-\caption{Centre $5\times5$, $v$-prediction with the loss on the water cells, same condition and samples as
-Figure~\ref{fig:samples_block5v}: the patch is gone and $S$ stays within \SI{0.01}{psu}.}
-\label{fig:samples_block5vml}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the centre $5\times5$ split (grey: land; $x$ zonal and periodic, $y$ meridional).}
+\label{fig:samples_block5}
 \end{figure}
 
-
-
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_block_3std/samples_levels.png}
-\caption{Centre-$7\times7$ split, same condition ($c_k=0.2$, $c_\epsilon=2.222$, inside the held-out block).}
+\includegraphics[width=0.9\textwidth]{../fs_block_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the centre $7\times7$ split (grey: land; $x$ zonal and periodic, $y$ meridional).}
 \label{fig:samples_block}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_ring_3std/samples_levels.png}
-\caption{Outer-51 split, $c_k=0.8$, $c_\epsilon=0.5556$ (same condition as the top-row split; here the whole outer ring is unseen).}
+\includegraphics[width=0.9\textwidth]{../fs_ring_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the outer-51 split (grey: land; $x$ zonal and periodic, $y$ meridional).}
 \label{fig:samples_ring}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_ring5_3std/samples_levels.png}
-\caption{Outer-75 split, $c_k=0.8$, $c_\epsilon=0.5556$ (training on the $5\times5$ centre only).}
+\includegraphics[width=0.9\textwidth]{../fs_ring5_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the outer-75 split (grey: land; $x$ zonal and periodic, $y$ meridional).}
 \label{fig:samples_ring5}
 \end{figure}
 
-\begin{figure}[p]
+\begin{figure}[!htb]
 \centering
-\includegraphics[width=0.72\textwidth]{../fs_ring5_v_3std/samples_levels.png}
-\caption{Outer-75 split, \textbf{$v$-prediction, no clip}, same condition as Figure~\ref{fig:samples_ring5}.}
-\label{fig:samples_ring5v}
+\includegraphics[width=0.9\textwidth]{../fs_top_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the top-row split (grey: land; $x$ zonal and periodic, $y$ meridional).}
+\label{fig:samples_top}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.9\textwidth]{../fs_four_vml_3std/samples_levels.png}
+\caption{True 20-year mean state and three random samples of $T$ and $S$ at the surface, \SI{646}{m} and the bottom for one held-out condition of the four-run split (grey: land; $x$ zonal and periodic, $y$ meridional).}
+\label{fig:samples_four}
 \end{figure}
 
 \begin{figure}[!htb]
 \centering
 \includegraphics[width=\textwidth]{../fs_block5_v_3std/spot_diag.png}
-\caption{The defect of the centre-$5\times5$ $v$ model. Top: RMS error of the one-step clean-state estimate for
-eight true snapshots of a held-out run noised to $t$ = 600, at \SI{106}{m}, for the $v$ network (left) and the
-$\epsilon$ network (right); cyan box: the patch. Bottom left: the same error in the patch and in an interior box
-as a function of $t$. Bottom right: maximum over median of each layer's activation map (RMS over channels, mean
-over the eight inputs) at $t$ = 600 and 50: the spike appears in the second decoder block and grows through the
-decoder; the $\epsilon$ network stays flat.}
+\caption{The decoder spike of a velocity-target model trained with the loss on all cells (centre $5\times5$ split).
+Top: RMS error of the one-step clean-state estimate for eight true snapshots of a held-out run noised to
+$t$ = 600, at \SI{106}{m}, for that network (left) and for an $\epsilon$-prediction network (right); cyan box: the
+patch. Bottom left: the same error in the patch and in an interior box as a function of $t$. Bottom right: maximum
+over median of each layer's activation map: the spike appears in the second decoder block and grows through the
+decoder. With the loss on the water cells the maps are flat and the patch is gone.}
 \label{fig:spot}
 \end{figure}
-
-
-
-
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_top_3std/samples_levels.png}
-\caption{Top-row split, $c_k=0.8$, $c_\epsilon=0.5556$ (extrapolation one row above the training grid).}
-\label{fig:samples_top}
-\end{figure}
-
-\begin{figure}[p]
-\centering
-\includegraphics[width=0.72\textwidth]{../fs_four_3std/samples_levels.png}
-\caption{Four-run split, same condition ($c_k=0.2$, $c_\epsilon=2.222$).}
-\label{fig:samples_four}
-\end{figure}
-
 
 \end{document}
