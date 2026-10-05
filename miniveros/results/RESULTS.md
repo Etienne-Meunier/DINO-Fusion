@@ -15,7 +15,9 @@ at `2b542aa`, sampling and evaluation at `bfee32f`. Runs: `fs_scattered_3std`, `
 `prediction_type=v_prediction clip_sample=false mask_loss=true`; runs `fs_scattered_vml_3std`, `fs_band3_vml_3std`,
 `fs_block5_vml_3std`, `fs_block_vml_3std`, `fs_ring_vml_3std`, `fs_ring5_vml_3std`, `fs_top_vml_3std`,
 `fs_four_vml_3std` (training at `3155a6b` / `a94136b` / `dd05902`, identical training code). The report now covers
-only this configuration; the epsilon-prediction rows below are the earlier round, kept here as the record.
+only this configuration; the epsilon-prediction rows below are the earlier round, kept here as the record. The
+eight epsilon run folders (`fs_<split>_3std`) were deleted from the repo and the cluster on 5 Oct 2026; their
+numbers survive only in this file and in git history.
 
 | split | runs | RMSE mean of 32 | median | sample | nearest | mean state | bias | W1 diff / nearest / mean state | inv gen / truth | wins | spread (truth) | S max psu |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -226,10 +228,10 @@ variant 15 GPU minutes.
 
 ## Figures
 
-Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_ring5_3std/`,
-`fs_top_3std/`, `fs_four_3std/`, `fs_block5_v_3std/`, `fs_ring5_v_3std/`, `fs_block5_v1_3std/`, `fs_block5_vml_3std/`,
-`fs_block5_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/`, `fs_ring5_vml_3std/`,
-`fs_four_vml_3std/` (sample figure only for the main runs and `fs_block5_vml_3std`)): `config.json`, `git_hash.txt`, `train_log.csv`,
+Per run (reference configuration: `fs_scattered_vml_3std/`, `fs_band3_vml_3std/`, `fs_block5_vml_3std/`,
+`fs_block_vml_3std/`, `fs_ring_vml_3std/`, `fs_ring5_vml_3std/`, `fs_top_vml_3std/`, `fs_four_vml_3std/`; diagnostic
+runs kept with their evaluations: `fs_block5_v_3std/`, `fs_ring5_v_3std/`, `fs_block5_v1_3std/`, `fs_block5_vml1_3std/`,
+`fs_top_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/`; the epsilon run folders are gone): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).
