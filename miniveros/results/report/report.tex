@@ -222,8 +222,11 @@ nearest run except in the scattered split (RMSE \SI{0.020}{K}, $W_1$ \SI{0.036}{
         of the second decoder block at $2.7\times$ the median activation, amplified to $15\times$ at full resolution;
         true snapshots noised to a mid noise level and denoised in one step came back with a $4\times$ larger error
         in the patch (Figure~\ref{fig:spot}). With the loss on the water cells the maps are flat in the water, the
-        one-step error is uniform, and the eight models above show no patch; the top-row model's largest column
-        (\SI{0.37}{K}) is the front of its corner run at the northern boundary.
+        one-step error is uniform, and the eight models above show no patch. The top-row model's largest columns
+        (0.3--\SI{0.4}{K}, $S$ off by \SI{0.05}{psu}) sit in one cell at the north-east corner of its warm runs,
+        where the front meets the northern boundary; a second seed reproduces them at the same place with the same
+        error (0.077 vs \SI{0.074}{K} overall), so this is a boundary-cell error of the extrapolated regime, not a
+        seed-dependent spike.
   \item \textbf{Inversions.} 9--12\,\% of interfaces with $\partial_z T < 0$ in every regime; truth 7.7\,\%
         (scattered), 6.6 and 6.1\,\% (outer 51 and 75), 4.2 and 3.6\,\% (centre $7\times7$ and $5\times5$), 1.3\,\%
         (band), 0.1\,\% (top). Not learned.

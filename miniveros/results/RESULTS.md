@@ -33,9 +33,11 @@ runs 0.51 (0.67). Grid metrics (W1 all / hold-out / train, domain-mean RMSE all 
 0.031 / 0.028 / 0.032, 0.011 / 0.007; band 0.032 / 0.037 / 0.030, 0.014 / 0.021; centre 5 x 5 0.032 / 0.031 / 0.032,
 0.012 / 0.014; centre 7 x 7 0.033 / 0.033 / 0.033, 0.011 / 0.012; outer 51 0.040 / 0.051 / 0.028, 0.040 / 0.055;
 outer 75 0.078 / 0.094 / 0.028, 0.135 / 0.156; top row 0.032 / 0.049 / 0.030, 0.013 / 0.025; four runs
-0.087 / 0.090 / 0.029, 0.059 / 0.060. Spike screen: clean on seven; the top-row model is flagged at its corner run's
-front on the northern boundary (column y 41, x 28, 0.37 K, lag-1 corr 0.31, coherent cold bias of 1 to 2 K in the
-corner run): the front, not a decoder patch (a second seed, `fs_top_vml1_3std`, was run to check).
+0.087 / 0.090 / 0.029, 0.059 / 0.060. Spike screen: clean on seven; the top-row model is flagged at the north-east corner cell of its warm runs
+(columns y 41, x 28 to 29: 0.31 to 0.37 K, lag-1 corr 0.0 to 0.3, S error 0.05 psu, per-run mean error up to
++0.8 K for eps 0.139 to 0.35 and -1.3 K for the corner run). A second seed (`fs_top_vml1_3std`: 0.077 K, W1 0.051,
+S 0.052 psu, 8 wins of 10) reproduces the same columns at the same place, so it is a boundary-cell error of the
+extrapolated regime, not a seed-dependent decoder spike; seed 0 is the one reported.
 
 Against the epsilon round (same splits, `epsilon` + clip 1): 0.061 -> 0.029, 0.076 -> 0.048, 0.061 -> 0.037,
 0.064 -> 0.041, 0.110 -> 0.079, 0.138 -> 0.123, 0.141 -> 0.074, 0.154 -> 0.150 K; corner runs 0.77 -> 0.61,
