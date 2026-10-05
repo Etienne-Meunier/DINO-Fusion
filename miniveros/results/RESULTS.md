@@ -172,8 +172,10 @@ variant 15 GPU minutes.
 
 ## Suggested next steps
 
-- Retrain the remaining splits with v-prediction, no clip and `mask_loss=true`, and make that the default; keep the
-  spike screen of the evaluation summary (worst column of the single-sample error and its lag-1 correlation).
+- Reference configuration (decided 5 Oct 2026): `prediction_type=v_prediction clip_sample=false mask_loss=true`,
+  run on both 5 x 5 splits (`fs_block5_vml_3std`, `fs_block5_vml1_3std`, `fs_ring5_vml_3std`). Retrain the remaining
+  splits with it; keep the spike screen of the evaluation summary (worst column of the single-sample error and its
+  lag-1 correlation) on every training.
 - Stratification constraint at sampling time (DINO-Fusion's isotonic projection, on T since S is constant).
 - Top-row corner: the clip's range limit is now the dominant extrapolation error; a clip that follows the
   conditioning (bounds from the nearest training rows) is the next sampling-only test.
