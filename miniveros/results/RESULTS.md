@@ -124,7 +124,8 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    loss curves coincide). Seed 1 hold-out: 0.042 / 0.070 K mean / single sample, W1 0.027, spread 0.042, S 0.034
    psu (seed 0: 0.044 / 0.079, 0.027, 0.048, 0.046). Figure `fs_block5_v_3std/spot_diag.png`.
 2f. **Excluding the zero cells from the loss removes the spike** (five retrainings of the centre 5 x 5 v model at
-   `3155a6b`, all `prediction_type=v_prediction clip_sample=false`). `mask_loss=true` (`fs_block5_vml_3std`,
+   `3155a6b`, all `prediction_type=v_prediction clip_sample=false`; the `mask_input` and `act_penalty` options were
+   removed from the code afterwards and exist only at that commit). `mask_loss=true` (`fs_block5_vml_3std`,
    `fs_block5_vml1_3std`, seeds 0 and 1): screen clean (worst column 0.14 / 0.15 K at the warm-corner front, lag-1
    corr 0.42 / 0.75), S within 0.008 psu, RMSE 0.037 / 0.038 K (from 0.044), single sample 0.070 / 0.073, W1 0.031,
    wins 18 / 17 of 25 (from 15), median 0.034 / 0.035, spread 0.054 / 0.057 (truth 0.031), grid W1 0.032, patch box

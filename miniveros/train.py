@@ -116,8 +116,7 @@ def main(argv=None):
     dl = DataLoader(ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, num_workers=cfg.num_workers,
                     pin_memory=(device.type == "cuda"), persistent_workers=cfg.num_workers > 0)
     model = ConditionalUNet(tr.n_channels, tr.padded_shape, ds.encoder.dim, cfg.block_out_channels,
-                            cfg.layers_per_block, cfg.cond_hidden, mask_input=cfg.mask_input,
-                            act_penalty=cfg.act_penalty > 0, in_mask=tr.zero_mask.all(0)).to(device)
+                            cfg.layers_per_block, cfg.cond_hidden).to(device)
     diffusion = Diffusion(cfg)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     sched = get_cosine_schedule_with_warmup(opt, cfg.lr_warmup_steps, cfg.max_steps)
