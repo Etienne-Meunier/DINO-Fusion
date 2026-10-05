@@ -24,7 +24,8 @@ on `c_k` {0.0198, 0.504} x `c_eps` {0.139, 3.53}, one step in from each corner; 
 `fs_block5_v1_3std` (the centre 5 x 5 v model with `seed=1`, a diagnostic for finding 2e), `fs_block5_vml_3std`,
 `fs_block5_vml1_3std`, `fs_block5_vmi_3std`, `fs_block5_vmi1_3std`, `fs_block5_vap_3std`, `fs_ring5_vml_3std` (`3155a6b`,
 the retrainings against the spike of finding 2f: loss on water cells x 2 seeds and on the outer-75 split, mask input
-channel x 2 seeds, activation penalty).
+channel x 2 seeds, activation penalty), `fs_four_vml_3std` (`a94136b`, the four-run split with the reference
+configuration).
 
 | split | runs | RMSE mean of 32 | RMSE one sample | RMSE nearest run | RMSE neighbour avg | RMSE mean state | bias | spread (true) | W1 diffusion | W1 nearest | W1 mean state | inversions gen / truth | max S error |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -41,6 +42,7 @@ channel x 2 seeds, activation penalty).
 | centre 5 x 5, v-prediction, no clip, loss on water cells (seed 0) | 25 | 0.037 ± 0.011 | 0.070 | 0.077 | 0.076 | 0.157 | +0.006 | 0.054 (0.031) | 0.031 | 0.069 | 0.133 | 9.2 % / 3.6 % | 0.008 |
 | centre 5 x 5, v-prediction, no clip, loss on water cells (seed 1) | 25 | 0.038 ± 0.012 | 0.073 | 0.077 | 0.076 | 0.157 | +0.008 | 0.057 (0.031) | 0.031 | 0.069 | 0.133 | 9.3 % / 3.6 % | 0.008 |
 | outer 75, v-prediction, no clip, loss on water cells | 75 | 0.123 ± 0.194 (median 0.049) | 0.149 | 0.155 | 0.155 | 0.220 | -0.069 | 0.059 (0.030) | 0.094 | 0.137 | 0.189 | 10.4 % / 6.1 % | 0.010 |
+| four runs, v-prediction, no clip, loss on water cells | 96 | 0.150 ± 0.120 (median 0.107) | 0.168 | 0.179 | 0.179 | 0.254 | +0.006 | 0.058 (0.031) | 0.090 | 0.156 | 0.208 | 10.5 % / 5.4 % | 0.017 |
 
 | split | grid W1 all / hold-out / training (K) | grid domain-mean T RMSE all / hold-out (K) |
 |---|---|---|
@@ -56,6 +58,7 @@ channel x 2 seeds, activation penalty).
 | outer 75, v-prediction | 0.083 / 0.101 / 0.028 | 0.136 / 0.157 |
 | centre 5 x 5, v-prediction, loss on water cells | 0.032 / 0.031 / 0.032 | 0.012 / 0.014 |
 | outer 75, v-prediction, loss on water cells | 0.078 / 0.094 / 0.028 | 0.135 / 0.156 |
+| four runs, v-prediction, loss on water cells | 0.087 / 0.090 / 0.029 | 0.059 / 0.060 |
 
 Band of three, by row (RMSE in K): diffusion 0.063 / 0.074 / 0.091 for `c_k` 0.126 / 0.2 / 0.3175, nearest row
 0.063 / 0.132 / 0.152, training mean 0.149 / 0.187 / 0.256. Top row by `c_eps`: the model beats copying the row
@@ -94,7 +97,11 @@ horizontal structure (kept by the RMSE). Code in `wmetrics.py`.
    between the two training rows, 0.70 K at the corner (cold). The nearest run is far better where the state
    hardly changes (0.01 to 0.07 K) and far worse where it does (0.5 to 0.85 K in the warm half of the interior):
    inside the training rectangle 0.159 vs 0.201 K, outside 0.146 vs 0.143 K. Beats the nearest run at every level
-   below 250 m.
+   below 250 m. Reference configuration (`fs_four_vml_3std`, `3155a6b`-era weights, v-prediction, no clip,
+   `mask_loss=true`): mean 0.150, median 0.107 (from 0.120), wins 32 / 96, W1 0.090 (from 0.106), bias mean +0.006
+   with range -0.23 to +0.14 K (from -0.46 to +0.27), corner run 0.51 K (from 0.70; nearest 0.67), inside the
+   rectangle 0.157 vs nearest 0.191, outside 0.141 vs 0.165, grid domain-mean RMSE 0.060 (from 0.107), grid W1
+   0.087 (from 0.106), spread 0.058 (from 0.125), S 0.017 psu, screen clean.
 2d. **v-prediction removes the clip and halves the single-sample error** (runs `fs_block5_v_3std`, `fs_ring5_v_3std`,
    training at `1601947`, `prediction_type=v_prediction clip_sample=false`). Centre 5 x 5: 0.044 vs 0.061 K (eps +
    clip), single sample 0.079 vs 0.153, W1 0.027 vs 0.070 (nearest 0.069), spread 0.048 vs 0.134 (truth 0.031),
@@ -174,8 +181,8 @@ variant 15 GPU minutes.
 ## Suggested next steps
 
 - Reference configuration (decided 5 Oct 2026): `prediction_type=v_prediction clip_sample=false mask_loss=true`,
-  run on both 5 x 5 splits (`fs_block5_vml_3std`, `fs_block5_vml1_3std`, `fs_ring5_vml_3std`). Retrain the remaining
-  splits with it; keep the spike screen of the evaluation summary (worst column of the single-sample error and its
+  run on both 5 x 5 splits (`fs_block5_vml_3std`, `fs_block5_vml1_3std`, `fs_ring5_vml_3std`) and on the four-run
+  split (`fs_four_vml_3std`). Retrain the remaining splits (scattered, band, 7 x 7, outer 51, top row) with it; keep the spike screen of the evaluation summary (worst column of the single-sample error and its
   lag-1 correlation) on every training.
 - Stratification constraint at sampling time (DINO-Fusion's isotonic projection, on T since S is constant).
 - Top-row corner: the clip's range limit is now the dominant extrapolation error; a clip that follows the
@@ -188,8 +195,8 @@ variant 15 GPU minutes.
 
 Per run (`fs_scattered_3std/`, `fs_band3_3std/`, `fs_block5_3std/`, `fs_block_3std/`, `fs_ring_3std/`, `fs_ring5_3std/`,
 `fs_top_3std/`, `fs_four_3std/`, `fs_block5_v_3std/`, `fs_ring5_v_3std/`, `fs_block5_v1_3std/`, `fs_block5_vml_3std/`,
-`fs_block5_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/`, `fs_ring5_vml_3std/` (sample
-figure only for the main runs and `fs_block5_vml_3std`)): `config.json`, `git_hash.txt`, `train_log.csv`,
+`fs_block5_vml1_3std/`, `fs_block5_vmi_3std/`, `fs_block5_vmi1_3std/`, `fs_block5_vap_3std/`, `fs_ring5_vml_3std/`,
+`fs_four_vml_3std/` (sample figure only for the main runs and `fs_block5_vml_3std`)): `config.json`, `git_hash.txt`, `train_log.csv`,
 `samples_final.png`, `samples_levels.png` (true state and three random samples of T and S at three depths for one
 hold-out condition, made with `plot_samples.py`), and `eval/` (default sampler: noised fill) with `summary.txt`, `metrics.csv`, `grid_maps.png`
 (+ `grid_domain_mean.csv`, `grid_w1.csv`) and `profiles.png` (+ `profiles.csv`).

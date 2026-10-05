@@ -1,0 +1,15 @@
+hold-out runs: 96 | samples/run: 32 | norm_mode=3-std | weights=model_ema.pt | steps=1000
+
+method                  RMSE(K) mean±std   |bias|(K)
+diffusion_mean            0.1500 ± 0.1196      0.0466
+diffusion_sample          0.1677 ± 0.1126         nan
+neighbour_avg             0.1794 ± 0.2321      0.1046
+nearest_train             0.1794 ± 0.2321      0.1046
+train_mean                0.2541 ± 0.1684      0.1484
+W1 on horizontal-mean T profiles, thickness-weighted (K): diffusion 0.090 | neighbour_avg 0.156 | nearest_train 0.156 | train_mean 0.208
+neighbour_avg used 0.2 training neighbours on average
+
+ensemble spread (K): generated 0.0581 vs truth-in-window 0.0305
+interfaces with T decreasing upward: generated 10.499% vs truth 5.411% (truth has real inversions; compare, do not expect 0)
+salinity max |S-35| over water: 9.15e-03
+localised artefact screen: worst water column (y=36, x=2) single-sample RMS 1.046 K (median column 0.148), lag-1 zonal correlation of its error 0.91 (median 0.94)
