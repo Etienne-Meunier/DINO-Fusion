@@ -116,7 +116,7 @@ class TransformFields :
 
 
         def get_data_shape(self) :
-            fake_data = {key : np.random.rand(*(self.infos['shape'][key])) for key in self.fields.keys()}
+            fake_data = {key : torch.rand(*(self.infos['shape'][key])) for key in self.fields.keys()}
             fake_data = self.stride_concat(fake_data)
             fake_data = self.padData(fake_data, **self.padding)
 

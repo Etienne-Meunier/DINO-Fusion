@@ -38,14 +38,24 @@ class Strider :
         return strided_field
     
     def __uncall__(self, strided_field) : 
+        """
+            Linear interpolation along the first axis at the true positions of the strided levels.
+            A level between an ocean and a land strided level takes the ocean value.
+        """
         assert self.interpolation == True, NotImplementedError(f'Interpolation {self.interpolation} not implemented')
         assert strided_field.shape[0] == self.strided_field_len, f'Before Unstride ({self.name=}) : {strided_field.shape[0]=} != {self.strided_field_len=}'
 
-        field = F.interpolate(rearrange(strided_field, 'z x y -> x y z'), size=(self.field_len), mode='linear')
-        field = rearrange(field, 'x y z -> z x y')
-        field = field.contiguous() # Necessary with MPS for some reason
-        mask = field.isnan()
-        field = torch.where(mask, torch.nan, field) # Cut the grad from the graph
+        if self.strided_field_len == 1 :
+            field = strided_field.expand(self.field_len, *strided_field.shape[1:])
+        else :
+            pos = torch.arange(self.field_len, dtype=torch.float32)[self.stride_pattern].contiguous()
+            target = torch.arange(self.field_len, dtype=torch.float32).clamp(pos[0], pos[-1])
+            right = torch.searchsorted(pos, target, right=True).clamp(1, len(pos) - 1)
+            w = ((target - pos[right - 1]) / (pos[right] - pos[right - 1])).to(strided_field)
+            w = w.reshape(-1, *[1] * (strided_field.ndim - 1))
+            below, above = strided_field[right - 1], strided_field[right]
+            below, above = torch.where(below.isnan(), above, below), torch.where(above.isnan(), below, above)
+            field = below * (1 - w) + above * w
 
         assert field.shape[0] == self.field_len, f'After Unstride ({self.name=}) : {field.shape[0]=} != {self.field_len=}'
         return field
@@ -248,10 +258,7 @@ class TransformationPipeline :
         return {k : Strider(sp, field_len=self.infos['shape'][k][0], name=k) for k, sp in self.stride_patterns.items() }             
 
     def __call__(self, fields_dict, result='input'):
-        #set_trace()
-        del fields_dict['__key__']
-
-        if result == 'file' : return f
+        fields_dict.pop('__key__', None)
 
         # Dim check
         f = TensorDict(fields_dict, batch_size=[]).apply(self.dimcheck)
@@ -301,6 +308,9 @@ class TransformationPipeline :
 
         # Unstride
         f = TensorDict({k : s.__uncall__(f[k]) for k, s in self.striders.items()}, batch_size=[])
+
+        # Interpolation does not follow the bathymetry between strided levels : restore the full resolution mask
+        f = TensorDict({k : torch.where(self.infos['mask'][k], torch.nan, f[k]) for k in self.striders.keys()}, batch_size=[])
 
         f = f.apply(self.dimcheck.__uncall__)
         return f

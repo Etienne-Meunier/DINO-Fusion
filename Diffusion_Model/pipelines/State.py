@@ -3,21 +3,23 @@ import torch
 from __init__ import PRP; import sys; sys.path.append(PRP)
 
 from Results.analysis_scripts.metrics import get_density_at_surface_tensor
-from DataLoader import get_dataloader, get_infos
+from DataLoader import get_infos
 from functools import partial
 from TransformFields import TransformationPipeline
 
 class Observer:
-    def __init__(self, name, config=None):
+    """
+        Observation operators on normalised states (b, c, i, j) : un-normalised fields, density and its profiles.
+        All operators are differentiable with respect to the normalised state.
+    """
+    def __init__(self, name, config=None, device='cpu'):
         self.name = name
         if config is not None : 
-            self.normalizer, self.unnormalizer = self.build_extractor(config)
+            self.normalizer, self.unnormalizer = self.build_extractor(config, device)
 
-    def build_extractor(self, config):
-        tr = TransformationPipeline(get_infos(config.data_file),
-                                     config.fields, config.normalisation, device='mps')
-        train_dataloader = get_dataloader(config.data_file, tr, batch_size=1)
-        transform = train_dataloader.get_transform()
+    def build_extractor(self, config, device):
+        transform = TransformationPipeline(get_infos(config.data_file),
+                                           config.fields, config.normalisation, device=device)
         return transform, transform.__uncall__
 
     def unnormalized(self, normalized, result=None):

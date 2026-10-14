@@ -2,18 +2,8 @@
 # Libraries
 import torch
 import numpy as np
-import sys
-sys.path.append('../../Diffusion_Model/')
-from configs.base_config import TrainingConfig
-from utils import get_dataloader, TransformFields
-from data_analytics import get_transformed_data
 import matplotlib.pyplot as plt
-import einops
-from torch.nn.functional import interpolate
-from glob import glob
 import xarray as xr
-import numpy as np
-from ipdb import set_trace
 
 # Metrics implementated by G. Gachon (IPSL)
 
@@ -498,10 +488,16 @@ def compute_density_tensor(batch, file_mask_LR):
 
 #%%
 if __name__ =='__main__' :
+    # Compute the mean density profile of the training set used by constraints C1 and C2 (mean_density_train.txt)
+    import sys
+    from __init__ import PRP
+    sys.path.append(f'{PRP}/Diffusion_Model/')
+    from configs.base_config import TrainingConfig
+    from utils import get_dataloader
+    from data_analytics import get_transformed_data
 
     config = TrainingConfig()
     config.normalisation = '3-std'
-    config.data_file = '../../../DATA_DINOFusion/dino_1_4_degree_coarse_240125.tar'
     train_dataloader = get_dataloader(config.data_file, batch_size=50,
                                                 fields=config.fields, normalisation='3-std', transform=True, shuffle=False, device='mps')
     extractor = train_dataloader.get_transform().uncall
@@ -510,23 +506,10 @@ if __name__ =='__main__' :
     batch = next(idt)
     #print(batch.shape)
 
-    file_mask_LR = xr.open_dataset("data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
+    file_mask_LR = xr.open_dataset(f"{PRP}/Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
     mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
 
     batch_norm = get_transformed_data(batch, function=extractor)
-
-#%%
-    density, zn0 = compute_density_tensor(batch_norm, mask)
-    density_np, zn0_np= compute_density(batch_norm, mask)
-    #grad = density.mean(dim=[-1, -2], keepdim=True)
-    #density[density != density] = 0
-
-    #vertical_grad = density - torch.roll(density, -1, dims=1)
-    #dz = torch.tensor(mask.e3t_0.values, device='mps', dtype=torch.float32)
-    #vertical_grad = vertical_grad/dz
-    #vertical_grad[:,-1,:,:] = torch.zeros([8,vertical_grad.shape[2],vertical_grad.shape[3]], device='mps')
-
-
 
 #%%
     #compute mean density per z level for the training dataset
@@ -565,7 +548,7 @@ if __name__ =='__main__' :
 
 #%%
 # Save to text file
-    np.savetxt('mean_density_train.txt', mean_dens, fmt='%.6f')
+    np.savetxt(f'{PRP}/Results/analysis_scripts/mean_density_train.txt', mean_dens, fmt='%.6f')
 
 
 # %%

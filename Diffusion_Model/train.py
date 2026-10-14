@@ -2,10 +2,10 @@ from torch.nn.modules import normalization
 from DiffusionModel import DiffusionModel
 from configs.base_config import *
 from torchvision import transforms
-from utils import get_dataloader
+from DataLoader import get_dataloader, get_infos
+from TransformFields import TransformationPipeline
 from tqdm import tqdm
 import torch
-from ipdb import set_trace
 from utils import save_images
 import numpy as np
 
@@ -15,9 +15,9 @@ def main() :
     config = TrainingConfig()
     print("Config loaded")
 
-    train_dataloader = get_dataloader(config.data_file, batch_size=config.train_batch_size, fields=config.fields, normalisation=config.normalisation)
+    transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation)
+    train_dataloader = get_dataloader(config.data_file, transform, batch_size=config.train_batch_size)
     config.data_shape = train_dataloader.get_data_shape()
-    #set_trace()
     print("Data loaded")
 
     # Load Model

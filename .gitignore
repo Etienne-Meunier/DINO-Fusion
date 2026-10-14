@@ -1,3 +1,10 @@
 *.npy
+!Diffusion_Model/pipelines/border_mask.npy
 *.pth
 *.pyc
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+Results/a_priori/figures/
+Results/a_posteriori/figures/
+*.bkp

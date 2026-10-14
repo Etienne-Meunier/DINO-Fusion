@@ -68,8 +68,8 @@ def get_dataloader(tar_file, transform=None, batch_size=5, shuffle=True) :
     dl = DataLoader(dataset=dataset, batch_size=batch_size)
 
     if transform is not None:
-        dl.get_transform = types.MethodType(lambda _ : transform, dl)
-        dl.get_data_shape = types.MethodType(transform.get_output_shape, dl)
+        dl.get_transform = lambda : transform
+        dl.get_data_shape = transform.get_output_shape
     return dl
 
 

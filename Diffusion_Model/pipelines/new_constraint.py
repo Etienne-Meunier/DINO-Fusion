@@ -1,21 +1,29 @@
 from __init__ import PRP; import sys
 
 
-from Diffusion_Model.pipelines.State import Observer
+from pipelines.State import Observer
 from collections.abc import Callable
 import torch
 import numpy as np
 import abc
-from ShapeChecker import ShapeCheck
 import einops
-from ipdb import set_trace
 
 ## --- STRUCTURE ----
 
 class Beta:
+    """
+        Weight of the constraint gradient along sampling.
+            constant    : beta = beta_init
+            linear_up   : beta = 2 beta_init (1 - t/max_iter), strongest at the end of sampling
+            linear_down : beta = 2 beta_init t/max_iter, strongest at the start of sampling
+            eq          : beta <- beta + eta * C
+            ineq        : beta <- max(beta + eta * (C - eps), 0), dual ascent of the constraint C <= eps
+        The linear schedules have the same mean over sampling as the constant one.
+    """
     def __init__(self, beta_init, params_beta={}, beta_type='constant'):
         self.beta_type = beta_type
         self.value = beta_init
+        self.base = beta_init
         self.prb = params_beta
 
     def update(self, t, esp=None):
@@ -24,11 +32,15 @@ class Beta:
                 pass # Never change beta if constant
             case 'decreasing':
                 l, k, n = self.prb['l'], self.prb['k'], self.prb['max_iter']
-                self.value += l*self.beta * torch.exp(((1-t/n) - 1)*k)
+                self.value += l*self.value * torch.exp(((1-t/n) - 1)*k)
+            case 'linear_up' :
+                self.value = 2 * self.base * (1 - float(t) / self.prb['max_iter'])
+            case 'linear_down' :
+                self.value = 2 * self.base * float(t) / self.prb['max_iter']
             case 'eq' :
                 self.value += self.prb['eta'] * esp
             case 'ineq':
-                self.value = (self.value + self.prb['eta'] * esp).clamp(0.0)
+                self.value = torch.as_tensor(self.value + self.prb['eta'] * (esp - self.prb.get('eps', 0.0))).clamp(0.0)
             case _:
                 raise NameError(f'{self.beta_type} not known')
 
@@ -68,8 +80,8 @@ class GradientConstraint(Constraint) :
         Take as input state, compute the correction 
         and return the corrected state.normalized
         """
-        grad = self.gradient_f(field)
-        self.beta.update(t, esp=torch.mean(torch.nansum(grad**2, dim=-1)))
+        grad, loss = self.gradient_f(field)
+        self.beta.update(t, esp=loss)
         return self.beta.value * grad
 
 
@@ -83,18 +95,6 @@ class Loss :
         pass
 
 ## --- CONSTRAINTS ----
-
-class ZeroMean(FunctionGradient) : 
-    def __init__(self, dims=(-2, -1)):
-        super().__init__() 
-        self.dims = dims
-
-    def __call__(self, field : torch.tensor) : 
-        grad = field.mean(dim=self.dims, keepdim=True)
-        return grad * torch.ones_like(field)
-
-    def __str__(self):
-        return 'GradientZeroMean'
     
 class LossAD(FunctionGradient) : 
     def __init__(self, loss : Loss):
@@ -107,7 +107,7 @@ class LossAD(FunctionGradient) :
             field.grad = None
             l = self.loss(field)
             l.backward()
-            return field.grad
+            return field.grad, l.detach()
         
 
 class OptimProjection(Projection) :
@@ -138,6 +138,28 @@ class OptimProjection(Projection) :
 
 
 ## --- Losses (for AD) ----
+
+class ZeroMean(Loss) : 
+    def __init__(self, **kwargs) : 
+        super().__init__(observer=None, **kwargs)
+                            
+    def __call__(self, field):
+        mf = torch.nanmean(field, axis=(-2, -1))
+        loss = torch.nansum(mf**2, axis=(0, 1))
+        return loss
+
+
+class NegativeGradDensityProfile(Loss) : 
+    def __init__(self, **kwargs) : 
+        super().__init__(**kwargs)
+
+    def __call__(self, field):
+        grad_density = self.observer.density_gradient(field)
+        grad_density[:, -1] = 0.0 # Bottom layer with no nans
+        grad_density_profile = grad_density.nanmean(dim=self.dims)
+
+        loss = torch.nansum((grad_density_profile.clamp(0.0))**2)
+        return loss
 
 class MeanDensityProfile(Loss) : 
     def __init__(self, profile=\
@@ -173,19 +195,27 @@ class MeanGradDensityProfile(Loss) :
 
         loss = torch.nansum((self.grad_density[None, :] - grad_density_profile)**2)
         return loss
-    
 
-class NegativeGradDensityProfile(Loss) : 
-    def __init__(self, **kwargs) : 
+
+
+class DistancetoIsotonic(Loss) : 
+    """
+        Squared distance of the density columns to the isotonic cone (density non-decreasing with depth).
+        The projection is detached : the gradient of the squared distance to a convex set is 2 (x - P(x)).
+    """
+    def __init__(self, result='strided', **kwargs) : 
         super().__init__(**kwargs)
+        self.isoton = IsotonicDensity()
+        self.result = result
 
     def __call__(self, field):
-        grad_density = self.observer.density_gradient(field)
-        grad_density[:, -1] = 0.0 # Bottom layer with no nans
-        grad_density_profile = grad_density.nanmean(dim=self.dims)
-
-        loss = torch.nansum((grad_density_profile.clamp(0.0))**2)
+        density = self.observer.density(field, result=self.result)
+        isoton_density = self.isoton(density.detach())
+        loss = torch.nansum((density - isoton_density)**2)
         return loss
+
+    
+
 
 
 ## --- Projections ---
@@ -200,7 +230,7 @@ class BorderZero(Projection):
         return self.observer.normalizer.padder(g)
 
     def __str__(self):
-        return f'BorderZeroConstraint - mask : {self.mask_path}'
+        return 'BorderZero'
 
 class MeanDensityProfileProjection(Projection) :
     """
@@ -226,15 +256,27 @@ class IsotonicDensity(Projection) :
     """ 
     def __init__(self, **kwargs) : 
         super().__init__(**kwargs)
-        from scipy.optimize import isotonic_regression
-        self.isof = isotonic_regression
 
     def __call__(self, density_profile) : 
         """
             density profile : (B, Z, *)  where * can be spatial (I, J) or even nothing
+        Returns :
+            (B, Z, *) non-decreasing along Z, closest in L2 to the input (columns with a NaN are NaN)
+        Uses the min-max formula of the isotonic regression, x_i = max_{j<=i} min_{k>=i} mean(y_j..y_k), in O(Z^2) memory per column.
         """ 
-        r = np.apply_along_axis(lambda o : self.isof(o).x, axis=1, arr=density_profile.detach().cpu().numpy())
-        return torch.tensor(r).to(density_profile)
+        y = density_profile.detach().movedim(1, -1)                                       # (..., Z)
+        z = y.shape[-1]
+        c = torch.nn.functional.pad(y.cumsum(-1), (1, 0))                                 # (..., Z+1)
+        j, k = torch.meshgrid(torch.arange(z, device=y.device), torch.arange(z, device=y.device), indexing='ij')
+        means = (c[..., k + 1] - c[..., j]) / (k - j + 1).clamp(min=1)                     # (..., Z, Z) mean(y_j..y_k)
+        means = torch.where(k >= j, means, torch.inf)
+        # min_{k' >= k} mean(y_j..y_k') as a loop : cummin is not implemented on MPS
+        upper = [means[..., -1]]
+        for kk in range(z - 2, -1, -1) :
+            upper.insert(0, torch.minimum(means[..., kk], upper[0]))
+        upper = torch.stack(upper, dim=-1)
+        lower = torch.where(k <= j, upper.transpose(-2, -1), -torch.inf)                  # [i, j] = min_{k >= i} mean(y_j..y_k), j <= i
+        return lower.max(-1).values.movedim(-1, 1)
     
 
     
