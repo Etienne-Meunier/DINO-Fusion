@@ -1,0 +1,34 @@
+W1014 22:08:37.090000 9066 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...:  50%|█████     | 1/2 [00:00<00:00,  2.92it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  5.23it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+mean_density_raw_eta0.01_q0.5_ts700_s0_n100_b8               mean_density=5.75e-01/6.3e-03 sat=0.00 dist=0.016 div=0.061 t=49s
+mean_density_raw_eta0.01_q0.5_ts400_s0_n100_b8               mean_density=1.07e+00/6.3e-03 sat=0.00 dist=0.004 div=0.065 t=37s
+mean_density_raw_eta0.03_q0.5_ts700_s0_n100_b8               mean_density=2.93e-01/6.3e-03 sat=0.00 dist=0.028 div=0.059 t=47s
+mean_density_raw_eta0.03_q0.5_ts400_s0_n100_b8               mean_density=7.50e-01/6.3e-03 sat=0.00 dist=0.010 div=0.063 t=36s
+mean_density_raw_eta0.1_q0.5_ts700_s0_n100_b8                mean_density=1.56e-01/6.3e-03 sat=0.00 dist=0.039 div=0.056 t=48s
+mean_density_raw_eta0.1_q0.5_ts400_s0_n100_b8                mean_density=3.36e-01/6.3e-03 sat=0.00 dist=0.024 div=0.060 t=36s
+negative_grad_density_raw_eta0.01_q0.5_ts700_s0_n100_b8      negative_grad_density=2.12e-01/1.0e-06 sat=0.00 dist=0.005 div=0.065 t=52s
+negative_grad_density_raw_eta0.01_q0.5_ts400_s0_n100_b8      negative_grad_density=3.69e-01/1.0e-06 sat=0.00 dist=0.001 div=0.066 t=43s
+negative_grad_density_raw_eta0.03_q0.5_ts700_s0_n100_b8      negative_grad_density=9.28e-02/1.0e-06 sat=0.00 dist=0.010 div=0.065 t=58s
+negative_grad_density_raw_eta0.03_q0.5_ts400_s0_n100_b8      negative_grad_density=3.08e-01/1.0e-06 sat=0.00 dist=0.003 div=0.066 t=43s
+negative_grad_density_raw_eta0.1_q0.5_ts700_s0_n100_b8       negative_grad_density=5.21e-02/1.0e-06 sat=0.00 dist=0.020 div=0.064 t=58s
+negative_grad_density_raw_eta0.1_q0.5_ts400_s0_n100_b8       negative_grad_density=1.38e-01/1.0e-06 sat=0.00 dist=0.008 div=0.065 t=43s
+mean_density_raw_eta0.1_q0.5_lm2.0_s0_n100_b8                mean_density=3.35e-01/6.3e-03 sat=0.00 dist=0.062 div=0.061 t=56s
+mean_density_raw_eta0.1_q0.5_lm5.0_s0_n100_b8                mean_density=1.31e+00/6.3e-03 sat=0.00 dist=0.196 div=0.076 t=57s
+mean_density_raw_eta1.0_q0.5_lm2.0_s0_n100_b8                mean_density=3.35e-01/6.3e-03 sat=0.00 dist=0.062 div=0.061 t=55s
+mean_density_raw_eta1.0_q0.5_lm5.0_s0_n100_b8                mean_density=1.39e+00/6.3e-03 sat=0.00 dist=0.205 div=0.074 t=57s
+negative_grad_density_raw_eta0.1_q0.5_lm2.0_s0_n100_b8       negative_grad_density=4.15e-02/1.0e-06 sat=0.00 dist=0.028 div=0.063 t=63s
+negative_grad_density_raw_eta0.1_q0.5_lm5.0_s0_n100_b8       negative_grad_density=3.95e-02/1.0e-06 sat=0.00 dist=0.029 div=0.063 t=49s
+negative_grad_density_raw_eta1.0_q0.5_lm2.0_s0_n100_b8       negative_grad_density=1.89e-02/1.0e-06 sat=0.00 dist=0.040 div=0.065 t=66s
+negative_grad_density_raw_eta1.0_q0.5_lm5.0_s0_n100_b8       negative_grad_density=2.94e-02/1.0e-06 sat=0.00 dist=0.102 div=0.076 t=71s
+mean_density_raw_eta0.01_q0.5_tuFalse_s0_n100_b8             mean_density=2.87e-01/6.3e-03 sat=0.00 dist=0.042 div=0.059 t=29s
+mean_density_raw_eta0.1_q0.5_tuFalse_s0_n100_b8              mean_density=2.81e-01/6.3e-03 sat=0.00 dist=0.334 div=0.077 t=29s
+negative_grad_density_raw_eta0.01_q0.5_tuFalse_s0_n100_b8    negative_grad_density=7.66e-02/1.0e-06 sat=0.00 dist=0.016 div=0.064 t=46s
+negative_grad_density_raw_eta0.1_q0.5_tuFalse_s0_n100_b8     negative_grad_density=4.16e-02/1.0e-06 sat=0.00 dist=0.029 div=0.063 t=45s
+mean_density_raw_eta0.01_q0.5_fo10_s0_n100_b8                mean_density=3.07e-03/6.3e-03 sat=1.00 dist=0.055 div=0.055 t=57s
+mean_density_raw_eta0.01_q0.5_fo50_s0_n100_b8                mean_density=3.07e-03/6.3e-03 sat=1.00 dist=0.055 div=0.055 t=57s
+negative_grad_density_raw_eta0.01_q0.5_fo10_s0_n100_b8       negative_grad_density=0.00e+00/1.0e-06 sat=1.00 dist=0.025 div=0.063 t=80s
+negative_grad_density_raw_eta0.01_q0.5_fo50_s0_n100_b8       negative_grad_density=0.00e+00/1.0e-06 sat=1.00 dist=0.025 div=0.063 t=78s
+mean_density+zero_mean_raw_eta0.01-0.01_q0.5_s0_n100_b8      mean_density=2.60e-01/6.3e-03 zero_mean=1.46e-01/2.6e-03 sat=0.00 dist=0.044 div=0.057 t=55s
+mean_density+zero_mean_raw_eta0.01-0.1_q0.5_s0_n100_b8       mean_density=1.65e-01/6.3e-03 zero_mean=9.03e-02/2.6e-03 sat=0.00 dist=0.049 div=0.048 t=55s
+mean_density+zero_mean_raw_eta0.03-0.1_q0.5_s0_n100_b8       mean_density=1.41e-01/6.3e-03 zero_mean=1.00e-01/2.6e-03 sat=0.00 dist=0.059 div=0.049 t=52s

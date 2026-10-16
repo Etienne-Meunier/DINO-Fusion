@@ -1,0 +1,11 @@
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+32 states64 states96 states128 states160 states192 states224 states256 states288 states320 states352 states384 states416 states448 states480 states512 states544 states576 states608 states640 states672 states704 states736 states768 states800 states832 states864 states896 states928 states960 states992 states1024 states1056 states1088 states1120 states1152 states1184 states1216 states1248 states1280 states1312 states1344 states1376 states1408 states1440 states1472 states1504 states1536 states1568 states1600 states1632 states1664 states1696 states1728 states1760 states1792 states1800 states
+1800 training states
+loss,q0.5,q0.9,q0.95,q0.99,q1.0
+mean_density,6.320283e-03,1.309987e-02,1.574289e-02,2.219192e-02,2.711464e-02
+mean_grad_density,1.515809e-03,1.851020e-03,1.939032e-03,2.079839e-03,2.211929e-03
+negative_grad_density,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00
+zero_mean,2.623915e-03,8.204633e-03,9.264057e-03,1.015747e-02,1.055082e-02
+dist_isoton,3.451295e-05,3.758296e-05,3.847573e-05,3.998827e-05,4.297867e-05
+

@@ -316,8 +316,8 @@ def compute_density(batch, file_mask_LR):
         and return the corresponding density 
     """
     bsize = batch['soce.npy'].shape[0]
-    device = batch["soce.npy"].device
-    dtype = batch["soce.npy"].dtype
+    device = batch["soce"].device
+    dtype = batch["soce"].dtype
 
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})
     soce = data.copy().astype(np.float32)
@@ -333,6 +333,28 @@ def compute_density(batch, file_mask_LR):
     density = torch.tensor(density.values, device=device, dtype=dtype)
 
     return density
+
+def compute_density_error(batch, file_mask_LR):
+    """
+        Take a batch with toce (b, z, h, w) and soce along with the mask
+        and return the pourcent of volume unstable per element in the batch
+    """
+    bsize = batch['soce'].shape[0]
+
+    data = file_mask_LR.e3t_0.copy().expand_dims({'batch' : bsize})
+    soce = data.copy()
+    soce[:] = np.asarray(batch['soce'])
+    toce = data.copy()
+    toce[:] = np.asarray(batch['toce'])
+
+    tmask = data.copy()
+    tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
+
+    volume = (file_mask_LR.e1t * file_mask_LR.e2t * file_mask_LR.e3t_0).expand_dims({'batch' : bsize})
+
+    density = get_density_at_surface(toce, soce, tmask)
+    errors_density = (((density.diff('depth') < 0.0) * volume * tmask).sum(['nav_lat', 'nav_lon', 'depth']) / (volume * tmask).sum(['nav_lat', 'nav_lon', 'depth']))*100
+    return errors_density.values
 
 import torch
 
@@ -466,18 +488,18 @@ def compute_density_tensor(batch, file_mask_LR):
     Returns:
         torch.Tensor: Computed density.
     """
-    bsize = batch["soce.npy"].shape[0]
-    device = batch["soce.npy"].device
-    dtype = batch["soce.npy"].dtype
+    bsize = batch["soce"].shape[0]
+    device = batch["soce"].device
+    dtype = batch["soce"].dtype
 
     data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})  
 
     #pass to tensor
     #data = torch.tensor(data.values, device=device, dtype=dtype)
     #soce = data.clone()
-    soce = batch["soce.npy"]
+    soce = batch["soce"]
     #toce = data.clone()
-    toce = batch["toce.npy"]
+    toce = batch["toce"]
 
     #tmask = data.clone()
     tmask = torch.tensor(np.repeat(file_mask_LR.tmask.values[None], bsize, 0), device=device, dtype=dtype)
@@ -493,23 +515,13 @@ if __name__ =='__main__' :
     from __init__ import PRP
     sys.path.append(f'{PRP}/Diffusion_Model/')
     from configs.base_config import TrainingConfig
-    from utils import get_dataloader
-    from data_analytics import get_transformed_data
+    from DataLoader import get_dataloader
 
     config = TrainingConfig()
-    config.normalisation = '3-std'
-    train_dataloader = get_dataloader(config.data_file, batch_size=50,
-                                                fields=config.fields, normalisation='3-std', transform=True, shuffle=False, device='mps')
-    extractor = train_dataloader.get_transform().uncall
-
-    idt = iter(train_dataloader)
-    batch = next(idt)
-    #print(batch.shape)
+    train_dataloader = get_dataloader(config.data_file, transform=None, batch_size=50, shuffle=False)
 
     file_mask_LR = xr.open_dataset(f"{PRP}/Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc").sel(time_counter=0)
     mask = file_mask_LR.rename({"nav_lev":"depth","y":"nav_lat","x":"nav_lon"})
-
-    batch_norm = get_transformed_data(batch, function=extractor)
 
 #%%
     #compute mean density per z level for the training dataset
@@ -519,8 +531,7 @@ if __name__ =='__main__' :
     num_elt = 0
     
     for step, batch in enumerate(train_dataloader):
-        batch_norm = get_transformed_data(batch, function=extractor)
-        density = compute_density_tensor(batch_norm, mask)
+        density = compute_density_tensor({k : v.to('mps') for k, v in batch.items()}, mask)
         print(density.nanmean(dim=[0, -1,-2])[0])
         density_training = density_training + torch.nansum(density, dim=[0,-1, -2])
         num_elt += BATCH_SIZE

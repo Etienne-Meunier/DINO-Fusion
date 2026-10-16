@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Density Sweep Viewer</title>
+<script src="plotly.min.js"></script>
+<script src="density_viewer_data.js"></script>
+<style>
+  :root { --bg: #fafaf8; --fg: #1c1c1a; --muted: #6b6b66; --line: #ddddd6; --card: #ffffff; --accent: #2b6f8f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 10px 16px 10px; background: var(--bg); color: var(--fg);
+         font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 6px; font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .col { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 2px; min-width: 0; }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .col h2 { font-size: 14px; margin: 0; }
+  .controls { min-height: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: center; margin: 2px 0; }
+  .ctrl { display: grid; grid-template-columns: 16px 1fr 44px; align-items: center; gap: 4px; font-size: 12px; }
+  .ctrl label { color: var(--muted); }
+  .ctrl output { font-variant-numeric: tabular-nums; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin: 0 0 8px; font-size: 13px; }
+  .bar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .member { display: inline-grid; grid-template-columns: 60px 220px 70px; align-items: center; gap: 8px; }
+  .member.off { opacity: .4; }
+  .stat { font-size: 12px; min-height: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat b { font-weight: 600; }
+  .plot, .amap { width: 100%; height: var(--plot-h, 260px); }
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0 0 6px; }
+  .tabs button { border: 0; background: var(--card); color: var(--fg); padding: 4px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  body[data-tab=density] .amap, body[data-tab=apriori] .plot { display: none; }
+  .loading { color: var(--muted); font-size: 12px; }
+  .scale { height: var(--plot-h, 260px); }
+  body[data-tab=apriori] .scale { height: calc(var(--plot-h, 260px) + 40px); }
+  .note { grid-column: 1 / -1; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body data-tab="density">
+<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button></div>
+<span class="loading" id="loading"></span>
+<p class="sub" id="sub"></p>
+
+<div class="bar">
+  <label><input type="radio" name="view" value="mean" checked> Batch average</label>
+  <label><input type="radio" name="view" value="median"> Median state by</label>
+  <select id="median-by" disabled>
+    <option value="rmse" selected>RMSE to data mean</option>
+    <option value="density_error">density error</option>
+  </select>
+  <label><input type="radio" name="view" value="member"> Member</label>
+  <div class="member off">
+    <span>Member</span>
+    <input type="range" id="member" min="0" max="15" step="1" value="0" disabled>
+    <output id="member-out">1</output>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const D = window.DENSITY_DATA;
+const NZ = D.depth.length, NY = D.latitude.length, SIZE = NZ * NY;
+// Stretched depth axis : y = depth^DEPTH_POWER, the ticks keep the depth in metres
+const DEPTH_POWER = 0.625, DEPTH_MAX = 3500;
+const stretch = d => Math.pow(d, DEPTH_POWER);
+const Y = D.depth.map(stretch);
+const DEPTH_TICKS = [0, 100, 250, 500, 1000, 1500, 2000, 3000];
+const DEPTH_TEXT = D.depth.map(d => D.latitude.map(() => d.toFixed(0)));
+const [LO, HI] = D.sigma_range;
+const BAND = [-65, -45];
+const LEVELS = { start: 22, end: 28.5, size: 0.5 };
+const COLUMNS = [
+  { key: 'data', title: 'Data (8 random states)' },
+  { key: 'none', title: 'No constraint' },
+  { key: 'none_border0', title: 'No constraint' },
+  { key: 'zero_mean', title: 'TS constraint' },
+  { key: 'mean_density', title: 'C1 constraint' },
+];
+const LABELS = { zero_mean: 'C_TS', mean_density: 'C_C1' };
+const SUBTITLES = {
+  density: 'Zonal σ₀ sections: volume-weighted zonal mean of potential density anomaly (kg m⁻³ − 1000). Inset: mean profile over 65°S–45°S (dashed lines). The two unconstrained runs are the latest of default_eps.',
+  apriori: 'For the selected state (batch average, median or member): SST, mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
+};
+let A = null;  // a-priori data, loaded with the tab
+let tab = 'density';
+// Initial slider values, eps 'default' = eps_data of the loss (the largest eps of the sweep)
+const DEFAULTS = { mean_density: { eta: 1e-2, lbd0: 1, eps: 'default' }, zero_mean: { eta: 1e-1, lbd0: 1, eps: 'default' } };
+
+function decode(b64) {
+  const bin = atob(b64), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  const q = new Uint16Array(buf.buffer), out = new Float32Array(q.length);
+  for (let i = 0; i < q.length; i++) out[i] = q[i] === 0 ? NaN : LO + (q[i] - 1) / 65534 * (HI - LO);
+  return out;
+}
+const cache = new Map();
+function sections(entry) {
+  if (!cache.has(entry)) cache.set(entry, decode(entry.sections));
+  return cache.get(entry);
+}
+function toGrid(flat, offset) {
+  const z = [];
+  for (let k = 0; k < NZ; k++) {
+    const row = new Array(NY);
+    for (let j = 0; j < NY; j++) { const v = flat[offset + k * NY + j]; row[j] = Number.isNaN(v) ? null : v; }
+    z.push(row);
+  }
+  return z;
+}
+function meanGrid(flat, n) {
+  const z = [];
+  for (let k = 0; k < NZ; k++) {
+    const row = new Array(NY);
+    for (let j = 0; j < NY; j++) {
+      let s = 0, c = 0;
+      for (let b = 0; b < n; b++) { const v = flat[b * SIZE + k * NY + j]; if (!Number.isNaN(v)) { s += v; c++; } }
+      row[j] = c ? s / c : null;
+    }
+    z.push(row);
+  }
+  return z;
+}
+function bandProfile(z) {
+  return z.map(row => {
+    let s = 0, c = 0;
+    D.latitude.forEach((lat, j) => { if (lat >= BAND[0] && lat < BAND[1] && row[j] !== null) { s += row[j]; c++; } });
+    return c ? s / c : null;
+  });
+}
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const sci = v => v.toExponential(2);
+
+function draw(div, z, showScale) {
+  const traces = [
+    { type: 'contour', x: D.latitude, y: Y, z, text: DEPTH_TEXT, colorscale: D.colorscale, zmin: LEVELS.start, zmax: LEVELS.end,
+      contours: { ...LEVELS, coloring: 'fill' }, line: { color: 'black', width: 0.6 }, connectgaps: false,
+      showscale: showScale, colorbar: { len: 0.9, thickness: 10, title: { text: 'σ₀', side: 'right' } },
+      hovertemplate: 'lat %{x:.1f}°<br>depth %{text} m<br>σ₀ %{z:.2f}<extra></extra>' },
+    { type: 'scatter', x: bandProfile(z), y: Y, customdata: D.depth, xaxis: 'x2', yaxis: 'y', mode: 'lines',
+      line: { color: 'black', width: 2 }, hovertemplate: 'σ₀ %{x:.2f}<br>depth %{customdata:.0f} m<extra></extra>' },
+  ];
+  const band = BAND.map(lat => ({ type: 'line', xref: 'x', yref: 'paper', x0: lat, x1: lat, y0: 0, y1: 1,
+                                  line: { color: 'gray', dash: 'dash', width: 1 } }));
+  const layout = {
+    margin: { l: 48, r: showScale ? 10 : 6, t: 6, b: 34 }, showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)',
+    xaxis: { domain: [0, 0.84], title: { text: 'latitude [°N]', font: { size: 11 } }, tickfont: { size: 10 } },
+    xaxis2: { domain: [0.87, 1], range: [25, 28.5], tickfont: { size: 9 }, nticks: 4, showgrid: true, gridcolor: '#ddd' },
+    yaxis: { range: [stretch(DEPTH_MAX), 0], tickvals: DEPTH_TICKS.map(stretch), ticktext: DEPTH_TICKS.map(String),
+             title: { text: 'depth [m]', font: { size: 11 } }, tickfont: { size: 10 } },
+    shapes: band,
+  };
+  Plotly.react(div, traces, layout, { displayModeBar: false, responsive: true });
+}
+
+function options(loss) {
+  const runs = D.runs.filter(r => r.loss === loss);
+  const uniq = k => [...new Set(runs.map(r => r[k]))].sort((a, b) => a - b);
+  return { runs, eta: uniq('eta'), lbd0: uniq('lbd0'), eps: uniq('eps') };
+}
+
+const grid = document.getElementById('grid');
+const state = { member: 0, view: 'mean', medianBy: 'rmse' };
+const cols = COLUMNS.map((col, ci) => {
+  const el = document.createElement('div');
+  el.className = 'col';
+  el.innerHTML = `<div class="head"><h2>${col.title}</h2><span class="row-label"></span></div>
+    <div class="controls"></div><div class="stat"></div><div class="plot"></div><div class="amap"></div>`;
+  grid.appendChild(el);
+  const c = { ...col, el, sel: {} };
+  const controls = el.querySelector('.controls');
+  if (col.key === 'data') {
+    controls.innerHTML = '<div class="note">Reference values on data</div>';
+  } else if (col.key in D.baselines) {
+    controls.innerHTML = '<div class="note">Unconstrained sampling</div>';
+  } else {
+    c.opts = options(col.key);
+    for (const p of ['eta', 'lbd0', 'eps']) {
+      const vals = c.opts[p];
+      const want = DEFAULTS[col.key][p];
+      c.sel[p] = want === 'default' ? vals.length - 1 : Math.max(0, vals.indexOf(want));
+      const row = document.createElement('div');
+      row.className = 'ctrl';
+      row.innerHTML = `<label>${p === 'lbd0' ? 'λ₀' : p === 'eta' ? 'η' : 'ε'}</label>
+        <input type="range" min="0" max="${vals.length - 1}" step="1" value="${c.sel[p]}"><output>${vals[c.sel[p]]}</output>`;
+      const input = row.querySelector('input'), out = row.querySelector('output');
+      input.addEventListener('input', () => { c.sel[p] = +input.value; out.textContent = vals[c.sel[p]]; render(c); });
+      controls.appendChild(row);
+    }
+  }
+  return c;
+});
+
+function entryOf(c) {
+  if (c.key === 'data') return D.data;
+  if (c.key in D.baselines) return D.baselines[c.key];
+  const want = { eta: c.opts.eta[c.sel.eta], lbd0: c.opts.lbd0[c.sel.lbd0], eps: c.opts.eps[c.sel.eps] };
+  return c.opts.runs.find(r => r.eta === want.eta && r.lbd0 === want.lbd0 && r.eps === want.eps);
+}
+
+function statText(entry, idx) {
+  const pick = a => idx === null ? mean(a) : a[idx];
+  const parts = Object.entries(entry.C).map(([k, v]) => `<b>${LABELS[k]}(x)</b> ${sci(pick(v))}`);
+  parts.push(`<b>density error</b> ${pick(entry.density_error).toFixed(2)} %`);
+  parts.push(`<b>RMSE</b> ${pick(rmse(entry)).toFixed(3)}`);
+  if (tab === 'apriori' && A) {
+    const [vt, vs] = aprioriOf(entry).var_mean;
+    parts.push(`<b>var SST</b> ${vt.toFixed(3)}`, `<b>var SSS</b> ${vs.toFixed(4)}`);
+  }
+  return parts.join(' &nbsp;·&nbsp; ');
+}
+
+// RMSE of each member's zonal section to the data batch-average section, unweighted (upper layers count as much as
+// the deep ones), over the cells that are ocean in both
+let dataMean = null;
+const rmseCache = new Map();
+function rmse(entry) {
+  if (!dataMean) dataMean = meanGrid(sections(D.data), D.data.density_error.length).flat();
+  if (!rmseCache.has(entry)) {
+    const flat = sections(entry), n = entry.density_error.length;
+    rmseCache.set(entry, Array.from({ length: n }, (_, b) => {
+      let s = 0, c = 0;
+      for (let i = 0; i < SIZE; i++) {
+        const v = flat[b * SIZE + i], r = dataMean[i];
+        if (!Number.isNaN(v) && r !== null) { s += (v - r) ** 2; c++; }
+      }
+      return Math.sqrt(s / c);
+    }));
+  }
+  return rmseCache.get(entry);
+}
+const MEDIAN_LABELS = { density_error: 'density error', rmse: 'RMSE to data mean' };
+
+// Member at the median of `errors`, the upper median for even n : index floor(n / 2) of the sorted values
+function medianMember(errors) {
+  const order = errors.map((e, i) => i).sort((a, b) => errors[a] - errors[b]);
+  return order[Math.floor(errors.length / 2)];
+}
+
+function render(c) {
+  const entry = entryOf(c);
+  const flat = sections(entry);
+  const n = entry.density_error.length;
+  const avg = state.view === 'mean';
+  const m = state.view === 'median' ? medianMember(state.medianBy === 'rmse' ? rmse(entry) : entry.density_error) : Math.min(state.member, n - 1);
+  c.el.querySelector('h2').textContent = c.title + (entry.projection === 'border_zero' ? ' · Border 0' : '');
+  c.el.querySelector('.row-label').textContent = avg ? `Batch average (n = ${n})`
+    : state.view === 'median' ? `Member ${m + 1} / ${n} · median by ${MEDIAN_LABELS[state.medianBy]}`
+    : `Member ${m + 1} / ${n}`;
+  c.el.querySelector('.stat').innerHTML = statText(entry, avg ? null : m);
+  if (tab === 'density') draw(c.el.querySelector('.plot'), avg ? meanGrid(flat, n) : toGrid(flat, m * SIZE), false);
+  else if (A) drawMaps(c.el.querySelector('.amap'), aprioriOf(entry), n, avg ? null : m);
+}
+
+// ---------- A-priori : SST, mixed layer depth, SST / SSS variance (graph4) and T-S diagram ----------
+const SST_LEVELS = { start: 0, end: 27, size: 1 };
+const MLD_TICKS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+const MLD_LEVELS = { start: 1, end: Math.log10(3000), size: 0.1 };  // log10 of the depth [m]
+const TS_LEVELS = { start: -6, end: -1, size: 0.25 };  // log10 of the volume fraction
+function aprioriOf(entry) {
+  if (entry === D.data) return A.data;
+  for (const k in D.baselines) if (D.baselines[k] === entry) return A.baselines[k];
+  return A.runs[D.runs.indexOf(entry)];
+}
+function bytes(b64) {
+  const bin = atob(b64), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf;
+}
+const decoded = new Map();
+function decodeOnce(a, key, fn) {
+  const k = `${key}`;
+  if (!decoded.has(a)) decoded.set(a, {});
+  const d = decoded.get(a);
+  if (!(k in d)) d[k] = fn();
+  return d[k];
+}
+// Float32 arrays : sst (b, y, x) [°C], mld (b, y, x) [m], ts (b, nT, nS) volume fraction, var (2, y, x)
+const sstOf = a => decodeOnce(a, 'sst', () => {
+  const [lo, hi] = A.sst_range;
+  return Float32Array.from(bytes(a.sst), q => q === 0 ? NaN : lo + (q - 1) / 254 * (hi - lo));
+});
+const mldOf = a => decodeOnce(a, 'mld', () => Float32Array.from(new Uint16Array(bytes(a.mld).buffer), q => q === 0 ? NaN : q));
+const tsOf = a => decodeOnce(a, 'ts', () => {
+  const [lo, hi] = A.ts_log_range;
+  return Float32Array.from(new Uint16Array(bytes(a.ts).buffer), q => q === 0 ? 0 : Math.pow(10, lo + (q - 1) / 65534 * (hi - lo)));
+});
+const varOf = a => decodeOnce(a, 'var', () => new Float32Array(bytes(a.var).buffer));
+
+function grid2d(flat, ny, nx, members, transform = v => v) {
+  // (ny, nx) grid, mean over the planes `members` of flat (planes of ny * nx), NaN ignored, null where empty
+  const P = ny * nx, z = [];
+  for (let j = 0; j < ny; j++) {
+    const row = new Array(nx);
+    for (let i = 0; i < nx; i++) {
+      let s = 0, c = 0;
+      for (const b of members) { const v = flat[b * P + j * nx + i]; if (!Number.isNaN(v)) { s += v; c++; } }
+      row[i] = c ? transform(s / c) : null;
+    }
+    z.push(row);
+  }
+  return z;
+}
+let varMax = null;
+function drawMaps(div, a, n, m) {
+  const ny = A.lat.length, nx = A.lon.length, P = ny * nx;
+  const members = m === null ? [...Array(n).keys()] : [m];
+  if (!varMax) {
+    const dv = varOf(A.data);
+    varMax = [0, 1].map(f => { let mx = 0; for (let i = 0; i < P; i++) { const x = dv[f * P + i]; if (x > mx) mx = x; } return mx; });
+  }
+  const maps = [
+    { title: 'SST', z: grid2d(sstOf(a), ny, nx, members), colorscale: A.colorscales.toce, levels: SST_LEVELS,
+      hover: '%{z:.2f} °C' },
+    { title: 'MLD', z: grid2d(mldOf(a), ny, nx, members, Math.log10), colorscale: A.colorscales.mld, levels: MLD_LEVELS,
+      hover: 'log₁₀ %{z:.2f} m' },
+    ...['SST', 'SSS'].map((name, f) => ({ title: `var ${name}`, z: grid2d(varOf(a), ny, nx, [f]),
+      colorscale: A.colorscales[f ? 'soce' : 'toce'], levels: { start: 0, end: varMax[f], size: varMax[f] / 29 },
+      hover: '%{z:.4f}' })),
+  ];
+  const W = 0.135, gap = 0.01, layout = { margin: { l: 34, r: 6, t: 18, b: 30 }, showlegend: false,
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'lightgray', annotations: [] };
+  const traces = maps.map((p, i) => {
+    const sx = i ? String(i + 1) : '';
+    layout[`xaxis${sx}`] = { domain: [i * W + gap, (i + 1) * W - gap], tickfont: { size: 9 }, nticks: 3, showgrid: false, zeroline: false };
+    layout[`yaxis${sx}`] = { domain: [0, 1], tickfont: { size: 9 }, showticklabels: i === 0, showgrid: false, zeroline: false,
+                             anchor: `x${sx}`, range: [A.lat[0], A.lat[ny - 1]] };
+    layout.annotations.push({ text: p.title, x: (i + 0.5) * W, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom',
+                              showarrow: false, font: { size: 10 } });
+    return { type: 'contour', x: A.lon, y: A.lat, z: p.z, xaxis: `x${sx}`, yaxis: `y${sx}`, colorscale: p.colorscale,
+             zmin: p.levels.start, zmax: p.levels.end, contours: { ...p.levels, coloring: 'fill', showlines: false },
+             connectgaps: false, showscale: false, hovertemplate: `${p.title} ${p.hover}<extra></extra>` };
+  });
+  // T-S diagram : volume fraction per (T, S) bin, log scale, sigma_0 isopycnals
+  // planes of ts are (member, region) with region 0 = ACC, 1 = rest of the basin
+  const ts = tsOf(a), nt = A.ts_t.length, ns = A.ts_s.length;
+  const zts = [0, 1].map(r => grid2d(ts, nt, ns, members.map(b => 2 * b + r), v => v > 0 ? Math.log10(v) : null));
+  layout.xaxis5 = { domain: [4 * W + 0.06, 1], range: [33.5, 37.5], tickfont: { size: 9 }, nticks: 5,
+                    title: { text: 'S [g kg⁻¹]', font: { size: 10 }, standoff: 2 }, showgrid: false, zeroline: false };
+  layout.yaxis5 = { domain: [0, 1], anchor: 'x5', range: [-2, 28], tickfont: { size: 9 }, showgrid: false, zeroline: false,
+                    title: { text: 'T [°C]', font: { size: 10 }, standoff: 2 } };
+  layout.annotations.push({ text: 'T–S diagram : <span style="color:#2a6fb0">ACC</span> / <span style="color:#b03a2e">rest</span>', x: (4 * W + 0.06 + 1) / 2, y: 1, xref: 'paper', yref: 'paper',
+                            yanchor: 'bottom', showarrow: false, font: { size: 10 } });
+  traces.push(
+    ...[[1, 'ts', 'rest', 1], [0, 'ts_acc', 'ACC', 0.8]].map(([r, cs, name, opacity]) => (
+      { type: 'heatmap', x: A.ts_s, y: A.ts_t, z: zts[r], xaxis: 'x5', yaxis: 'y5', colorscale: A.colorscales[cs],
+        zmin: TS_LEVELS.start, zmax: TS_LEVELS.end, showscale: false, opacity,
+        hovertemplate: `${name}<br>S %{x:.2f}<br>T %{y:.1f}<br>log₁₀ vol %{z:.2f}<extra></extra>` })),
+    { type: 'contour', x: A.ts_s, y: A.ts_t, z: A.ts_sigma, xaxis: 'x5', yaxis: 'y5', showscale: false, hoverinfo: 'skip',
+      contours: { start: 22, end: 28.5, size: 0.5, coloring: 'none', showlabels: true, labelfont: { size: 8, color: '#777' } },
+      line: { color: '#999', width: 0.6 } });
+  layout.xaxis5.plot_bgcolor = 'white';
+  layout.shapes = [{ type: 'rect', xref: 'x5', yref: 'y5', x0: 33.5, x1: 37.5, y0: -2, y1: 28, fillcolor: 'white',
+                     line: { width: 0 }, layer: 'below' }];
+  Plotly.react(div, traces, layout, { displayModeBar: false, responsive: true });
+}
+
+function loadApriori(done) {
+  if (A) return done();
+  const label = document.getElementById('loading');
+  label.textContent = 'Loading a-priori data…';
+  const script = document.createElement('script');
+  script.src = 'density_viewer_apriori.js';
+  script.onload = () => { A = window.APRIORI_DATA; label.textContent = ''; done(); };
+  script.onerror = () => { label.textContent = 'density_viewer_apriori.js not found, run build_density_viewer.py'; };
+  document.body.appendChild(script);
+}
+function setTab(name) {
+  tab = name;
+  document.body.dataset.tab = name;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.getElementById('sub').textContent = SUBTITLES[name];
+  const go = () => { cols.forEach(render); drawScale(); fit(); };
+  if (name === 'apriori') loadApriori(go); else go();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+const memberInput = document.getElementById('member'), memberOut = document.getElementById('member-out');
+memberInput.addEventListener('input', () => {
+  state.member = +memberInput.value; memberOut.textContent = state.member + 1;
+  cols.forEach(render);
+});
+document.querySelectorAll('input[name=view]').forEach(r => r.addEventListener('change', () => {
+  state.view = r.value;
+  memberInput.disabled = state.view !== 'member';
+  document.getElementById('median-by').disabled = state.view !== 'median';
+  document.querySelector('.member').classList.toggle('off', memberInput.disabled);
+  cols.forEach(render);
+}));
+const scaleCard = document.createElement('div');
+scaleCard.className = 'col';
+scaleCard.innerHTML = '<div class="head"><h2>Colour scale</h2></div><div class="scale"></div>';
+grid.appendChild(scaleCard);
+function colorbar(colorscale, levels, title, y) {
+  return { type: 'contour', z: [[levels.start, levels.end]], colorscale, zmin: levels.start, zmax: levels.end,
+           contours: { ...levels, coloring: 'fill' }, hoverinfo: 'skip',
+           colorbar: { orientation: 'h', x: 0.5, y, yanchor: 'top', len: 0.9, thickness: 9, tickfont: { size: 9 }, nticks: 8,
+                       title: { text: title, side: 'top', font: { size: 10 } } } };
+}
+function drawScale() {
+  const bars = tab === 'density' || !A
+    ? [colorbar(D.colorscale, LEVELS, 'potential density anomaly σ₀ [kg m⁻³ − 1000]', 0.6)]
+    : [colorbar(A.colorscales.toce, SST_LEVELS, 'SST, conservative temperature [°C]', 0.98),
+       { ...colorbar(A.colorscales.mld, MLD_LEVELS, '', 0.76),
+         colorbar: { ...colorbar(A.colorscales.mld, MLD_LEVELS, '', 0.76).colorbar,
+                     title: { text: `mixed layer depth [m] (${A.mld_def})`, side: 'top', font: { size: 10 } },
+                     tickvals: MLD_TICKS.map(Math.log10), ticktext: MLD_TICKS.map(String) } },
+       colorbar(A.colorscales.toce, { start: 0, end: varMax[0], size: varMax[0] / 29 }, 'variance of SST [K²] (max on data)', 0.54),
+       colorbar(A.colorscales.soce, { start: 0, end: varMax[1], size: varMax[1] / 29 }, 'variance of SSS [g² kg⁻²] (max on data)', 0.32),
+       ...[['ts_acc', `T–S, ACC (${A.acc_lat.map(l => Math.abs(l).toFixed(0)).join('–')}°S) : fraction of its volume`, 0.25],
+           ['ts', 'T–S, rest of the basin : fraction of its volume', 0.75]].map(([cs, title, x]) => {
+         const bar = colorbar(A.colorscales[cs], TS_LEVELS, '', 0.10);
+         return { ...bar, colorbar: { ...bar.colorbar, x, len: 0.44, title: { text: title, side: 'top', font: { size: 10 } },
+                  tickvals: [-6, -4, -2], ticktext: ['1e-6', '1e-4', '1e-2'] } };
+       })];
+  Plotly.react(scaleCard.querySelector('.scale'), bars,
+    { margin: { l: 10, r: 10, t: 10, b: 10 }, paper_bgcolor: 'rgba(0,0,0,0)',
+      xaxis: { visible: false, domain: [0, 0] }, yaxis: { visible: false, domain: [0, 0] } },
+    { displayModeBar: false, responsive: true, staticPlot: true });
+}
+
+function fit() {
+  // three rows of panels in the window : plot height = what is left after the header and the panel chrome
+  const grid = document.getElementById('grid'), card = cols[0].el, plot = card.querySelector(tab === 'density' ? '.plot' : '.amap');
+  const chrome = card.offsetHeight - plot.offsetHeight;
+  const rows = Math.ceil(cols.length / (getComputedStyle(grid).gridTemplateColumns.split(' ').length));
+  const h = Math.max(200, Math.floor((window.innerHeight - grid.offsetTop - 12 - 8 * (rows - 1)) / rows - chrome));
+  document.documentElement.style.setProperty('--plot-h', `${h}px`);
+  [...cols.map(c => c.el), scaleCard].forEach(el => el.querySelectorAll('.plot, .amap, .scale').forEach(d => d.data && Plotly.Plots.resize(d)));
+}
+let fitTimer;
+window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fit, 100); });
+document.getElementById('median-by').addEventListener('change', e => { state.medianBy = e.target.value; cols.forEach(render); });
+memberInput.max = Math.max(D.data.density_error.length, ...D.runs.map(r => r.density_error.length),
+                           ...Object.values(D.baselines).map(b => b.density_error.length)) - 1;
+setTab('density');
+</script>
+</body>
+</html>

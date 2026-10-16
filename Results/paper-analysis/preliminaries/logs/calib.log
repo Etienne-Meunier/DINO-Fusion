@@ -1,0 +1,17 @@
+dist_isoton_raw_eta1e-08_q0.5_s0_n100_b8                     DIVERGED
+dist_isoton_raw_eta1e-06_q0.5_s0_n100_b8                     DIVERGED
+dist_isoton_raw_eta0.0001_q0.5_s0_n100_b8                    DIVERGED
+dist_isoton_raw_eta0.01_q0.5_s0_n100_b8                      DIVERGED
+mean_density_raw_eta1e-08_q0.5_s0_n100_b8                    mean_density=1.32e+00 eps=6.3e-03 sat=0.00 dist=0.000 div=0.067 t=38s
+mean_density_raw_eta1e-06_q0.5_s0_n100_b8                    mean_density=1.30e+00 eps=6.3e-03 sat=0.00 dist=0.002 div=0.066 t=54s
+mean_density_raw_eta0.0001_q0.5_s0_n100_b8                   mean_density=1.07e+00 eps=6.3e-03 sat=0.00 dist=0.046 div=0.064 t=55s
+mean_density_raw_eta0.01_q0.5_s0_n100_b8                     DIVERGED
+negative_grad_density_raw_eta1e-08_q0.5_s0_n100_b8           negative_grad_density=4.05e-01 eps=1.0e-06 sat=0.00 dist=0.000 div=0.067 t=70s
+negative_grad_density_raw_eta1e-06_q0.5_s0_n100_b8           negative_grad_density=4.05e-01 eps=1.0e-06 sat=0.00 dist=0.000 div=0.067 t=70s
+negative_grad_density_raw_eta0.0001_q0.5_s0_n100_b8          negative_grad_density=3.70e-01 eps=1.0e-06 sat=0.00 dist=0.003 div=0.066 t=70s
+negative_grad_density_raw_eta0.01_q0.5_s0_n100_b8            DIVERGED
+dist_isoton_sqrt_eta0.0001_q0.5_s0_n100_b8                   DIVERGED
+dist_isoton_sqrt_eta0.001_q0.5_s0_n100_b8                    DIVERGED
+dist_isoton_sqrt_eta0.01_q0.5_s0_n100_b8                     DIVERGED
+dist_isoton_sqrt_eta0.1_q0.5_s0_n100_b8                      DIVERGED
+dist_isoton_sqrt_eta1.0_q0.5_s0_n100_b8                      DIVERGED

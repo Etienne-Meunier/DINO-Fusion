@@ -2,11 +2,10 @@
 Load generated states and a batch of training states for the a priori evaluation.
 
 Generated states are folders with `{toce,soce,ssh}.npy` (toce, soce : (b, 36, 199, 62), ssh : (b, 1, 199, 62)),
-written by `Diffusion_Model/post_processing.py` or `Diffusion_Model/generate_constrained.py` (`clean/`).
+written by `Diffusion_Model/post_processing.py` or `Diffusion_Model/generate.py` (`clean/`).
 
 Sets of generations (`--set`) :
     paper : generations of the paper (constraints TS, C1, C2 and no constraint)
-    new   : generations of `generate_constrained.py`, with the paper generations as reference
 """
 from __init__ import PRP; import sys, os
 sys.path.append(f'{PRP}/Diffusion_Model/')
@@ -20,7 +19,6 @@ from configs.base_config import TrainingConfig
 
 models_path = f'{os.environ["OCEANDATA"]}/models/dino-fusion/'
 generated_path = f'{models_path}/Publication-Blandine/generated_npy_files/'
-new_path = f'{models_path}/tav0h83b/inference/new_constraints/'
 
 paper_path = {
     'constraint_C1' : f'{generated_path}/chamon_C1_clean',
@@ -28,9 +26,6 @@ paper_path = {
     'no_constraint' : f'{models_path}/tav0h83b/inference/infesteps_1000/constraints_no_constraints/20250131-110120_clean',
     'constraint_TS' : f'{generated_path}/constraint_TS_clean'
     }
-
-new_runs = ['none', 'gradient_mean_density', 'gradient_mean_grad_density', 'gradient_negative_grad_density',
-            'projection_mean_profile', 'projection_isotonic']
 
 SETS = {
     'paper' : {
@@ -41,27 +36,18 @@ SETS = {
         'variability' : ['no_constraint', 'constraint_C2', 'constraint_TS'],
         'density' : ['constraint_C1', 'constraint_C2', 'no_constraint'],
     },
-    'new' : {
-        'path' : paper_path | {k : f'{new_path}/{k}/clean' for k in new_runs},
-        'spatial' : ['projection_isotonic', 'gradient_mean_grad_density'],
-        'variability' : ['none', 'constraint_C2', 'gradient_mean_grad_density', 'projection_isotonic'],
-        'density' : ['none', 'constraint_C2'] + new_runs[1:],
-    },
 }
 
 LABELS = {
     'no_constraint' : 'No constraint', 'constraint_TS' : 'Constraint TS', 'constraint_C1' : 'Constraint C1', 'constraint_C2' : 'Constraint C2',
-    'none' : 'No constraint (new)', 'gradient_mean_density' : 'Gradient mean density', 'gradient_mean_grad_density' : 'Gradient mean density gradient',
-    'gradient_negative_grad_density' : 'Gradient negative density gradient', 'projection_mean_profile' : 'Projection mean profile',
-    'projection_isotonic' : 'Projection isotonic',
 }
 
-UNCONSTRAINED = ['no_constraint', 'none']
+UNCONSTRAINED = ['no_constraint']
 
 
 def get_args(description='') :
     """
-        Parse `--set` (paper | new) and `--gens` (generations to plot, default from the set).
+        Parse `--set` (keys of SETS) and `--gens` (generations to plot, default from the set).
         Returns the set dictionary with its 'name', 'figures_path' and 'gens' (None if not given).
     """
     parser = argparse.ArgumentParser(description=description)

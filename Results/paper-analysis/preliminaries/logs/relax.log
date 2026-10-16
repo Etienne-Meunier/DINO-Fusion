@@ -1,0 +1,27 @@
+W1014 22:36:28.167000 14736 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00, 28.74it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+zero_mean_raw_eta10.0_q0.5_x0.25_s0_n100_b8                  zero_mean=1.79e-03/6.6e-04 sat=0.00 dist=0.091 div=0.028 t=48s
+zero_mean_raw_eta10.0_q0.5_x1.0_s0_n100_b8                   zero_mean=1.82e-03/2.6e-03 sat=0.88 dist=0.091 div=0.028 t=47s
+zero_mean_raw_eta10.0_q0.5_x4.0_s0_n100_b8                   zero_mean=1.94e-03/1.0e-02 sat=1.00 dist=0.090 div=0.028 t=46s
+zero_mean_raw_eta10.0_q0.5_x16.0_s0_n100_b8                  zero_mean=2.58e-03/4.2e-02 sat=1.00 dist=0.090 div=0.028 t=47s
+zero_mean_raw_eta10.0_q0.5_x64.0_s0_n100_b8                  zero_mean=7.47e-03/1.7e-01 sat=1.00 dist=0.087 div=0.030 t=46s
+zero_mean_raw_eta1.0_q0.5_s0_n100_b8                         zero_mean=1.26e-02/2.6e-03 sat=0.00 dist=0.077 div=0.031 t=33s
+zero_mean_raw_eta3.0_q0.5_s0_n100_b8                         zero_mean=4.88e-03/2.6e-03 sat=0.12 dist=0.087 div=0.029 t=47s
+zero_mean_raw_eta30.0_q0.5_s0_n100_b8                        zero_mean=3.32e-06/2.6e-03 sat=1.00 dist=0.137 div=0.046 t=47s
+zero_mean_raw_eta10.0_q0.5_x0.25_s1_n100_b8                  zero_mean=1.72e-03/6.6e-04 sat=0.00 dist=0.097 div=0.029 t=46s
+zero_mean_raw_eta10.0_q0.5_x1.0_s1_n100_b8                   zero_mean=1.75e-03/2.6e-03 sat=0.75 dist=0.097 div=0.029 t=47s
+zero_mean_raw_eta10.0_q0.5_x4.0_s1_n100_b8                   zero_mean=1.88e-03/1.0e-02 sat=1.00 dist=0.097 div=0.029 t=48s
+zero_mean_raw_eta10.0_q0.5_x16.0_s1_n100_b8                  zero_mean=2.60e-03/4.2e-02 sat=1.00 dist=0.096 div=0.030 t=47s
+zero_mean_raw_eta10.0_q0.5_x64.0_s1_n100_b8                  zero_mean=8.89e-03/1.7e-01 sat=1.00 dist=0.093 div=0.032 t=46s
+zero_mean_raw_eta1.0_q0.5_s1_n100_b8                         zero_mean=1.34e-02/2.6e-03 sat=0.00 dist=0.083 div=0.032 t=46s
+zero_mean_raw_eta3.0_q0.5_s1_n100_b8                         zero_mean=5.01e-03/2.6e-03 sat=0.12 dist=0.093 div=0.030 t=36s
+zero_mean_raw_eta30.0_q0.5_s1_n100_b8                        zero_mean=4.39e-06/2.6e-03 sat=1.00 dist=0.125 div=0.043 t=34s
+zero_mean_raw_eta10.0_q0.5_x0.25_s2_n100_b8                  zero_mean=2.00e-03/6.6e-04 sat=0.00 dist=0.092 div=0.029 t=40s
+zero_mean_raw_eta10.0_q0.5_x1.0_s2_n100_b8                   zero_mean=2.03e-03/2.6e-03 sat=0.62 dist=0.092 div=0.029 t=38s
+zero_mean_raw_eta10.0_q0.5_x4.0_s2_n100_b8                   zero_mean=2.18e-03/1.0e-02 sat=1.00 dist=0.092 div=0.029 t=33s
+zero_mean_raw_eta10.0_q0.5_x16.0_s2_n100_b8                  zero_mean=2.98e-03/4.2e-02 sat=1.00 dist=0.091 div=0.029 t=34s
+zero_mean_raw_eta10.0_q0.5_x64.0_s2_n100_b8                  zero_mean=7.86e-03/1.7e-01 sat=1.00 dist=0.088 div=0.031 t=36s
+zero_mean_raw_eta1.0_q0.5_s2_n100_b8                         zero_mean=1.26e-02/2.6e-03 sat=0.00 dist=0.079 div=0.032 t=34s
+zero_mean_raw_eta3.0_q0.5_s2_n100_b8                         zero_mean=4.94e-03/2.6e-03 sat=0.00 dist=0.088 div=0.030 t=33s
+zero_mean_raw_eta30.0_q0.5_s2_n100_b8                        zero_mean=2.95e-06/2.6e-03 sat=1.00 dist=0.128 div=0.059 t=37s

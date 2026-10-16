@@ -7,11 +7,10 @@ All paths below are on Jean-Zay. `dinostics` is a git submodule (`git submodule 
 Generate states and un-normalise them (see the main [README](../../README.md)) :
 
 ```bash
-python Diffusion_Model/generate_images.py --model_path <model> --constraints mean_gradient_density --beta 0
-python Diffusion_Model/post_processing.py --generated <model>/inference/.../beta_0_<time>.npy
+python Diffusion_Model/generate.py --model_path <model> --loss mean_grad_density --eta <eta>
 ```
 
-This gives a folder `<...>_clean/` with `{toce,soce,ssh}.npy`. Copy it to `<base_path_generated>/<generation_name>/`.
+This gives a folder `<model>/inference/<loss>_<time>/clean/` with `{toce,soce,ssh}.npy`. Copy it to `<base_path_generated>/<generation_name>/`.
 
 ## Step 2 : Convert npy to restart `.nc` file
 

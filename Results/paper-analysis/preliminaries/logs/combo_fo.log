@@ -1,0 +1,4 @@
+W1014 23:57:05.718000 28979 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...:  50%|█████     | 1/2 [00:00<00:00,  3.00it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  5.39it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+dist_isoton+zero_mean_sqrt_eta0.0001-1.0_q0.5_fo10_s0_n100_b8 dist_isoton=1.11e-03/3.5e-05 zero_mean=8.09e-03/2.6e-03 sat=0.00 dist=0.086 div=0.031 t=93s

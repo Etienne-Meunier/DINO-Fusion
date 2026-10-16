@@ -1,0 +1,33 @@
+W1014 22:54:53.468000 18952 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  2.62it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  2.62it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+mean_density_sqrt_eta0.3_q0.5_ts700_s0_n100_b8               mean_density=7.26e-02/6.3e-03 sat=0.00 dist=0.041 div=0.056 t=32s
+mean_density_sqrt_eta1.0_q0.5_ts700_s0_n100_b8               mean_density=8.76e-03/6.3e-03 sat=0.12 dist=0.054 div=0.053 t=31s
+mean_density_sqrt_eta3.0_q0.5_ts700_s0_n100_b8               mean_density=1.04e-02/6.3e-03 sat=0.25 dist=0.061 div=0.051 t=31s
+mean_grad_density_sqrt_eta0.3_q0.5_ts700_s0_n100_b8          mean_grad_density=6.65e-02/1.5e-03 sat=0.00 dist=0.033 div=0.060 t=38s
+mean_grad_density_sqrt_eta1.0_q0.5_ts700_s0_n100_b8          mean_grad_density=1.57e-02/1.5e-03 sat=0.00 dist=0.042 div=0.057 t=37s
+mean_grad_density_sqrt_eta3.0_q0.5_ts700_s0_n100_b8          mean_grad_density=3.36e-02/1.5e-03 sat=0.00 dist=0.046 div=0.055 t=37s
+mean_density_sqrt_eta1.0_q0.5_fo10_s0_n100_b8                mean_density=1.91e-03/6.3e-03 sat=1.00 dist=0.063 div=0.052 t=38s
+mean_density_sqrt_eta1.0_q0.5_fo50_s0_n100_b8                mean_density=1.91e-03/6.3e-03 sat=1.00 dist=0.063 div=0.052 t=37s
+mean_grad_density_sqrt_eta1.0_q0.5_fo10_s0_n100_b8           mean_grad_density=1.51e-03/1.5e-03 sat=0.50 dist=0.059 div=0.052 t=55s
+mean_grad_density_sqrt_eta1.0_q0.5_fo50_s0_n100_b8           mean_grad_density=1.23e-03/1.5e-03 sat=1.00 dist=0.061 div=0.051 t=60s
+mean_density_sqrt_eta1.0_q0.5_lm20.0_s0_n100_b8              mean_density=2.57e-02/6.3e-03 sat=0.00 dist=0.060 div=0.053 t=37s
+mean_density_sqrt_eta3.0_q0.5_lm20.0_s0_n100_b8              mean_density=4.58e-02/6.3e-03 sat=0.00 dist=0.075 div=0.056 t=37s
+mean_grad_density_sqrt_eta1.0_q0.5_lm20.0_s0_n100_b8         mean_grad_density=2.12e-02/1.5e-03 sat=0.00 dist=0.049 div=0.056 t=46s
+mean_grad_density_sqrt_eta3.0_q0.5_lm20.0_s0_n100_b8         mean_grad_density=3.44e-02/1.5e-03 sat=0.00 dist=0.073 div=0.059 t=46s
+mean_density_sqrt_eta1.0_q0.5_tuFalse_s0_n100_b8             mean_density=8.35e-03/6.3e-03 sat=0.25 dist=0.059 div=0.052 t=19s
+mean_density_sqrt_eta0.3_q0.5_s0_n100_b8                     mean_density=5.47e-02/6.3e-03 sat=0.00 dist=0.054 div=0.055 t=37s
+mean_density_sqrt_eta3.0_q0.5_s0_n100_b8                     mean_density=3.71e-02/6.3e-03 sat=0.00 dist=0.189 div=0.077 t=37s
+mean_grad_density_sqrt_eta0.3_q0.5_s0_n100_b8                mean_grad_density=4.38e-02/1.5e-03 sat=0.00 dist=0.042 div=0.058 t=47s
+mean_grad_density_sqrt_eta3.0_q0.5_s0_n100_b8                mean_grad_density=5.54e-02/1.5e-03 sat=0.00 dist=0.166 div=0.055 t=47s
+dist_isoton_sqrt_eta1e-05_q0.5_s0_n100_b8                    dist_isoton=3.83e+02/3.5e-05 sat=0.00 dist=0.038 div=0.059 t=45s
+dist_isoton_sqrt_eta0.0001_q0.5_s0_n100_b8                   dist_isoton=5.15e+00/3.5e-05 sat=0.00 dist=0.073 div=0.053 t=45s
+dist_isoton_sqrt_eta0.0001_q0.5_ts300_s0_n100_b8             dist_isoton=5.34e+02/3.5e-05 sat=0.00 dist=0.022 div=0.062 t=23s
+dist_isoton_sqrt_eta0.001_q0.5_ts300_s0_n100_b8              dist_isoton=4.34e+01/3.5e-05 sat=0.00 dist=0.044 div=0.056 t=23s
+dist_isoton_sqrt_eta0.01_q0.5_ts300_s0_n100_b8               dist_isoton=1.29e+07/3.5e-05 sat=0.00 dist=0.107 div=0.062 t=24s
+dist_isoton_sqrt_eta0.0001_q0.5_tuFalse_s0_n100_b8           dist_isoton=1.72e+01/3.5e-05 sat=0.00 dist=0.076 div=0.054 t=27s
+dist_isoton_sqrt_eta0.001_q0.5_tuFalse_s0_n100_b8            dist_isoton=7.03e+05/3.5e-05 sat=0.00 dist=0.349 div=0.081 t=27s
+mean_density+zero_mean_sqrt_eta1.0-1.0_q0.5_s0_n100_b8       mean_density=1.23e-03/6.3e-03 zero_mean=6.50e-03/2.6e-03 sat=0.12 dist=0.084 div=0.029 t=37s
+mean_density+zero_mean_sqrt_eta1.0-10.0_q0.5_s0_n100_b8      mean_density=5.28e-03/6.3e-03 zero_mean=1.42e-04/2.6e-03 sat=0.62 dist=0.093 div=0.027 t=37s
+dist_isoton+zero_mean_sqrt_eta1.0-1.0_q0.5_s0_n100_b8        dist_isoton=inf/3.5e-05 zero_mean=8.94e+04/2.6e-03 sat=0.00 dist=238.942 div=73.592 t=45s
+dist_isoton+zero_mean_sqrt_eta1.0-10.0_q0.5_s0_n100_b8       dist_isoton=inf/3.5e-05 zero_mean=6.41e+04/2.6e-03 sat=0.00 dist=236.594 div=73.373 t=45s

@@ -1,0 +1,9 @@
+W1014 23:14:07.129000 22398 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...:  50%|█████     | 1/2 [00:00<00:00,  3.02it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  5.42it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+mean_density_raw_eta0.0_q0.5_fo10_s0_n100_b8                 mean_density=2.28e-03/6.3e-03 sat=1.00 dist=0.044 div=0.056 t=41s
+mean_grad_density_raw_eta0.0_q0.5_fo10_s0_n100_b8            mean_grad_density=1.92e-03/1.5e-03 sat=0.00 dist=0.043 div=0.056 t=79s
+negative_grad_density_raw_eta0.0_q0.5_fo10_s0_n100_b8        negative_grad_density=3.97e-09/1.0e-06 sat=0.88 dist=0.021 div=0.064 t=90s
+zero_mean_raw_eta0.0_q0.5_fo10_s0_n100_b8                    zero_mean=2.76e-03/2.6e-03 sat=0.38 dist=0.075 div=0.031 t=57s
+zero_mean_raw_eta1.0_q0.5_fo10_s0_n100_b8                    zero_mean=2.96e-04/2.6e-03 sat=1.00 dist=0.089 div=0.027 t=57s
+negative_grad_density_sqrt_eta1.0_q0.5_fo10_s0_n100_b8       negative_grad_density=0.00e+00/1.0e-06 sat=1.00 dist=0.040 div=0.060 t=85s

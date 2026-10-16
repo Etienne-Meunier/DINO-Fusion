@@ -1,0 +1,15 @@
+W1014 23:34:10.336000 26508 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  5.84it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00,  5.84it/s]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+dist_isoton_sqrt_eta0.0001_q0.5_s0_n100_b8                   dist_isoton=5.15e+00/3.5e-05 sat=0.00 dist=0.073 div=0.053 t=45s
+dist_isoton+zero_mean_sqrt_eta0.0001-10.0_q0.5_s0_n100_b8    dist_isoton=7.48e+00/3.5e-05 zero_mean=1.76e-05/2.6e-03 sat=0.00 dist=0.099 div=0.027 t=78s
+zero_mean_raw_eta10.0_q0.5_s0_n100_b8                        zero_mean=1.82e-03/2.6e-03 sat=0.88 dist=0.091 div=0.028 t=33s
+mean_density_sqrt_eta1.0_q0.5_s0_n100_b8                     mean_density=1.25e-02/6.3e-03 sat=0.00 dist=0.062 div=0.052 t=55s
+dist_isoton_sqrt_eta0.0001_q0.5_s1_n100_b8                   dist_isoton=3.92e+00/3.5e-05 sat=0.00 dist=0.084 div=0.056 t=78s
+dist_isoton+zero_mean_sqrt_eta0.0001-10.0_q0.5_s1_n100_b8    dist_isoton=8.14e+00/3.5e-05 zero_mean=2.01e-05/2.6e-03 sat=0.00 dist=0.099 div=0.029 t=72s
+zero_mean_raw_eta10.0_q0.5_s1_n100_b8                        zero_mean=1.75e-03/2.6e-03 sat=0.75 dist=0.097 div=0.029 t=58s
+mean_density_sqrt_eta1.0_q0.5_s1_n100_b8                     mean_density=7.17e-03/6.3e-03 sat=0.38 dist=0.065 div=0.058 t=63s
+dist_isoton_sqrt_eta0.0001_q0.5_s2_n100_b8                   dist_isoton=6.26e+00/3.5e-05 sat=0.00 dist=0.079 div=0.055 t=78s
+dist_isoton+zero_mean_sqrt_eta0.0001-10.0_q0.5_s2_n100_b8    dist_isoton=8.50e+00/3.5e-05 zero_mean=2.46e-05/2.6e-03 sat=0.00 dist=0.100 div=0.026 t=79s
+zero_mean_raw_eta10.0_q0.5_s2_n100_b8                        zero_mean=2.03e-03/2.6e-03 sat=0.62 dist=0.092 div=0.029 t=58s
+mean_density_sqrt_eta1.0_q0.5_s2_n100_b8                     mean_density=1.74e-02/6.3e-03 sat=0.12 dist=0.065 div=0.054 t=63s

@@ -25,7 +25,6 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
     def __init__(self, unet, scheduler):
         super().__init__()
         self.register_modules(unet=unet, scheduler=scheduler)
-        self.constraints = []
 
     @torch.no_grad()
     def __call__(
@@ -83,18 +82,8 @@ class DDPMPipeline_Tensor(DiffusionPipeline):
             # 2. compute previous image: x_t -> x_t-1
             image = self.scheduler.step(model_output, t, image, generator=generator).prev_sample
 
-            # 3. Apply constraints
-            for constraint in self.constraints:
-                image = constraint.apply(image, t)
-
         #print(image.min(), image.max())
         if not return_dict:
             return (image,)
 
         return {'arrays':image}
-
-    def __str__(self):
-        s = 'constraints:'
-        for c in self.constraints : 
-            s += f'|| {c} ||'
-        return s

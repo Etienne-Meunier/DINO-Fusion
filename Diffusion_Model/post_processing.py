@@ -44,7 +44,7 @@ def save_clean(generated, save_dir, transform) :
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Un-normalise generated states")
-    parser.add_argument("--generated", type=str, help="path of the .npy saved by generate_images.py")
+    parser.add_argument("--generated", type=str, help="path of the .npy of generated normalised states (b, c, i, j)")
     args = parser.parse_args()
 
     config = TrainingConfig()

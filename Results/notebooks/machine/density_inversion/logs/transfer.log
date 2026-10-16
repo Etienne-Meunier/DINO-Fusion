@@ -1,0 +1,51 @@
+W1016 19:47:20.625000 40141 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...:  50%|█████     | 1/2 [00:01<00:01,  1.25s/it]Loading pipeline components...: 100%|██████████| 2/2 [00:02<00:00,  1.16s/it]Loading pipeline components...: 100%|██████████| 2/2 [00:02<00:00,  1.18s/it]
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+DATA 100 done
+DATA 300 done
+DATA 600 done
+NONE 100 done
+NONE 300 done
+NONE 600 done
+ set   t    loss        L  L_ratio    cos  active     E
+DATA   0      C0 2.46e-10        1      1  0.0236 0.355
+DATA   0      C1 2.41e-11        1      1  0.0236 0.355
+DATA   0 C2_1e-4 6.89e-07        1      1   0.275 0.355
+DATA   0 C6_1e-4 0.000101        1      1  0.0222 0.355
+DATA   0 C7_1e-4  8.2e-08        1      1  0.0236 0.355
+DATA 100      C0 5.51e-05 2.24e+05 0.0868       1  1.11
+DATA 100      C1 8.12e-06 3.39e+05   0.08       1  1.11
+DATA 100 C2_1e-4 0.000199      288  0.394       1  1.11
+DATA 100 C6_1e-4  0.00754     74.8  0.116       1  1.11
+DATA 100 C7_1e-4 0.000198 2.42e+03  0.098       1  1.11
+DATA 300      C0 0.000157 6.36e+05 0.0723       1  1.42
+DATA 300      C1  2.2e-05 9.18e+05 0.0564       1  1.42
+DATA 300 C2_1e-4 0.000372      541  0.292       1  1.42
+DATA 300 C6_1e-4   0.0138      137 0.0969       1  1.42
+DATA 300 C7_1e-4 0.000371 4.54e+03  0.075       1  1.42
+DATA 600      C0 0.000976 3.95e+06 0.0537       1  2.62
+DATA 600      C1 0.000136 5.62e+06 0.0431       1  2.62
+DATA 600 C2_1e-4   0.0011 1.59e+03  0.261       1  2.62
+DATA 600 C6_1e-4   0.0342      339 0.0906       1  2.62
+DATA 600 C7_1e-4  0.00109 1.33e+04 0.0559       1  2.62
+NONE   0      C0   0.0126        1      1   0.388  9.28
+NONE   0      C1  0.00172        1      1   0.388  9.28
+NONE   0 C2_1e-4  0.00592        1      1   0.452  9.28
+NONE   0 C6_1e-4     0.16        1      1   0.449  9.28
+NONE   0 C7_1e-4  0.00591        1      1   0.388  9.28
+NONE 100      C0  0.00976    0.779  0.827       1  7.87
+NONE 100      C1  0.00133    0.775  0.716       1  7.87
+NONE 100 C2_1e-4  0.00501    0.845  0.671       1  7.87
+NONE 100 C6_1e-4    0.142    0.888  0.761       1  7.87
+NONE 100 C7_1e-4    0.005    0.845   0.67       1  7.87
+NONE 300      C0   0.0105    0.856  0.815       1  8.05
+NONE 300      C1  0.00144    0.852  0.693       1  8.05
+NONE 300 C2_1e-4  0.00517    0.874  0.646       1  8.05
+NONE 300 C6_1e-4    0.147    0.924   0.74       1  8.05
+NONE 300 C7_1e-4  0.00517    0.874  0.645       1  8.05
+NONE 600      C0   0.0102    0.863    0.8       1  8.97
+NONE 600      C1  0.00141    0.866  0.671       1  8.97
+NONE 600 C2_1e-4  0.00522     0.89   0.62       1  8.97
+NONE 600 C6_1e-4    0.143    0.908  0.717       1  8.97
+NONE 600 C7_1e-4  0.00522     0.89  0.619       1  8.97

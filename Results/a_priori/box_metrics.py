@@ -34,29 +34,6 @@ stats = pd.DataFrame(stats)
 #%%
 # Density errors
 
-def compute_density_error(batch, file_mask_LR) :
-    """
-        Take a batch with toce (b, z, h, w) and soce along with the maks
-        and return the pourcent of volume unstable per element in the batch
-    """
-    bsize = batch['soce'].shape[0]
-
-    data = file_mask_LR.e3t_0.copy().expand_dims({'batch' : bsize})
-    soce = data.copy()
-    soce[:] = batch['soce']
-    toce = data.copy()
-    toce[:] = batch['toce']
-
-    tmask = data.copy()
-    tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
-
-    volume = (file_mask_LR.e1t * file_mask_LR.e2t * file_mask_LR.e3t_0).expand_dims({'batch' : bsize})
-
-    density = get_density_at_surface(toce, soce, tmask)
-    errors_density = (((density.diff('depth') < 0.0) * volume * tmask).sum(['nav_lat', 'nav_lon', 'depth']) / (volume * tmask).sum(['nav_lat', 'nav_lon', 'depth']))*100
-    return errors_density.values
-
-
 densities_errors_stats = {'data' : compute_density_error(batch, file_mask_LR)}
 for key in bg.keys() :
     densities_errors_stats[key] = compute_density_error(bg[key], file_mask_LR)
