@@ -34,19 +34,45 @@
   .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0 0 6px; }
   .tabs button { border: 0; background: var(--card); color: var(--fg); padding: 4px 14px; font: inherit; font-size: 13px; cursor: pointer; }
   .tabs button.on { background: var(--accent); color: #fff; }
-  body[data-tab=density] .amap, body[data-tab=apriori] .plot { display: none; }
+  body[data-tab=density] .amap, body[data-tab=apriori] .plot, body[data-tab=density] .panels { display: none; }
+  body[data-tab=noconstraint] #grid, body[data-tab=noconstraint] .bar, body[data-tab=noconstraint] #panels,
+  body:not([data-tab=noconstraint]) #nc { display: none; }
+  .nc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin: 0 0 8px; font-size: 13px; }
+  .nc-bar label { display: inline-flex; align-items: center; gap: 6px; }
+  .nc-bar .member input { width: 160px; }
+  .nc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .nc-grid .wide { grid-column: 1 / -1; }
+  @media (max-width: 800px) { .nc-grid { grid-template-columns: 1fr; } }
+  .nc-note { color: var(--muted); font-size: 12px; margin: 2px 0 4px; }
+  .nc-card[hidden] { display: none; }
+  .nc-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; }
+  .nc-ctl label { display: inline-flex; align-items: center; gap: 5px; }
+  .nc-ctl input[type=range] { width: 120px; }
+  .nc-ctl output { font-variant-numeric: tabular-nums; min-width: 40px; }
+  .panels { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 8px; font-size: 13px; }
+  .panels label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
   .loading { color: var(--muted); font-size: 12px; }
   .scale { height: var(--plot-h, 260px); }
   body[data-tab=apriori] .scale { height: calc(var(--plot-h, 260px) + 40px); }
+  .load { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .load button { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
+  .load button:disabled { opacity: .5; cursor: default; }
+  .load progress { width: 140px; height: 8px; accent-color: var(--accent); }
+  .load progress[hidden] { display: none; }
+  .mem { font-variant-numeric: tabular-nums; }
   .note { grid-column: 1 / -1; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body data-tab="density">
-<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button></div>
+<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button><button data-tab="noconstraint">No constraint</button></div>
 <span class="loading" id="loading"></span>
+<span class="load"><button id="load-all">Load all data</button><progress id="load-progress" hidden></progress><span id="load-text"></span><span class="mem" id="mem"></span></span>
 <p class="sub" id="sub"></p>
 
+<div class="panels" id="panels"><span class="row-label">Show</span></div>
 <div class="bar">
+  <label>Sweep <select id="sweep"></select></label>
+  <label>Projection <select id="projection"></select></label>
   <label><input type="radio" name="view" value="mean" checked> Batch average</label>
   <label><input type="radio" name="view" value="median"> Median state by</label>
   <select id="median-by" disabled>
@@ -62,6 +88,7 @@
 </div>
 
 <div class="grid" id="grid"></div>
+<div id="nc"></div>
 
 <script>
 const D = window.DENSITY_DATA;
@@ -81,16 +108,19 @@ const COLUMNS = [
   { key: 'none_border0', title: 'No constraint' },
   { key: 'zero_mean', title: 'TS constraint' },
   { key: 'mean_density', title: 'C1 constraint' },
+  { key: 'negative_grad_density_huber', title: 'C7 constraint (Huber)' },
 ];
-const LABELS = { zero_mean: 'C_TS', mean_density: 'C_C1' };
+const LABELS = { zero_mean: 'C_TS', mean_density: 'C_C1', negative_grad_density_huber: 'C_C7' };
 const SUBTITLES = {
   density: 'Zonal σ₀ sections: volume-weighted zonal mean of potential density anomaly (kg m⁻³ − 1000). Inset: mean profile over 65°S–45°S (dashed lines). The two unconstrained runs are the latest of default_eps.',
-  apriori: 'For the selected state (batch average, median or member): SST, mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
+  noconstraint: 'What the unconstrained model has learned: data (32 states) against the unconstrained runs of default_eps. Most of its error is a uniform offset of each level, per member; the figures separate that offset from the spatial structure.',
+  apriori: 'For the selected state (batch average, median or member): SST, k-means clusters of the (T, S) profiles (fit once on the 8 data states, every run assigned to the nearest centre, batch average = most frequent cluster) and their profiles (dashed: k-means centres, solid: mean over the columns of this state in each cluster), mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
 };
 let A = null;  // a-priori data, loaded with the tab
 let tab = 'density';
 // Initial slider values, eps 'default' = eps_data of the loss (the largest eps of the sweep)
-const DEFAULTS = { mean_density: { eta: 1e-2, lbd0: 1, eps: 'default' }, zero_mean: { eta: 1e-1, lbd0: 1, eps: 'default' } };
+const DEFAULTS = { mean_density: { eta: 1e-2, lbd0: 1, eps: 'default' }, zero_mean: { eta: 1e-1, lbd0: 1, eps: 'default' },
+                   negative_grad_density_huber: { eta: 10, lbd0: 1, eps: 'default' } };
 
 function decode(b64) {
   const bin = atob(b64), buf = new Uint8Array(bin.length);
@@ -99,9 +129,10 @@ function decode(b64) {
   for (let i = 0; i < q.length; i++) out[i] = q[i] === 0 ? NaN : LO + (q[i] - 1) / 65534 * (HI - LO);
   return out;
 }
+let decodedBytes = 0;  // bytes of the decoded typed arrays held in the caches
 const cache = new Map();
 function sections(entry) {
-  if (!cache.has(entry)) cache.set(entry, decode(entry.sections));
+  if (!cache.has(entry)) { const a = decode(entry.sections); decodedBytes += a.byteLength; cache.set(entry, a); }
   return cache.get(entry);
 }
 function toGrid(flat, offset) {
@@ -159,13 +190,36 @@ function draw(div, z, showScale) {
 }
 
 function options(loss) {
-  const runs = D.runs.filter(r => r.loss === loss);
+  const runs = D.runs.filter(r => r.loss === loss && r.sweep === state.sweep && r.projection === state.projection);
   const uniq = k => [...new Set(runs.map(r => r[k]))].sort((a, b) => a - b);
   return { runs, eta: uniq('eta'), lbd0: uniq('lbd0'), eps: uniq('eps') };
 }
 
 const grid = document.getElementById('grid');
-const state = { member: 0, view: 'mean', medianBy: 'rmse' };
+const SWEEPS = D.sweeps || ['sweep_strength'];
+D.runs.forEach(r => { r.sweep ??= 'sweep_strength'; });
+const state = { member: 0, view: 'mean', medianBy: 'rmse', sweep: null, projection: null };
+const DEFAULT_SWEEP = SWEEPS.includes('optimal') ? 'optimal' : SWEEPS[0];
+const fmt = v => v === null || v === undefined ? '–' : v;
+// Fills the slider controls of a constrained column with the eta / lbd0 / eps values of the selected sweep and projection
+function buildControls(c) {
+  const controls = c.el.querySelector('.controls');
+  controls.innerHTML = '';
+  c.opts = options(c.key);
+  if (!c.opts.runs.length) { controls.innerHTML = '<div class="note">No run in this sweep</div>'; return; }
+  for (const p of ['eta', 'lbd0', 'eps']) {
+    const vals = c.opts[p];
+    const want = DEFAULTS[c.key][p];
+    c.sel[p] = want === 'default' ? vals.length - 1 : Math.max(0, vals.indexOf(want));
+    const row = document.createElement('div');
+    row.className = 'ctrl';
+    row.innerHTML = `<label>${p === 'lbd0' ? 'λ₀' : p === 'eta' ? 'η' : 'ε'}</label>
+      <input type="range" min="0" max="${vals.length - 1}" step="1" value="${c.sel[p]}" ${vals.length > 1 ? '' : 'disabled'}><output>${fmt(vals[c.sel[p]])}</output>`;
+    const input = row.querySelector('input'), out = row.querySelector('output');
+    input.addEventListener('input', () => { c.sel[p] = +input.value; out.textContent = fmt(vals[c.sel[p]]); render(c); });
+    controls.appendChild(row);
+  }
+}
 const cols = COLUMNS.map((col, ci) => {
   const el = document.createElement('div');
   el.className = 'col';
@@ -178,27 +232,32 @@ const cols = COLUMNS.map((col, ci) => {
     controls.innerHTML = '<div class="note">Reference values on data</div>';
   } else if (col.key in D.baselines) {
     controls.innerHTML = '<div class="note">Unconstrained sampling</div>';
-  } else {
-    c.opts = options(col.key);
-    for (const p of ['eta', 'lbd0', 'eps']) {
-      const vals = c.opts[p];
-      const want = DEFAULTS[col.key][p];
-      c.sel[p] = want === 'default' ? vals.length - 1 : Math.max(0, vals.indexOf(want));
-      const row = document.createElement('div');
-      row.className = 'ctrl';
-      row.innerHTML = `<label>${p === 'lbd0' ? 'λ₀' : p === 'eta' ? 'η' : 'ε'}</label>
-        <input type="range" min="0" max="${vals.length - 1}" step="1" value="${c.sel[p]}"><output>${vals[c.sel[p]]}</output>`;
-      const input = row.querySelector('input'), out = row.querySelector('output');
-      input.addEventListener('input', () => { c.sel[p] = +input.value; out.textContent = vals[c.sel[p]]; render(c); });
-      controls.appendChild(row);
-    }
   }
   return c;
 });
 
+const sweepSelect = document.getElementById('sweep'), projectionSelect = document.getElementById('projection');
+sweepSelect.innerHTML = SWEEPS.map(s => `<option value="${s}">${s}</option>`).join('');
+// Projections run in the selected sweep, border_zero first
+function setSweep(sweep) {
+  state.sweep = sweep;
+  const projections = [...new Set(D.runs.filter(r => r.sweep === sweep).map(r => r.projection))]
+    .sort((a, b) => (b === 'border_zero') - (a === 'border_zero'));
+  projectionSelect.innerHTML = projections.map(p => `<option value="${p}">${p}</option>`).join('');
+  projectionSelect.disabled = projections.length < 2;
+  setProjection(projections[0]);
+}
+function setProjection(projection) {
+  state.projection = projection;
+  cols.filter(c => !(c.key === 'data' || c.key in D.baselines)).forEach(c => { buildControls(c); render(c); });
+}
+sweepSelect.addEventListener('change', e => setSweep(e.target.value));
+projectionSelect.addEventListener('change', e => setProjection(e.target.value));
+
 function entryOf(c) {
   if (c.key === 'data') return D.data;
   if (c.key in D.baselines) return D.baselines[c.key];
+  if (!c.opts.runs.length) return undefined;
   const want = { eta: c.opts.eta[c.sel.eta], lbd0: c.opts.lbd0[c.sel.lbd0], eps: c.opts.eps[c.sel.eps] };
   return c.opts.runs.find(r => r.eta === want.eta && r.lbd0 === want.lbd0 && r.eps === want.eps);
 }
@@ -242,8 +301,20 @@ function medianMember(errors) {
   return order[Math.floor(errors.length / 2)];
 }
 
+// Render the columns one per animation frame, so that the page stays responsive while the a-priori maps are drawn
+let renderToken = 0;
+function renderAll() {
+  const token = ++renderToken;
+  const step = i => { if (token !== renderToken || i >= cols.length) return; render(cols[i]); requestAnimationFrame(() => step(i + 1)); };
+  step(0);
+}
 function render(c) {
   const entry = entryOf(c);
+  if (!entry) {
+    c.el.querySelector('.stat').textContent = '';
+    c.el.querySelectorAll('.plot, .amap').forEach(d => Plotly.purge(d));
+    return;
+  }
   const flat = sections(entry);
   const n = entry.density_error.length;
   const avg = state.view === 'mean';
@@ -277,7 +348,7 @@ function decodeOnce(a, key, fn) {
   const k = `${key}`;
   if (!decoded.has(a)) decoded.set(a, {});
   const d = decoded.get(a);
-  if (!(k in d)) d[k] = fn();
+  if (!(k in d)) { d[k] = fn(); decodedBytes += d[k].byteLength; }
   return d[k];
 }
 // Float32 arrays : sst (b, y, x) [°C], mld (b, y, x) [m], ts (b, nT, nS) volume fraction, var (2, y, x)
@@ -291,6 +362,20 @@ const tsOf = a => decodeOnce(a, 'ts', () => {
   return Float32Array.from(new Uint16Array(bytes(a.ts).buffer), q => q === 0 ? 0 : Math.pow(10, lo + (q - 1) / 65534 * (hi - lo)));
 });
 const varOf = a => decodeOnce(a, 'var', () => new Float32Array(bytes(a.var).buffer));
+const clusterOf = a => decodeOnce(a, 'cluster', () => bytes(a.cluster));  // uint8 (b, y, x), 0 on land
+
+// float32 (b, K, 2, z - 1) : mean T and S profile of each member in each cluster
+const clusterProfilesOf = a => decodeOnce(a, 'cluster_profiles', () => new Float32Array(bytes(a.cluster_profiles).buffer));
+
+// ts_sigma transposed to (S, T), for the T-S plots with T on the x axis
+let tsSigmaT = null;
+const tsSigmaTS = () => tsSigmaT ??= A.ts_s.map((_, j) => A.ts_t.map((_, i) => A.ts_sigma[i][j]));
+
+const PANELS = { sst: 'SST', cluster: 'Clustering', profiles: 'Cluster profiles', profiles_ts: 'Cluster T–S', mld: 'MLD', var_sst: 'var SST', var_sss: 'var SSS', ts: 'T–S diagram' };
+const shownSet = new Set(['sst', 'cluster', 'profiles', 'profiles_ts', 'ts']);
+// Shown a-priori panels in the order of PANELS, the clustering ones only if the a-priori file holds them
+const shownPanels = () => Object.keys(PANELS).filter(k => shownSet.has(k) && (k !== 'cluster' || (A && A.clusters))
+                                                     && (!k.startsWith('profiles') || (A && A.clusters && A.clusters.T)));
 
 function grid2d(flat, ny, nx, members, transform = v => v) {
   // (ny, nx) grid, mean over the planes `members` of flat (planes of ny * nx), NaN ignored, null where empty
@@ -307,6 +392,28 @@ function grid2d(flat, ny, nx, members, transform = v => v) {
   return z;
 }
 let varMax = null;
+// Most frequent label over the planes `members` of flat (planes of ny * nx), null where every member is 0 (land)
+function modeGrid(flat, ny, nx, members, n) {
+  const P = ny * nx, z = [], counts = new Uint16Array(n + 1);
+  for (let j = 0; j < ny; j++) {
+    const row = new Array(nx);
+    for (let i = 0; i < nx; i++) {
+      counts.fill(0);
+      for (const b of members) counts[flat[b * P + j * nx + i]]++;
+      let best = 0;
+      for (let k = 1; k <= n; k++) if (counts[k] > counts[best] || best === 0 && counts[k]) best = k;
+      row[i] = best || null;
+    }
+    z.push(row);
+  }
+  return z;
+}
+// Stepped colorscale of the clusters 1..n, ordered by increasing surface sigma_0 (warm, light to cold, dense)
+const CLUSTER_COLORS = ['#d7301f', '#fc8d59', '#4daf4a', '#377eb8', '#6a3d9a', '#999999', '#a65628', '#f781bf'];
+function clusterColorscale(n) {
+  return CLUSTER_COLORS.slice(0, n).flatMap((c, k) => [[k / n, c], [(k + 1) / n, c]]);
+}
+
 function drawMaps(div, a, n, m) {
   const ny = A.lat.length, nx = A.lon.length, P = ny * nx;
   const members = m === null ? [...Array(n).keys()] : [m];
@@ -314,83 +421,221 @@ function drawMaps(div, a, n, m) {
     const dv = varOf(A.data);
     varMax = [0, 1].map(f => { let mx = 0; for (let i = 0; i < P; i++) { const x = dv[f * P + i]; if (x > mx) mx = x; } return mx; });
   }
-  const maps = [
-    { title: 'SST', z: grid2d(sstOf(a), ny, nx, members), colorscale: A.colorscales.toce, levels: SST_LEVELS,
-      hover: '%{z:.2f} °C' },
-    { title: 'MLD', z: grid2d(mldOf(a), ny, nx, members, Math.log10), colorscale: A.colorscales.mld, levels: MLD_LEVELS,
-      hover: 'log₁₀ %{z:.2f} m' },
-    ...['SST', 'SSS'].map((name, f) => ({ title: `var ${name}`, z: grid2d(varOf(a), ny, nx, [f]),
-      colorscale: A.colorscales[f ? 'soce' : 'toce'], levels: { start: 0, end: varMax[f], size: varMax[f] / 29 },
-      hover: '%{z:.4f}' })),
-  ];
-  const W = 0.135, gap = 0.01, layout = { margin: { l: 34, r: 6, t: 18, b: 30 }, showlegend: false,
+  const K = A.clusters ? A.clusters.n : 0;
+  const MAPS = {
+    sst: () => ({ title: 'SST', z: grid2d(sstOf(a), ny, nx, members), colorscale: A.colorscales.toce, levels: SST_LEVELS,
+                  hover: '%{z:.2f} °C' }),
+    cluster: () => ({ title: m === null ? 'Clusters (mode)' : 'Clusters', z: modeGrid(clusterOf(a), ny, nx, members, K),
+                      colorscale: clusterColorscale(K), zmin: 0.5, zmax: K + 0.5, hover: 'cluster %{z}' }),
+    mld: () => ({ title: 'MLD', z: grid2d(mldOf(a), ny, nx, members, Math.log10), colorscale: A.colorscales.mld, levels: MLD_LEVELS,
+                  hover: 'log₁₀ %{z:.2f} m' }),
+    var_sst: () => ({ title: 'var SST', z: grid2d(varOf(a), ny, nx, [0]), colorscale: A.colorscales.toce,
+                      levels: { start: 0, end: varMax[0], size: varMax[0] / 29 }, hover: '%{z:.4f}' }),
+    var_sss: () => ({ title: 'var SSS', z: grid2d(varOf(a), ny, nx, [1]), colorscale: A.colorscales.soce,
+                      levels: { start: 0, end: varMax[1], size: varMax[1] / 29 }, hover: '%{z:.4f}' }),
+  };
+  const maps = shownPanels().filter(k => k in MAPS).map(k => MAPS[k]());
+  const showTS = shownPanels().includes('ts'), showProfiles = shownPanels().includes('profiles'),
+        showProfilesTS = shownPanels().includes('profiles_ts');
+  // Width units : 1 per map, 1 per profile plot (T and S), 3 for the T-S diagram, a unit never wider than 0.15 of the
+  // panel (maps keep their aspect), PAD of room for the tick labels before the profiles and the T-S diagram
+  const PAD = 0.05, pads = (showProfiles ? PAD : 0) + (showProfilesTS ? PAD : 0) + (showTS ? PAD : 0);
+  const unit = Math.min(0.15, (1 - pads) / Math.max(1, maps.length + (showProfiles ? 2 : 0) + (showProfilesTS ? 2 : 0) + (showTS ? 3 : 0))),
+        gap = 0.01;
+  const layout = { margin: { l: 34, r: 6, t: 18, b: 30 }, showlegend: false,
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'lightgray', annotations: [] };
   const traces = maps.map((p, i) => {
     const sx = i ? String(i + 1) : '';
-    layout[`xaxis${sx}`] = { domain: [i * W + gap, (i + 1) * W - gap], tickfont: { size: 9 }, nticks: 3, showgrid: false, zeroline: false };
+    layout[`xaxis${sx}`] = { domain: [i * unit + gap, (i + 1) * unit - gap], tickfont: { size: 9 }, nticks: 3, showgrid: false, zeroline: false };
     layout[`yaxis${sx}`] = { domain: [0, 1], tickfont: { size: 9 }, showticklabels: i === 0, showgrid: false, zeroline: false,
                              anchor: `x${sx}`, range: [A.lat[0], A.lat[ny - 1]] };
-    layout.annotations.push({ text: p.title, x: (i + 0.5) * W, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom',
+    layout.annotations.push({ text: p.title, x: (i + 0.5) * unit, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom',
                               showarrow: false, font: { size: 10 } });
-    return { type: 'contour', x: A.lon, y: A.lat, z: p.z, xaxis: `x${sx}`, yaxis: `y${sx}`, colorscale: p.colorscale,
-             zmin: p.levels.start, zmax: p.levels.end, contours: { ...p.levels, coloring: 'fill', showlines: false },
-             connectgaps: false, showscale: false, hovertemplate: `${p.title} ${p.hover}<extra></extra>` };
+    const axes = { x: A.lon, y: A.lat, xaxis: `x${sx}`, yaxis: `y${sx}`, zsmooth: false, showscale: false };
+    if (!p.levels) return { type: 'heatmap', ...axes, z: p.z, colorscale: p.colorscale, zmin: p.zmin, zmax: p.zmax,
+                            hovertemplate: `${p.hover}<extra></extra>` };
+    // Heatmap of the values snapped to the centre of their contour level : looks like a filled contour, renders ~10x faster
+    const { start, end, size } = p.levels;
+    const snap = v => v === null ? null : Math.min(end, Math.max(start, start + (Math.floor((v - start) / size) + 0.5) * size));
+    return { type: 'heatmap', ...axes, z: p.z.map(row => row.map(snap)), customdata: p.z,
+             colorscale: p.colorscale, zmin: start, zmax: end,
+             hovertemplate: `${p.title} ${p.hover.replace('%{z', '%{customdata')}<extra></extra>` };
   });
-  // T-S diagram : volume fraction per (T, S) bin, log scale, sigma_0 isopycnals
-  // planes of ts are (member, region) with region 0 = ACC, 1 = rest of the basin
-  const ts = tsOf(a), nt = A.ts_t.length, ns = A.ts_s.length;
-  const zts = [0, 1].map(r => grid2d(ts, nt, ns, members.map(b => 2 * b + r), v => v > 0 ? Math.log10(v) : null));
-  layout.xaxis5 = { domain: [4 * W + 0.06, 1], range: [33.5, 37.5], tickfont: { size: 9 }, nticks: 5,
-                    title: { text: 'S [g kg⁻¹]', font: { size: 10 }, standoff: 2 }, showgrid: false, zeroline: false };
-  layout.yaxis5 = { domain: [0, 1], anchor: 'x5', range: [-2, 28], tickfont: { size: 9 }, showgrid: false, zeroline: false,
-                    title: { text: 'T [°C]', font: { size: 10 }, standoff: 2 } };
-  layout.annotations.push({ text: 'T–S diagram : <span style="color:#2a6fb0">ACC</span> / <span style="color:#b03a2e">rest</span>', x: (4 * W + 0.06 + 1) / 2, y: 1, xref: 'paper', yref: 'paper',
-                            yanchor: 'bottom', showarrow: false, font: { size: 10 } });
-  traces.push(
-    ...[[1, 'ts', 'rest', 1], [0, 'ts_acc', 'ACC', 0.8]].map(([r, cs, name, opacity]) => (
-      { type: 'heatmap', x: A.ts_s, y: A.ts_t, z: zts[r], xaxis: 'x5', yaxis: 'y5', colorscale: A.colorscales[cs],
-        zmin: TS_LEVELS.start, zmax: TS_LEVELS.end, showscale: false, opacity,
-        hovertemplate: `${name}<br>S %{x:.2f}<br>T %{y:.1f}<br>log₁₀ vol %{z:.2f}<extra></extra>` })),
-    { type: 'contour', x: A.ts_s, y: A.ts_t, z: A.ts_sigma, xaxis: 'x5', yaxis: 'y5', showscale: false, hoverinfo: 'skip',
-      contours: { start: 22, end: 28.5, size: 0.5, coloring: 'none', showlabels: true, labelfont: { size: 8, color: '#777' } },
-      line: { color: '#999', width: 0.6 } });
-  layout.xaxis5.plot_bgcolor = 'white';
-  layout.shapes = [{ type: 'rect', xref: 'x5', yref: 'y5', x0: 33.5, x1: 37.5, y0: -2, y1: 28, fillcolor: 'white',
-                     line: { width: 0 }, layer: 'below' }];
+  let ax = maps.length + 1, xpos = maps.length * unit;
+  // Profiles of cluster k, field f (0 = T, 1 = S) over D.depth : centre of the k-means (fit on data) and mean over the
+  // columns of the shown members in this cluster, members weighted by their column count
+  const NZP = D.depth.length, prof = (showProfiles || showProfilesTS) ? clusterProfilesOf(a) : null;
+  const centreProfile = (k, f) => (f ? A.clusters.S : A.clusters.T)[k].slice(0, NZP);
+  const meanProfile = (k, f) => D.depth.map((_, z) => {
+    let s = 0, w = 0;
+    for (const b of members) {
+      const v = prof[((b * K + k) * 2 + f) * NZP + z], c = a.cluster_counts[b][k];
+      if (!Number.isNaN(v) && c) { s += c * v; w += c; }
+    }
+    return w ? s / w : null;
+  });
+  if (showProfiles) {
+    // Dashed : centres of the k-means, solid : mean profile of this state in each cluster
+    [['T', 'T [°C]'], ['S', 'S [g kg⁻¹]']].forEach(([name, title], f) => {
+      const sx = String(ax), x0 = xpos + PAD * (f === 0) + gap, x1 = x0 + unit - 2 * gap;
+      layout[`xaxis${sx}`] = { domain: [x0, x1], tickfont: { size: 9 }, nticks: 3, showgrid: true, gridcolor: '#e4e4e4', zeroline: false,
+                               title: { text: title, font: { size: 10 }, standoff: 2 } };
+      layout[`yaxis${sx}`] = { domain: [0, 1], anchor: `x${sx}`, range: [stretch(DEPTH_MAX), 0], tickfont: { size: 9 },
+                               tickvals: DEPTH_TICKS.slice(1).map(stretch), ticktext: DEPTH_TICKS.slice(1).map(String), showticklabels: f === 0,
+                               showgrid: false, zeroline: false };
+      layout.annotations.push({ text: `${name}(z)`, x: (x0 + x1) / 2, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom',
+                                showarrow: false, font: { size: 10 } });
+      for (let k = 0; k < K; k++) {
+        const line = { xaxis: `x${sx}`, yaxis: `y${sx}`, type: 'scatter', mode: 'lines', y: Y, customdata: D.depth };
+        traces.push({ ...line, x: centreProfile(k, f), line: { color: CLUSTER_COLORS[k], width: 1.2, dash: 'dash' },
+                      hovertemplate: `centre ${k + 1}<br>${name} %{x:.2f}<br>depth %{customdata:.0f} m<extra></extra>` },
+                    { ...line, x: meanProfile(k, f), line: { color: CLUSTER_COLORS[k], width: 2 },
+                      hovertemplate: `cluster ${k + 1}<br>${name} %{x:.2f}<br>depth %{customdata:.0f} m<extra></extra>` });
+      }
+      layout[`yaxis${sx}`].plot_bgcolor = 'white';
+      (layout.shapes ??= []).push({ type: 'rect', xref: `x${sx} domain`, yref: `y${sx} domain`, x0: 0, x1: 1, y0: 0, y1: 1,
+                                    fillcolor: 'white', line: { width: 0 }, layer: 'below' });
+      ax++;
+      xpos = x1 + gap;
+    });
+  }
+  if (showProfilesTS) {
+    // The same profiles in (T, S) space, one marker per level from the surface down, sigma_0 isopycnals behind
+    const sx = String(ax), x0 = xpos + PAD, x1 = Math.min(1, x0 + 2 * unit - gap);
+    const curves = [];
+    for (let k = 0; k < K; k++) curves.push([k, 'centre', centreProfile(k, 0), centreProfile(k, 1)], [k, 'cluster', meanProfile(k, 0), meanProfile(k, 1)]);
+    // Axes fixed on the span of the data centres, the same in every column, runs going out of it are clipped
+    const span = (rows, pad) => { const v = rows.flat(); return [Math.min(...v) - pad, Math.max(...v) + pad]; };
+    const tRange = span(A.clusters.T, 1), sRange = span(A.clusters.S, 0.15);
+    layout[`xaxis${sx}`] = { domain: [x0, x1], range: tRange, tickfont: { size: 9 }, nticks: 4, showgrid: false, zeroline: false,
+                             title: { text: 'T [°C]', font: { size: 10 }, standoff: 2 } };
+    layout[`yaxis${sx}`] = { domain: [0, 1], anchor: `x${sx}`, range: sRange, tickfont: { size: 9 }, nticks: 5, showgrid: false,
+                             zeroline: false, title: { text: 'S [g kg⁻¹]', font: { size: 10 }, standoff: 2 } };
+    layout.annotations.push({ text: 'Cluster profiles in T–S', x: (x0 + x1) / 2, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom',
+                              showarrow: false, font: { size: 10 } });
+    (layout.shapes ??= []).push({ type: 'rect', xref: `x${sx} domain`, yref: `y${sx} domain`, x0: 0, x1: 1, y0: 0, y1: 1,
+                                  fillcolor: 'white', line: { width: 0 }, layer: 'below' });
+    traces.push({ type: 'contour', x: A.ts_t, y: A.ts_s, z: tsSigmaTS(), xaxis: `x${sx}`, yaxis: `y${sx}`, showscale: false, hoverinfo: 'skip',
+                  contours: { start: 22, end: 28.5, size: 0.5, coloring: 'none', showlabels: true, labelfont: { size: 8, color: '#777' } },
+                  line: { color: '#bbb', width: 0.6 } });
+    for (const [k, kind, t, sal] of curves)
+      traces.push({ type: 'scatter', mode: 'lines+markers', x: t, y: sal, customdata: D.depth, xaxis: `x${sx}`, yaxis: `y${sx}`,
+                    line: { color: CLUSTER_COLORS[k], width: kind === 'centre' ? 1.2 : 2, dash: kind === 'centre' ? 'dash' : 'solid' },
+                    marker: { color: CLUSTER_COLORS[k], size: kind === 'centre' ? 3 : 4 },
+                    hovertemplate: `${kind} ${k + 1}<br>T %{x:.2f} °C<br>S %{y:.3f}<br>depth %{customdata:.0f} m<extra></extra>` });
+    ax++;
+    xpos = x1 + gap;
+  }
+  if (showTS) {
+    // T-S diagram : volume fraction per (T, S) bin, log scale, sigma_0 isopycnals
+    // planes of ts are (member, region) with region 0 = ACC, 1 = rest of the basin
+    const ts = tsOf(a), nt = A.ts_t.length, ns = A.ts_s.length;
+    const zts = [0, 1].map(r => grid2d(ts, nt, ns, members.map(b => 2 * b + r), v => v > 0 ? Math.log10(v) : null));
+    const x0 = xpos + (xpos ? PAD : 0.02), x1 = Math.min(1, x0 + 3 * unit);
+    layout[`xaxis${ax}`] = { domain: [x0, x1], range: [33.5, 37.5], tickfont: { size: 9 }, nticks: 5,
+                             title: { text: 'S [g kg⁻¹]', font: { size: 10 }, standoff: 2 }, showgrid: false, zeroline: false };
+    layout[`yaxis${ax}`] = { domain: [0, 1], anchor: `x${ax}`, range: [-2, 28], tickfont: { size: 9 }, showgrid: false, zeroline: false,
+                             title: { text: 'T [°C]', font: { size: 10 }, standoff: 2 } };
+    layout.annotations.push({ text: 'T–S diagram : <span style="color:#2a6fb0">ACC</span> / <span style="color:#b03a2e">rest</span>',
+                              x: (x0 + x1) / 2, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom', showarrow: false, font: { size: 10 } });
+    traces.push(
+      ...[[1, 'ts', 'rest', 1], [0, 'ts_acc', 'ACC', 0.8]].map(([r, cs, name, opacity]) => (
+        { type: 'heatmap', x: A.ts_s, y: A.ts_t, z: zts[r], xaxis: `x${ax}`, yaxis: `y${ax}`, colorscale: A.colorscales[cs],
+          zmin: TS_LEVELS.start, zmax: TS_LEVELS.end, showscale: false, opacity,
+          hovertemplate: `${name}<br>S %{x:.2f}<br>T %{y:.1f}<br>log₁₀ vol %{z:.2f}<extra></extra>` })),
+      { type: 'contour', x: A.ts_s, y: A.ts_t, z: A.ts_sigma, xaxis: `x${ax}`, yaxis: `y${ax}`, showscale: false, hoverinfo: 'skip',
+        contours: { start: 22, end: 28.5, size: 0.5, coloring: 'none', showlabels: true, labelfont: { size: 8, color: '#777' } },
+        line: { color: '#999', width: 0.6 } });
+    (layout.shapes ??= []).push({ type: 'rect', xref: `x${ax}`, yref: `y${ax}`, x0: 33.5, x1: 37.5, y0: -2, y1: 28, fillcolor: 'white',
+                                  line: { width: 0 }, layer: 'below' });
+  }
   Plotly.react(div, traces, layout, { displayModeBar: false, responsive: true });
 }
 
-function loadApriori(done) {
-  if (A) return done();
-  const label = document.getElementById('loading');
-  label.textContent = 'Loading a-priori data…';
-  const script = document.createElement('script');
-  script.src = 'density_viewer_apriori.js';
-  script.onload = () => { A = window.APRIORI_DATA; label.textContent = ''; done(); };
-  script.onerror = () => { label.textContent = 'density_viewer_apriori.js not found, run build_density_viewer.py'; };
-  document.body.appendChild(script);
+let aprioriPromise = null;
+// Resolves once window.APRIORI_DATA is in A, rejects if the file is missing (a later call retries)
+function loadApriori() {
+  if (!aprioriPromise) {
+    const label = document.getElementById('loading');
+    label.textContent = 'Loading a-priori data…';
+    aprioriPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'density_viewer_apriori.js';
+      script.onload = () => { A = window.APRIORI_DATA; label.textContent = ''; resolve(); };
+      script.onerror = () => {
+        label.textContent = 'density_viewer_apriori.js not found, run build_density_viewer.py';
+        aprioriPromise = null; reject(new Error('density_viewer_apriori.js not found'));
+      };
+      document.body.appendChild(script);
+    });
+  }
+  return aprioriPromise;
 }
+
+// Load the a-priori file and decode every run (sections, RMSE, SST, MLD, T-S, variance) so that switching sweep,
+// slider or tab never waits. The file load has no progress event (script tag), the decoding is reported per run.
+const loadButton = document.getElementById('load-all'), loadBar = document.getElementById('load-progress'),
+      loadText = document.getElementById('load-text');
+async function loadAll() {
+  loadButton.disabled = true;
+  loadBar.hidden = false;
+  loadBar.removeAttribute('value');
+  loadText.textContent = 'reading a-priori file…';
+  await loadApriori().catch(() => {});
+  const entries = [D.data, ...Object.values(D.baselines), ...D.runs];
+  loadBar.max = entries.length;
+  for (const [i, entry] of entries.entries()) {
+    sections(entry); rmse(entry);
+    if (A) { const a = aprioriOf(entry); sstOf(a); mldOf(a); tsOf(a); varOf(a); if (a.cluster) clusterOf(a); if (a.cluster_profiles) clusterProfilesOf(a); }
+    loadBar.value = i + 1;
+    loadText.textContent = `decoding ${i + 1} / ${entries.length}`;
+    await new Promise(resolve => setTimeout(resolve));
+  }
+  loadBar.hidden = true;
+  loadText.textContent = A ? 'all data loaded' : 'density data loaded, a-priori file missing';
+  if (!A) loadButton.disabled = false;
+}
+loadButton.addEventListener('click', loadAll);
+
+const panelsBar = document.getElementById('panels');
+for (const [key, label] of Object.entries(PANELS)) {
+  const el = document.createElement('label');
+  el.innerHTML = `<input type="checkbox" value="${key}" ${shownSet.has(key) ? 'checked' : ''}> ${label}`;
+  el.querySelector('input').addEventListener('change', e => {
+    e.target.checked ? shownSet.add(key) : shownSet.delete(key);
+    if (A) { renderAll(); drawScale(); }
+  });
+  panelsBar.appendChild(el);
+}
+
+const MB = b => `${(b / 1e6).toFixed(0)} MB`;
+function showMemory() {
+  const heap = performance.memory ? ` · JS heap ${MB(performance.memory.usedJSHeapSize)} / ${MB(performance.memory.jsHeapSizeLimit)}` : '';
+  document.getElementById('mem').textContent = `decoded ${MB(decodedBytes)}${heap}`;
+}
+setInterval(showMemory, 1000);
 function setTab(name) {
   tab = name;
   document.body.dataset.tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.getElementById('sub').textContent = SUBTITLES[name];
-  const go = () => { cols.forEach(render); drawScale(); fit(); };
-  if (name === 'apriori') loadApriori(go); else go();
+  const go = () => { renderAll(); drawScale(); fit(); };
+  if (name === 'noconstraint') window.showNoConstraint();
+  else if (name === 'apriori') loadApriori().then(go, () => {}); else go();
 }
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
 const memberInput = document.getElementById('member'), memberOut = document.getElementById('member-out');
 memberInput.addEventListener('input', () => {
   state.member = +memberInput.value; memberOut.textContent = state.member + 1;
-  cols.forEach(render);
+  renderAll();
 });
 document.querySelectorAll('input[name=view]').forEach(r => r.addEventListener('change', () => {
   state.view = r.value;
   memberInput.disabled = state.view !== 'member';
   document.getElementById('median-by').disabled = state.view !== 'median';
   document.querySelector('.member').classList.toggle('off', memberInput.disabled);
-  cols.forEach(render);
+  renderAll();
 }));
 const scaleCard = document.createElement('div');
 scaleCard.className = 'col';
@@ -402,22 +647,36 @@ function colorbar(colorscale, levels, title, y) {
            colorbar: { orientation: 'h', x: 0.5, y, yanchor: 'top', len: 0.9, thickness: 9, tickfont: { size: 9 }, nticks: 8,
                        title: { text: title, side: 'top', font: { size: 10 } } } };
 }
+// Colour bars of the shown a-priori panels, stacked from the top
+function aprioriBars() {
+  const K = A.clusters ? A.clusters.n : 0;
+  const BARS = {
+    sst: y => colorbar(A.colorscales.toce, SST_LEVELS, 'SST, conservative temperature [°C]', y),
+    cluster: y => ({ ...colorbar(clusterColorscale(K), { start: 0.5, end: K + 0.5, size: 1 }, '', y),
+      colorbar: { orientation: 'h', x: 0.5, y, yanchor: 'top', len: 0.9, thickness: 9, tickfont: { size: 9 },
+                  tickvals: [...Array(K).keys()].map(k => k + 1),
+                  ticktext: A.clusters ? A.clusters.surface_sigma.map((s, k) => `${k + 1} : σ₀ ${s.toFixed(1)}, ${A.clusters.sst[k].toFixed(0)} °C`) : [],
+                  title: { text: `k-means of the T–S profiles (fit on data), surface σ₀ and SST of each centre`, side: 'top', font: { size: 10 } } } }),
+    mld: y => { const bar = colorbar(A.colorscales.mld, MLD_LEVELS, '', y);
+                return { ...bar, colorbar: { ...bar.colorbar, title: { text: `mixed layer depth [m] (${A.mld_def})`, side: 'top', font: { size: 10 } },
+                         tickvals: MLD_TICKS.map(Math.log10), ticktext: MLD_TICKS.map(String) } }; },
+    var_sst: y => colorbar(A.colorscales.toce, { start: 0, end: varMax[0], size: varMax[0] / 29 }, 'variance of SST [K²] (max on data)', y),
+    var_sss: y => colorbar(A.colorscales.soce, { start: 0, end: varMax[1], size: varMax[1] / 29 }, 'variance of SSS [g² kg⁻²] (max on data)', y),
+    ts: y => [['ts_acc', `T–S, ACC (${A.acc_lat.map(l => Math.abs(l).toFixed(0)).join('–')}°S) : fraction of its volume`, 0.25],
+              ['ts', 'T–S, rest of the basin : fraction of its volume', 0.75]].map(([cs, title, x]) => {
+      const bar = colorbar(A.colorscales[cs], TS_LEVELS, '', y);
+      return { ...bar, colorbar: { ...bar.colorbar, x, len: 0.44, title: { text: title, side: 'top', font: { size: 10 } },
+               tickvals: [-6, -4, -2], ticktext: ['1e-6', '1e-4', '1e-2'] } };
+    }),
+  };
+  // the cluster colours are also the legend of the profiles
+  const shown = [...new Set(shownPanels().map(k => k.startsWith('profiles') ? 'cluster' : k))], step = Math.min(0.22, 0.9 / Math.max(1, shown.length - 1));
+  return shown.flatMap((k, i) => BARS[k](0.98 - i * step));
+}
 function drawScale() {
   const bars = tab === 'density' || !A
     ? [colorbar(D.colorscale, LEVELS, 'potential density anomaly σ₀ [kg m⁻³ − 1000]', 0.6)]
-    : [colorbar(A.colorscales.toce, SST_LEVELS, 'SST, conservative temperature [°C]', 0.98),
-       { ...colorbar(A.colorscales.mld, MLD_LEVELS, '', 0.76),
-         colorbar: { ...colorbar(A.colorscales.mld, MLD_LEVELS, '', 0.76).colorbar,
-                     title: { text: `mixed layer depth [m] (${A.mld_def})`, side: 'top', font: { size: 10 } },
-                     tickvals: MLD_TICKS.map(Math.log10), ticktext: MLD_TICKS.map(String) } },
-       colorbar(A.colorscales.toce, { start: 0, end: varMax[0], size: varMax[0] / 29 }, 'variance of SST [K²] (max on data)', 0.54),
-       colorbar(A.colorscales.soce, { start: 0, end: varMax[1], size: varMax[1] / 29 }, 'variance of SSS [g² kg⁻²] (max on data)', 0.32),
-       ...[['ts_acc', `T–S, ACC (${A.acc_lat.map(l => Math.abs(l).toFixed(0)).join('–')}°S) : fraction of its volume`, 0.25],
-           ['ts', 'T–S, rest of the basin : fraction of its volume', 0.75]].map(([cs, title, x]) => {
-         const bar = colorbar(A.colorscales[cs], TS_LEVELS, '', 0.10);
-         return { ...bar, colorbar: { ...bar.colorbar, x, len: 0.44, title: { text: title, side: 'top', font: { size: 10 } },
-                  tickvals: [-6, -4, -2], ticktext: ['1e-6', '1e-4', '1e-2'] } };
-       })];
+    : aprioriBars();
   Plotly.react(scaleCard.querySelector('.scale'), bars,
     { margin: { l: 10, r: 10, t: 10, b: 10 }, paper_bgcolor: 'rgba(0,0,0,0)',
       xaxis: { visible: false, domain: [0, 0] }, yaxis: { visible: false, domain: [0, 0] } },
@@ -425,20 +684,24 @@ function drawScale() {
 }
 
 function fit() {
+  if (tab === 'noconstraint') return;
   // three rows of panels in the window : plot height = what is left after the header and the panel chrome
   const grid = document.getElementById('grid'), card = cols[0].el, plot = card.querySelector(tab === 'density' ? '.plot' : '.amap');
   const chrome = card.offsetHeight - plot.offsetHeight;
   const rows = Math.ceil(cols.length / (getComputedStyle(grid).gridTemplateColumns.split(' ').length));
   const h = Math.max(200, Math.floor((window.innerHeight - grid.offsetTop - 12 - 8 * (rows - 1)) / rows - chrome));
   document.documentElement.style.setProperty('--plot-h', `${h}px`);
-  [...cols.map(c => c.el), scaleCard].forEach(el => el.querySelectorAll('.plot, .amap, .scale').forEach(d => d.data && Plotly.Plots.resize(d)));
+  [...cols.map(c => c.el), scaleCard].forEach(el => el.querySelectorAll('.plot, .amap, .scale').forEach(d => d.data && d.offsetParent && Plotly.Plots.resize(d)));
 }
 let fitTimer;
 window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fit, 100); });
-document.getElementById('median-by').addEventListener('change', e => { state.medianBy = e.target.value; cols.forEach(render); });
+document.getElementById('median-by').addEventListener('change', e => { state.medianBy = e.target.value; renderAll(); });
 memberInput.max = Math.max(D.data.density_error.length, ...D.runs.map(r => r.density_error.length),
                            ...Object.values(D.baselines).map(b => b.density_error.length)) - 1;
+sweepSelect.value = DEFAULT_SWEEP;
+setSweep(DEFAULT_SWEEP);
 setTab('density');
 </script>
+<script src="density_viewer_noconstraint_tab.js"></script>
 </body>
 </html>

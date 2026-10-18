@@ -78,3 +78,42 @@ Branch A and Branch B were not run: their acceptance target is already met by ex
 4. "NGD fails because E is a profile error" not shown by a correlation; alternatives: NGD is unweighted (deep, thick cells under-weighted) and under-enforced (1.79 % at |g| >= 1e-2). Suggested the profile/anomaly swap (done above).
 5. X64J over-flattens the level means (2.6e-5, 4x below data); iso + zm eps 1.33 without joint (9.4e-5) is the better and simpler proposal.
 Proposed: (a) iso + zm with zm eps about 8x q0.5 (the 1.33 run), no joint projection, confirmed on 3 seeds; (b) one guided experiment, needing user approval: volume-weighted NGD, sqrt mode, eta tuned to distance about 0.10, alone and with zm, 2 seeds.
+
+## Step 3: monotonicity-only losses (PLAN2), frontier, transfer, gates, robustness
+
+Candidates (all on g = rho[k+1] - rho[k] from `observer.density`, w = lower-cell volume normalised to sum 1 over wet pairs, code in `frontier.py` `DensityLoss`): C0 = NGD of `losses.py`, C1 = sum w relu(-g)^2, C2 = softplus linear hinge (dropped: hidden margin, active on 27.5 % of data cells), C3 = sigmoid indicator (stalls), C4 = squared dist_isoton, C5 = hinge on the sample's own mean profile, C6 = non-squared distance to the isotonic cone, C7 = one-sided Huber hinge sum w h_tau(g) with h_tau(g) = 0 for g >= 0, g^2/(2 tau) on (-tau, 0), -g - tau/2 below -tau, tau = 1e-4.
+
+Post-hoc frontier (LBFGS on mean_ocean((x - x0)^2) + lam L(x)/L(x0), 300 iterations, then BorderZero, 8 unconstrained states of `test_new_sampler_clip/none`, E 9.28): C7 E 4.79 at d 0.015 and E 2.61 at d 0.021; C1 E 3.55 at d 0.025; C0 E 1.60 at d 0.027 (1.26 in a second cold start under other run conditions, so C0 is not converged at 300 iterations and its frontier points are unreliable; C7 and C1 reproduce within 1 %; the PLAN2 3x-iteration convergence check was not run); C6 E 6.55 at d 0.023; C4 E 6.65 at d 0.025; C5 plateaus at E 7.7. Files: `frontier_*.csv`.
+
+Transfer (`transfer2.py`, step of 0.005 RMS along the guidance gradient through the Tweedie estimate, t in 50..600): the C7 guided step removes 0.77-1.13 E points against 0.07-0.26 for C0, C1, C6, cosine with the clean gradient 0.63-0.69 for C7 against 0.70-0.85 for the others. Only one step size was tested and it overshoots for the concentrated gradients of C0, C1, C6 (a step along their own clean gradient raises E: dE_clean +0.07 / +0.10 / +0.007), so this shows that the C7 guided direction lowers E, not that C7 transfers better than the others. File: `transfer2.csv`.
+
+Gates (`gates.py`, cold start at the lam of the band): on 16 data states the same lam moves them by at most 2.2e-5 and lowers E from 0.385 to 0.315; stable pairs have median shift 0 and negative mean shift (no hidden margin); level-mean variance C7 3.65e-3 / 3.53e-3 vs C0 3.42e-3. Files: `gates_*.csv`.
+
+Robustness (`robust.py`, files `robust_*.csv`):
+
+- eps scale: q90 of L_C7(x0_hat) on 48 data states x 3 draws rises from 8.6e-8 (t = 0) to 1.2e-4 (t = 5), 3.6e-3 (t = 800), 0.11 (t = 999).
+- Neutral pile-up: the near-neutral volume (0 <= g < 1e-3) sits mostly in levels 25-34: 3.8-5.0 % for C7, 4.1-4.4 % for C0 / C1, against 0.11 % in data. All data inversions are below 1.2e-4 (E_tiny = E = 0.361), i.e. rounding-level.
+- Re-noise to t = 10 / 20 / 50 and one UNet x0_hat: data 0.36 -> 0.98 / 1.02 / 1.09, C7 (lam 3e-3) 2.63 -> 5.37 / 5.56 / 5.77, C7 (lam 1e-3) 4.80 -> 5.85 / 6.01 / 6.23, C1 3.57 -> 5.15 / 5.31 / 5.43, C0 1.26 -> 4.67 / 4.89 / 5.15, none 9.28 -> 7.85. Post-hoc gains are largely undone by one denoising pass, and C7 comes back slightly higher than C0 / C1 at comparable clean E: the deep neutral pile-up is fragile. In guided sampling the guidance keeps acting in the last steps, so this is an upper bound on the loss, but it suggests a floor of the guided E well above the post-hoc one.
+
+User decisions (2026-10-18): C7 only; usual pipeline (raw mode, constant eps = clean-data q90 8.6e-8, lbd0 1, BorderZero, seed 0, 1000 steps), eta is a tuned hyperparameter as for mean_density / zero_mean in `inference/optimal/`; sweep eta in {30, 100, 300, 1000} at batch 8 (eta range from matching eta L |grad L| with the optimal runs), then one batch-16 run at the chosen eta. eps(t) is kept as a fallback only.
+
+Inspector review (2026-10-18, verdict GO with fixes): the E reimplementation and the monotonicity-only rule check out. The eta grid {30..1000} was about 10x too high, because the loss on the Tweedie estimate is front-loaded (int L dt about 11 on data, 94 % from t >= 800) while the reference runs only take lbd from 1 to about 5; revised grid {10, 30, 100, 300}, run sequentially from 30. The band is anchored on the optimal runs, paired with `optimal/none_border0/151026-145216` (b8, seed 0, E 9.28): 0.36 <= E < 8.3, preferably below 5.5 (optimal mean_density, E 5.50 +/- 1.69; zero_mean 1.27). In float32, g is quantised to 6.1e-5 / 1.22e-4, so tau = 1e-4 is a no-op and C7 is in practice a volume-weighted linear hinge; about 1 point of E is invisible to the float32 loss. eps = 8.6e-8 never binds, so eta is the only control. Selection rule for the batch-16 run: largest E reduction with E >= 0.36, level-mean variance >= data, deep near0 no worse than post-hoc C7, distance <= mean_density, roughness within +10 % of the paired none; ties (within one std of the paired per-sample differences) go to the smaller eta.
+
+## Step 4: guided sampling with C7 (`negative_grad_density_huber`), 2026-10-18
+
+Runs of `Results/notebooks/generate/4_generate_huber_sweep.py` (raw, eps = eps_data = 8.6e-8, lbd0 1, BorderZero, seed 0, 1000 steps, about 8 min per b8 run on this Mac), metrics of `sweep_eval.py` (`sweep_eval.csv`), b8 runs paired with `optimal/none_border0/151026-145216` (E 9.28), the b16 run with `151026-150424` (E 8.31).
+
+| run | E | dist | level_mean | rough | near0 deep | lbd_end |
+|---|---|---|---|---|---|---|
+| eta 10 b8 | 2.80 | 0.048 | 2.29e-3 | 3.17e-3 | 0.23 | 96 |
+| eta 30 b8 | 1.74 | 0.068 | 2.22e-3 | 3.16e-3 | 0.13 | 186 |
+| eta 100 b8 | 0.75 | 0.117 | 3.16e-3 | 3.06e-3 | 0.03 | 409 |
+| eta 300 b8 | 0.29 | 0.219 | 5.33e-3 | 2.83e-3 | 0.008 | 841 |
+| eta 100 b16 (`optimal/negative_grad_density_huber_border0`) | 0.75 | 0.121 | 3.67e-3 | 3.09e-3 | 0.05 | 412 |
+| mean_density optimal b16 | 5.50 | 0.216 | 1.95e-3 | 3.32e-3 | 0.93 | |
+| zero_mean optimal b16 | 1.27 | 0.098 | 2.8e-5 | 3.41e-3 | 0.10 | |
+| data (16) | 0.385 | | 9.6e-5 | 1.22e-3 | 0.11 | |
+
+Selection rule (inspector): eta 300 fails (E below data, distance above mean_density, deep near-neutral volume far below data; the paper box metrics show it warms the bottom and deep water, BWbox toce 5.3 and DWbox toce 3.4 against 4.8 and 2.6 in data). eta 100 is the strongest that passes and is not a tie with eta 30. The post-hoc deep neutral pile-up does not appear in guided sampling. Board with Table 1 and the zonal sections : `../huber_board.html` (built by `../build_huber_board.py`).
+
+User choice (2026-10-18): the paper run is eta 10. `optimal/negative_grad_density_huber_border0/181026-172751` (eta 10, b16, E 2.79, dist 0.050); the eta 100 b16 run (181026-165339) moved to `sweep_density_huber_b16/`, the `prefix` of both args.json updated to their new folder.

@@ -1,0 +1,5 @@
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+C0 10.0 {'E': 1.60336, 'dist': 0.02738, 'stable_shift_mean': -0.03978, 'near0': 5.58434} data {'E': 0.36595, 'dist': 0.0}
+C7_1e-4 0.001 {'E': 4.78782, 'dist': 0.01534, 'stable_shift_mean': -0.02702, 'near0': 5.25539} data {'E': 0.3154, 'dist': 2e-05}
+C7_1e-4 0.003 {'E': 2.60782, 'dist': 0.02081, 'stable_shift_mean': -0.03505, 'near0': 7.05629} data {'E': 0.31545, 'dist': 2e-05}

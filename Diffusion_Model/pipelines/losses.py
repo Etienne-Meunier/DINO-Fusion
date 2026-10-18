@@ -70,6 +70,31 @@ class NegativeGradDensity(Loss) :
         return torch.nanmean((grad_density.clamp(0.0))**2, axis=(1, 2, 3))
  
 
+class NegativeGradDensityHuber(Loss) :
+    """
+        Volume-weighted one-sided Huber hinge on the vertical density step g = rho[k+1] - rho[k] (inversion where g < 0) :
+            sum w * h(g),   h(g) = 0 for g >= 0,  g^2 / (2 tau) on (-tau, 0),  -g - tau/2 for g < -tau,
+        w = volume of the lower cell normalised to 1 over the wet pairs (the weighting of the eval density error).
+        Zero on every stable pair (no margin), linear push on inversions whatever their size. tau = 1e-4 kg/m3 sits at the
+        float32 resolution of rho (step ~6e-5 to 1.2e-4), so in practice the loss is a volume-weighted linear hinge.
+        Always volume-weighted, `volume_weighted` is ignored.
+    """
+    def __init__(self, tau=1e-4, **kwargs) :
+        super().__init__(**kwargs)
+        self.tau = tau
+        tmask = self.observer.tmask.bool()
+        self.valid = tmask[1:] & tmask[:-1]
+        w = self.observer.volume[1:] * self.valid
+        self.w = w / w.sum()
+
+    def __call__(self, field):
+        rho = self.observer.density(field)
+        g = rho[:, 1:] - rho[:, :-1]
+        g = torch.where(self.valid, g, torch.zeros_like(g))
+        h = torch.where(g < -self.tau, -g - self.tau / 2, g**2 / (2 * self.tau))
+        return (self.w.to(g) * torch.where(g < 0, h, torch.zeros_like(g))).sum(dim=(1, 2, 3))
+
+
 class MeanDensityProfile(Loss) :
     def __init__(self, profile=\
                         np.loadtxt(f'{PRP}/Results/analysis_scripts/mean_density_train.txt'),
@@ -210,19 +235,22 @@ class IsotonicDensity(Projection) :
         return (lower.max(-1).values + offset).movedim(-1, 1)
 
 
-LOSSES = ['mean_density', 'mean_grad_density', 'negative_grad_density', 'zero_mean', 'dist_isoton']
+LOSSES = ['mean_density', 'mean_grad_density', 'negative_grad_density', 'zero_mean', 'dist_isoton',
+          'negative_grad_density_huber']
 
 # Default eps per loss, approx max of the loss on data, indexed as eps_data[volume_weighted][name]
 eps_data = {False : {'mean_density' : 0.02,
                      'mean_grad_density' : 0.002,
                      'negative_grad_density' : 3e-10,
                      'zero_mean' : 0.01,
-                     'dist_isoton' : 2e-10},
+                     'dist_isoton' : 2e-10,
+                     'negative_grad_density_huber' : 8.6e-8},
             True : {'mean_density' : None,
                     'mean_grad_density' : None,
                     'negative_grad_density' : None,
                     'zero_mean' : None,
-                    'dist_isoton' : None}}
+                    'dist_isoton' : None,
+                    'negative_grad_density_huber' : 8.6e-8}}
 
 def get_loss(name, observer, volume_weighted=False) :
     """
@@ -240,4 +268,6 @@ def get_loss(name, observer, volume_weighted=False) :
         return ZeroMean(observer=observer, volume_weighted=volume_weighted)
     elif name == 'dist_isoton' :
         return DistancetoIsotonic(observer=observer, volume_weighted=volume_weighted)
+    elif name == 'negative_grad_density_huber' :
+        return NegativeGradDensityHuber(observer=observer)
     raise ValueError(f'Unknown loss {name}')

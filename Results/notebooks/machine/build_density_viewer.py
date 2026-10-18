@@ -1,9 +1,10 @@
 """
 Build `density_viewer_data.js` and `density_viewer_apriori.js`, the data of `density_viewer.html` : zonal sections of sigma_0 for 8 random data states and
-every run of the strength sweep (TS : zero_mean, C1 : mean_density) and the unconstrained runs of default_eps (with and
-without BorderZero), with the constraint value C(x) and the density error of each member.
-The a-priori file holds, for the same states, the SST map, the mixed layer depth map, the volume-weighted T-S histogram
-and the batch variance of SST and SSS (as `graphs/graph4_snapshots.py`).
+every TS (zero_mean), C1 (mean_density) and C7 (negative_grad_density_huber) run of the sweeps of SWEEPS, each tagged
+with its sweep, and the unconstrained runs of default_eps (with and without BorderZero), with the constraint value C(x)
+and the density error of each member.
+The a-priori file holds, for the same states, the SST map, the mixed layer depth map, the k-means cluster map of the
+T-S profiles, the volume-weighted T-S histogram and the batch variance of SST and SSS (as `graphs/graph4_snapshots.py`).
 """
 from pathlib import Path
 import sys
@@ -22,6 +23,7 @@ import cmocean.cm as cm
 import numpy as np
 import torch
 import xarray as xr
+from sklearn.cluster import KMeans
 
 from configs.base_config import TrainingConfig
 from DataLoader import get_dataloader, get_infos
@@ -31,7 +33,8 @@ from pipelines.losses import get_loss
 from metrics import compute_density_error, get_density_at_surface
 
 INFERENCE = f'{os.environ["OCEANDATA"]}/models/dino-fusion/tav0h83b/inference'
-SWEEP = f'{INFERENCE}/sweep_strength'
+SWEEPS = ['sweep_strength', 'default_eps', 'optimal']
+LOSSES = ['zero_mean', 'mean_density', 'negative_grad_density_huber']
 BASELINES = ['none', 'none_border0']  # latest run of each in default_eps
 OUT = Path(__file__).parent / 'density_viewer_data.js'
 OUT_APRIORI = Path(__file__).parent / 'density_viewer_apriori.js'
@@ -41,6 +44,7 @@ TS_T_EDGES = np.arange(-3., 32.01, 0.5)  # T-S histogram bins, values outside fa
 TS_S_EDGES = np.arange(32., 38.001, 0.05)
 TS_LOG_RANGE = (-10., 0.)  # T-S histograms are stored as uint16 of log10(volume fraction) over this range, 0 for empty bins
 N_DATA = 8
+N_CLUSTERS = 5  # k-means of the (T, S) profiles of the data states, as the former notebook plot-density-profiles.ipynb
 SIGMA_RANGE = (18., 30.)  # sections are stored as uint16 over this range, NaN as 0
 
 
@@ -111,11 +115,78 @@ def ts_histograms(fields, region, volume):
     return np.stack([np.histogram2d(tb, sb, bins=[TS_T_EDGES, TS_S_EDGES], weights=w)[0] for tb, sb in zip(t, s)])
 
 
-def describe(x, observer, losses, file_mask_LR):
+def ts_profiles(fields, tmask):
+    """
+    (T, S) profile of every column, (b, y, x, 2 z), each level below the bottom filled with the deepest ocean value so that
+    shallow columns are compared on their own water, NaN on land.
+        fields : unnormalized 'toce', 'soce' (b, z, y, x), tmask (z, y, x) bool
+    """
+    profiles = []
+    for f in ['toce', 'soce']:
+        v = np.where(tmask[None], fields[f], np.nan)
+        for k in range(1, v.shape[1]):
+            v[:, k] = np.where(tmask[k][None], v[:, k], v[:, k - 1])
+        profiles.append(np.moveaxis(v, 1, -1))
+    return np.concatenate(profiles, axis=-1).astype(np.float64)
+
+
+class ProfileClusters:
+    """
+    k-means of the (T, S) profiles of the columns of a reference batch, each field scaled by its standard deviation over
+    the reference, clusters numbered 1..N_CLUSTERS by increasing surface sigma_0 of their centre.
+    `labels(fields)` assigns every column of another batch to its nearest centre : uint8 (b, y, x), 0 on land.
+    """
+    def __init__(self, fields, tmask):
+        self.tmask = tmask
+        self.nz = tmask.shape[0]
+        x = ts_profiles(fields, tmask)
+        ocean = tmask[0]
+        self.scale = np.repeat([np.nanstd(x[..., :self.nz][:, ocean]), np.nanstd(x[..., self.nz:][:, ocean])], self.nz)
+        self.km = KMeans(N_CLUSTERS, n_init=10, random_state=0).fit(x[:, ocean].reshape(-1, 2 * self.nz) / self.scale)
+        centres = self.km.cluster_centers_ * self.scale
+        surface = get_density_at_surface(centres[:, 0], centres[:, self.nz], np.ones(N_CLUSTERS)) - 1000
+        order = np.argsort(surface)
+        self.rank = np.empty(N_CLUSTERS, int)
+        self.rank[order] = np.arange(N_CLUSTERS)
+        self.surface_sigma = surface[order]
+        self.centres = centres[order]
+
+    def labels(self, fields):
+        x = ts_profiles(fields, self.tmask)
+        ocean = self.tmask[0]
+        out = np.zeros(x.shape[:3], 'u1')
+        out[:, ocean] = self.rank[self.km.predict(x[:, ocean].reshape(-1, 2 * self.nz) / self.scale)].reshape(x.shape[0], -1) + 1
+        return out
+
+    def mean_profiles(self, fields, labels):
+        """
+        Mean (T, S) profile of the ocean cells of each member in each cluster, float32 (b, N_CLUSTERS, 2, z - 1), last
+        (land) level dropped, NaN where the cluster has no ocean cell at that level, and the number of columns of each
+        member in each cluster (b, N_CLUSTERS).
+        """
+        b, nz = labels.shape[0], self.nz - 1
+        means = np.full((b, N_CLUSTERS, 2, nz), np.nan, '<f4')
+        counts = np.zeros((b, N_CLUSTERS), int)
+        for i in range(b):
+            for k in range(N_CLUSTERS):
+                columns = labels[i] == k + 1
+                counts[i, k] = columns.sum()
+                if not counts[i, k]:
+                    continue
+                ocean = self.tmask[:nz, columns]
+                for f, name in enumerate(['toce', 'soce']):
+                    v = np.where(ocean, fields[name][i, :nz][:, columns], 0.)
+                    n = ocean.sum(axis=1)
+                    means[i, k, f] = np.where(n > 0, v.sum(axis=1) / np.maximum(n, 1), np.nan)
+        return means, counts
+
+
+def describe(x, observer, losses, file_mask_LR, clusters):
     """
     Of a normalized batch x (b, c, i, j), return :
         entry : zonal sections, C(x) per loss and density error of each member
-        apriori : SST maps (uint8 (b, y, x)), mixed layer depth maps (uint16 [m] (b, y, x), 0 on land), T-S histograms
+        apriori : SST maps (uint8 (b, y, x)), k-means cluster maps (uint8 (b, y, x), 0 on land) with the mean (T, S)
+                  profile of each cluster (float32 (b, N_CLUSTERS, 2, z - 1)) and its column count, mixed layer depth maps (uint16 [m] (b, y, x), 0 on land), T-S histograms
                   of the ACC and of the rest of the basin, each normalized by its volume (uint16 of log10 volume
                   fraction (b, 2, nT, nS)), batch variance of SST and SSS (float32 (2, y, x)) and its mean over the ocean
     """
@@ -139,7 +210,10 @@ def describe(x, observer, losses, file_mask_LR):
     lo_ts, hi_ts = TS_LOG_RANGE
     log_hist = np.log10(np.where(hist > 0, hist, 1))
     ts = np.where(hist > 0, np.clip((log_hist - lo_ts) / (hi_ts - lo_ts), 0, 1) * 65534 + 1, 0).astype('<u2')
-    apriori = {'sst': b64(sst), 'mld': b64(mld), 'ts': b64(ts),
+    labels = clusters.labels(fields)
+    profiles, counts = clusters.mean_profiles(fields, labels)
+    apriori = {'sst': b64(sst), 'mld': b64(mld), 'ts': b64(ts), 'cluster': b64(labels),
+               'cluster_profiles': b64(profiles), 'cluster_counts': counts.tolist(),
                'var': b64(variance.astype('<f4')),
                'var_mean': np.nanmean(variance, axis=(1, 2)).tolist()}
     return entry, apriori
@@ -150,32 +224,39 @@ if __name__ == '__main__':
     file_mask_LR = file_mask_LR.rename({'nav_lev': 'depth', 'y': 'nav_lat', 'x': 'nav_lon'})
     config = TrainingConfig()
     observer = Observer('data', config, device='cpu')
-    losses = {name: get_loss(name, observer) for name in ['zero_mean', 'mean_density']}
+    losses = {name: get_loss(name, observer) for name in LOSSES}
 
     random.seed(0); np.random.seed(0); torch.manual_seed(0)
     transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device='cpu')
     batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True)))
     out = {'runs': [], 'baselines': {}}
     apriori = {'runs': [], 'baselines': {}}
-    out['data'], apriori['data'] = describe(batch, observer, losses, file_mask_LR)
+    with torch.no_grad():
+        data_fields = {k: v.cpu().numpy() for k, v in observer.unnormalized(batch).items()}
+    clusters = ProfileClusters(data_fields, file_mask_LR.tmask.transpose('depth', 'nav_lat', 'nav_lon').values.astype(bool))
+    out['data'], apriori['data'] = describe(batch, observer, losses, file_mask_LR, clusters)
 
     for name in BASELINES:
         run_dir = sorted(glob(f'{INFERENCE}/default_eps/{name}/*/'))[-1]
         with open(f'{run_dir}/args.json') as f:
             projection = json.load(f).get('projection', 'none')
         out['baselines'][name], apriori['baselines'][name] = describe(torch.from_numpy(np.load(f'{run_dir}/generated.npy')),
-                                                                      observer, losses, file_mask_LR)
+                                                                      observer, losses, file_mask_LR, clusters)
         out['baselines'][name]['projection'] = projection
         print(f'{name} : {run_dir}')
 
-    for args_path in sorted(glob(f'{SWEEP}/*/*/args.json')):
-        with open(args_path) as f:
-            args = json.load(f)
-        x = torch.from_numpy(np.load(f'{os.path.dirname(args_path)}/generated.npy'))
-        run, run_apriori = describe(x, observer, {args['loss']: losses[args['loss']]}, file_mask_LR)
-        apriori['runs'].append(run_apriori)
-        out['runs'].append(run | {k: args[k] for k in ['loss', 'eps', 'eta', 'lbd0', 'projection']})
-        print(f"{args['loss']} eps={args['eps']} eta={args['eta']} lbd0={args['lbd0']}")
+    for sweep in SWEEPS:
+        for args_path in sorted(glob(f'{INFERENCE}/{sweep}/*/*/args.json')):
+            with open(args_path) as f:
+                args = json.load(f)
+            if args['loss'] not in LOSSES:
+                continue
+            x = torch.from_numpy(np.load(f'{os.path.dirname(args_path)}/generated.npy'))
+            run, run_apriori = describe(x, observer, {args['loss']: losses[args['loss']]}, file_mask_LR, clusters)
+            apriori['runs'].append(run_apriori)
+            out['runs'].append(run | {k: args.get(k) for k in ['loss', 'eps', 'eta', 'lbd0', 'projection']} | {'sweep': sweep})
+            print(f"{sweep} : {args['loss']} eps={args['eps']} eta={args['eta']} lbd0={args.get('lbd0')} {args['projection']}")
+    out['sweeps'] = [s for s in SWEEPS if any(r['sweep'] == s for r in out['runs'])]
 
     depth = file_mask_LR.gdept_1d.values[:-1]
     out['depth'] = depth.tolist()
@@ -195,6 +276,10 @@ if __name__ == '__main__':
     apriori['acc_lat'] = [float(channel_lat.min()), float(channel_lat.max())]
     t_grid, s_grid = np.meshgrid(apriori['ts_t'], apriori['ts_s'], indexing='ij')
     apriori['ts_sigma'] = (get_density_at_surface(t_grid, s_grid, np.ones_like(t_grid)) - 1000).tolist()
+    apriori['clusters'] = {'n': N_CLUSTERS, 'surface_sigma': clusters.surface_sigma.tolist(),
+                           'sst': clusters.centres[:, 0].tolist(), 'sss': clusters.centres[:, clusters.nz].tolist(),
+                           'T': clusters.centres[:, :clusters.nz - 1].tolist(),
+                           'S': clusters.centres[:, clusters.nz:2 * clusters.nz - 1].tolist()}
     apriori['mld_def'] = f'sigma_0 > sigma_0({MLD_ZREF:.0f} m) + {MLD_DSIGMA}'
     apriori['colorscales'] = {f: [[float(v), f'rgb{tuple(int(255 * c) for c in cmap(v)[:3])}'] for v in np.linspace(0, 1, 11)]
                               for f, cmap in [('toce', cm.thermal), ('soce', cm.haline), ('mld', cm.deep), ('ts', cm.amp), ('ts_acc', cm.ice_r)]}

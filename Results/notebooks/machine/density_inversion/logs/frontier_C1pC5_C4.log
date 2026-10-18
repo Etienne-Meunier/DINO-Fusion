@@ -1,0 +1,13 @@
+Reading infos in /Volumes/LoCe/oceandata//Dino-Fusion/dino_1_4_degree_coarse_240125.tar
+C1+C5    lam 1e-04  E 9.318  dist 0.0041  (32s)
+C1+C5    lam 1e-03  E 9.380  dist 0.0128  (49s)
+C1+C5    lam 1e-02  E 9.617  dist 0.0202  (214s)
+C1+C5    lam 1e-01  E 8.388  dist 0.0237  (679s)
+C1+C5    lam 1e+00  E 4.591  dist 0.0251  (483s)
+C1+C5    lam 1e+01  E 1.129  dist 0.0256  (199s)
+C4       lam 1e-04  E 9.284  dist 0.0039  (12s)
+C4       lam 1e-03  E 9.295  dist 0.0137  (17s)
+C4       lam 1e-02  E 9.281  dist 0.0216  (60s)
+C4       lam 1e-01  E 8.951  dist 0.0242  (132s)
+C4       lam 1e+00  E 8.189  dist 0.0251  (606s)
+C4       lam 1e+01  E 6.652  dist 0.0253  (358s)

@@ -30,7 +30,7 @@ device = 'cpu'
 batch_size = 200
 
 RUN = 'tav0h83b'
-PREFIX = 'default_eps'
+PREFIX = 'optimal'
 INFERENCE = f'{os.environ["OCEANDATA"]}/models/dino-fusion/{RUN}/inference'
 
 
