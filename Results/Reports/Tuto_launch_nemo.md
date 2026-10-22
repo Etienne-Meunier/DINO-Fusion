@@ -35,11 +35,11 @@ generation_name = 'C2'
 ```bash
 #1. Download the script to copy run
 
-curl -O https://github.com/Etienne-Meunier/nnemo/blob/main/nnemo.sh; chmod +x nnemo.sh 
+curl -O https://raw.githubusercontent.com/Etienne-Meunier/nnemo/main/nnemo.sh; chmod +x nnemo.sh 
 
 
 #2. run the script -> copy the configuration
-./code/nnemo.sh DINO/Diffusion_runs/Constraint_test diffusion
+./nnemo.sh DINO/Diffusion_runs/Constraint_test diffusion
 ```
 
 
@@ -47,7 +47,7 @@ curl -O https://github.com/Etienne-Meunier/nnemo/blob/main/nnemo.sh; chmod +x nn
 2. Modify `restart.config` to include the path of the restart to use 
 
 ```yaml
-cn_ocerst_in=diffusion_states/generated_restart_C2_1_4_deg.nc
+cn_ocerst_in=diffusion_states/generated_restart_C2_1_4deg.nc
 ```
 
 3. Run the model

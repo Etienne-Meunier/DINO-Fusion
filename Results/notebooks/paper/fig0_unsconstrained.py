@@ -11,6 +11,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import cmocean.cm as cm
 from matplotlib.colors import BoundaryNorm, ListedColormap
+plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7,
+                     'ytick.labelsize': 7, 'legend.fontsize': 7})
 from build_noconstraint_viewer import FIELDS, LevelClusters, anomalies, level_means
 
 SOURCES = ['data', 'none']
@@ -55,12 +57,13 @@ def setup_map(ax, left_labels):
     gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linewidth=0.5, color='black', alpha=0.7, linestyle='--')
     gl.top_labels = gl.right_labels = gl.bottom_labels = False
     gl.left_labels = left_labels
+    gl.ylabel_style = {'size': 6}
 
 
 proj = ccrs.Orthographic(central_longitude=-30, central_latitude=0)
 ncols = len(PANELS) * len(SOURCES)
-fig, axs = plt.subplots(2, ncols, figsize=(3.5 * ncols, 10), subplot_kw={'projection': proj},
-                        gridspec_kw={'hspace': 0.3, 'wspace': 0.05})
+fig, axs = plt.subplots(2, ncols, figsize=(1.75 * ncols, 5), subplot_kw={'projection': proj},
+                        gridspec_kw={'hspace': 0.5, 'wspace': 0.05})
 cluster_cmap = ListedColormap(LEVEL_COLORS[:level_clusters.k])
 cluster_norm = BoundaryNorm(np.arange(0.5, level_clusters.k + 1), level_clusters.k)
 for p, (f, _) in enumerate(PANELS):
@@ -70,17 +73,18 @@ for p, (f, _) in enumerate(PANELS):
         field = np.where(tmask[kz], fields[source][f][MEMBERS[source], kz], np.nan)
         cf = axs[0, c].contourf(lon, lat, field, levels=STYLE[f]['levels'], cmap=STYLE[f]['cmap'], extend='both',
                                 transform=ccrs.PlateCarree())
-        axs[0, c].set_title(f'{chr(ord("a") + c)}) {NAMES[source]}\n{f[0].upper()} at {depth[kz]:.0f} m', fontsize=10)
+        axs[0, c].set_title(f'{chr(ord("a") + c)}) {NAMES[source]}\n{f[0].upper()} at {depth[kz]:.0f} m')
         setup_map(axs[0, c], c == 0)
 
         lab = np.where(labels[source][p] > 0, labels[source][p], np.nan)
         cl = axs[1, c].pcolormesh(lon, lat, lab, cmap=cluster_cmap, norm=cluster_norm, shading='nearest', rasterized=True,
                                   transform=ccrs.PlateCarree())
-        axs[1, c].set_title(f'{chr(ord("a") + ncols + c)}) {NAMES[source]}\nclusters at {depth[kz]:.0f} m', fontsize=10)
+        axs[1, c].set_title(f'{chr(ord("a") + ncols + c)}) {NAMES[source]}\nclusters at {depth[kz]:.0f} m')
         setup_map(axs[1, c], c == 0)
     cbar = fig.colorbar(cf, ax=axs[0, p * len(SOURCES):(p + 1) * len(SOURCES)], orientation='horizontal',
                         fraction=0.04, pad=0.02, aspect=30)
     cbar.set_label(STYLE[f]['label'])
+    cbar.set_ticks(STYLE[f]['levels'][::len(STYLE[f]['levels']) // 5])
 
 cbar = fig.colorbar(cl, ax=axs[1, :], orientation='horizontal', fraction=0.04, pad=0.02, aspect=60,
                     ticks=np.arange(1, level_clusters.k + 1))

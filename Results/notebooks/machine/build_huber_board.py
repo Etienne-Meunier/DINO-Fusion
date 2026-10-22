@@ -18,7 +18,7 @@ from metrics import compute_density_error, get_density_at_surface, temperature_B
 OUT = HERE / 'huber_board.html'
 SWEEP = f'{INFERENCE}/sweep_density_huber/negative_grad_density_huber_border0'
 SWEEP_B16 = f'{INFERENCE}/sweep_density_huber_b16/negative_grad_density_huber_border0'
-NONE_B8 = f'{INFERENCE}/optimal/none_border0/151026-145216'
+NONE_B8 = f'{INFERENCE}/sweep_baselines/none_border0_b8/151026-145216'
 BAND = (-65, -45)
 LEVELS = (22., 28.5, 0.5)
 PROFILE_RANGE = (25., 28.5)
@@ -72,9 +72,11 @@ for d in sorted(glob(f'{SWEEP}/*/')) :
 labels = {'data' : 'Data', 'none' : 'No constraint', 'none_border0' : 'No constraint, border 0 (b16)',
           'mean_density_border0' : 'Density constraint (mean_density)', 'zero_mean_border0' : 'TS constraint (zero_mean)',
           'none_b8' : 'No constraint, border 0 (b8, paired)'}
-order = ['data', 'none', 'none_border0', 'mean_density_border0', 'zero_mean_border0', 'negative_grad_density_huber_border0']
-if 'negative_grad_density_huber_border0' in gens_args :
-    labels['negative_grad_density_huber_border0'] = f"Monotonicity C7, eta {gens_args['negative_grad_density_huber_border0']['eta']:g} (b16, optimal)"
+order = ['data', 'none', 'none_border0', 'mean_density_border0', 'zero_mean_border0', 'negative_grad_density_huber_border0',
+         'negative_grad_density_huber_border0_30', 'negative_grad_density_huber_border0_80']
+for k in order[5:] :
+    if k in gens_args :
+        labels[k] = f"Monotonicity C7, eta {gens_args[k]['eta']:g} (b16, optimal)"
 runs = {k : (batch if k == 'data' else gens[k]) for k in order if k == 'data' or k in gens}
 for d in sorted(glob(f'{SWEEP_B16}/*/')) :
     if os.path.exists(f'{d}/generated.npy') :

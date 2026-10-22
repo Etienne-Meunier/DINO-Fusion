@@ -25,10 +25,11 @@ from pd_explore import ocean_mask, variance_split, roughness
 from step1_bins import HERE, BIN_NAMES, physical, split_E
 
 INF = '/Volumes/LoCe/oceandata/models/dino-fusion/tav0h83b/inference'
-NONE = {8 : f'{INF}/optimal/none_border0/151026-145216', 16 : f'{INF}/optimal/none_border0/151026-150424'}
+NONE = {8 : f'{INF}/sweep_baselines/none_border0_b8/151026-145216', 16 : f'{INF}/optimal/none_border0/151026-150424'}
 REFS = {'mean_density' : f'{INF}/optimal/mean_density_border0/171026-012335',
         'zero_mean' : f'{INF}/optimal/zero_mean_border0/171026-014033'}
 SWEEPS = [f'{INF}/sweep_density_huber/negative_grad_density_huber_border0', f'{INF}/optimal/negative_grad_density_huber_border0',
+          f'{INF}/optimal/negative_grad_density_huber_border0_30', f'{INF}/optimal/negative_grad_density_huber_border0_80',
           f'{INF}/sweep_density_huber_b16/negative_grad_density_huber_border0']
 
 

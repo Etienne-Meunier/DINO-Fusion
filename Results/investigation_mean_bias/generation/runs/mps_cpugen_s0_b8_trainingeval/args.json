@@ -1,0 +1,16 @@
+{
+  "device": "mps",
+  "gen_device": "cpu",
+  "seed": 0,
+  "batch": 8,
+  "steps": 1000,
+  "name": "mps_cpugen_s0_b8_trainingeval",
+  "dtype": "float32",
+  "time": 329.6684718132019,
+  "torch": "2.7.1",
+  "timesteps0": [
+    999,
+    998,
+    997
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "device": "mps",
+  "gen_device": "mps",
+  "seed": 1,
+  "batch": 16,
+  "steps": 1000,
+  "name": "mps_s1_b16",
+  "dtype": "float32",
+  "time": 370.68139481544495,
+  "torch": "2.7.1",
+  "timesteps0": [
+    999,
+    998,
+    997
+  ]
+}

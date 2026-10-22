@@ -7,7 +7,8 @@ from common import *
 
 import cmocean.cm as cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from metrics import get_density_at_surface
+plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7,
+                     'ytick.labelsize': 7, 'legend.fontsize': 7})
 
 
 CONFIGS_MAIN = ['data', 'none', 'zero_mean_border0', 'negative_grad_density_huber_border0']
@@ -20,36 +21,6 @@ DEPTH_POWER, DEPTH_MAX = 0.625, 3500
 DEPTH_TICKS = [0, 100, 250, 500, 1000, 1500, 2000, 3000]
 
 file_mask_LR = load_mask()
-
-
-def compute_density(fields, file_mask_LR):
-    """Potential density referenced at the surface, (batch, depth, nav_lat, nav_lon), of unnormalized 'toce', 'soce'."""
-    bsize = fields['soce'].shape[0]
-    data = file_mask_LR.e3t_0.copy().expand_dims({'batch': bsize})
-    soce, toce, tmask = data.copy(), data.copy(), data.copy()
-    soce[:] = np.asarray(fields['soce'])
-    toce[:] = np.asarray(fields['toce'])
-    tmask[:] = np.repeat(file_mask_LR.tmask.values[None], bsize, 0)
-    return get_density_at_surface(toce, soce, tmask)
-
-
-def zonal_sections(x, file_mask_LR):
-    """Volume-weighted zonal mean of sigma_0 - 1000 of a normalized batch x, (batch, depth - 1, nav_lat), last (land) level dropped."""
-    fields = {k: v.detach().cpu().numpy() for k, v in observer.unnormalized(x).items()}
-    volume = (file_mask_LR.e1t * file_mask_LR.e2t * file_mask_LR.e3t_0 * file_mask_LR.tmask).squeeze()
-    volume = volume.transpose('depth', 'nav_lat', 'nav_lon')
-    section = (compute_density(fields, file_mask_LR) * volume).sum('nav_lon') / volume.sum('nav_lon')
-    return (section.transpose('batch', 'depth', 'nav_lat')[:, :-1] - 1000).values
-
-
-def rmse(sections, reference):
-    """Unweighted RMSE of each section (b, z, y) to `reference` (z, y), over the cells that are ocean in both."""
-    return np.sqrt(np.nanmean((sections - reference[None]) ** 2, axis=(1, 2)))
-
-
-def median_member(errors):
-    """Index of the member at the median of `errors`, the upper median for an even batch."""
-    return int(np.argsort(errors)[len(errors) // 2])
 
 
 def band_profile(section):
@@ -99,8 +70,8 @@ def plot_main_and_inset(ax, section, profile, title):
 def plot_grid(rows, name):
     """Plot one row per source and one column per entry of `rows` [(source, [(section, title), ...]), ...], save as `name`.pdf."""
     nrows, ncols = len(rows), len(rows[0][1])
-    fig, axs = plt.subplots(nrows, ncols, figsize=(10 * ncols, 3 * nrows), sharex=True, sharey=True, squeeze=False,
-                            gridspec_kw={'hspace': 0.25, 'wspace': 0.05})
+    fig, axs = plt.subplots(nrows, ncols, figsize=(6.8, (1.9 if ncols == 1 else 1.55) * nrows), sharex=True, sharey=True, squeeze=False,
+                            gridspec_kw={'hspace': 0.35, 'wspace': 0.05})
     for i, (source, panels) in enumerate(rows):
         profile = band_profile(np.nanmean(sections[source], axis=0))
         for j, (section, title) in enumerate(panels):
@@ -116,7 +87,7 @@ def plot_grid(rows, name):
 
 
 plot_grid([(s, [(sections[s][medians[s]], NAMES[s])]) for s in CONFIGS_MAIN], 'fig1_density_profile')
-plot_grid([(s, [(sections[s][medians[s]], f'{NAMES[s]}, median member'),
-                (np.nanmean(sections[s], axis=0), f'{NAMES[s]}, batch average')]) for s in CONFIGS_APPENDIX],
+plot_grid([(s, [(sections[s][medians[s]], f'{NAMES[s]}, median'),
+                (np.nanmean(sections[s], axis=0), f'{NAMES[s]}, batch mean')]) for s in CONFIGS_APPENDIX],
           'fig1_density_profile_appendix')
 plt.show()

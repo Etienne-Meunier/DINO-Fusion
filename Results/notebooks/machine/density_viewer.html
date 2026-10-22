@@ -36,7 +36,13 @@
   .tabs button.on { background: var(--accent); color: #fff; }
   body[data-tab=density] .amap, body[data-tab=apriori] .plot, body[data-tab=density] .panels { display: none; }
   body[data-tab=noconstraint] #grid, body[data-tab=noconstraint] .bar, body[data-tab=noconstraint] #panels,
-  body:not([data-tab=noconstraint]) #nc { display: none; }
+  body[data-tab=aposteriori] #grid, body[data-tab=aposteriori] .bar, body[data-tab=aposteriori] #panels,
+  body:not([data-tab=noconstraint]) #nc, body:not([data-tab=aposteriori]) #ap { display: none; }
+  .ap-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 6px; }
+  .ap-row.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ap-row.maps { grid-template-columns: repeat(auto-fill, 300px); }
+  @media (max-width: 800px) { .ap-row { grid-template-columns: 1fr; } }
+  .ap-btn { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 2px 10px; font: inherit; cursor: pointer; }
   .nc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin: 0 0 8px; font-size: 13px; }
   .nc-bar label { display: inline-flex; align-items: center; gap: 6px; }
   .nc-bar .member input { width: 160px; }
@@ -64,8 +70,9 @@
 </style>
 </head>
 <body data-tab="density">
-<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button><button data-tab="noconstraint">No constraint</button></div>
+<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button><button data-tab="noconstraint">No constraint</button><button data-tab="aposteriori">A-posteriori</button></div>
 <span class="loading" id="loading"></span>
+<label class="load"><input type="checkbox" id="sigma-continuous"> continuous σ₀ colours</label>
 <span class="load"><button id="load-all">Load all data</button><progress id="load-progress" hidden></progress><span id="load-text"></span><span class="mem" id="mem"></span></span>
 <p class="sub" id="sub"></p>
 
@@ -89,6 +96,7 @@
 
 <div class="grid" id="grid"></div>
 <div id="nc"></div>
+<div id="ap"></div>
 
 <script>
 const D = window.DENSITY_DATA;
@@ -114,6 +122,7 @@ const LABELS = { zero_mean: 'C_TS', mean_density: 'C_C1', negative_grad_density_
 const SUBTITLES = {
   density: 'Zonal σ₀ sections: volume-weighted zonal mean of potential density anomaly (kg m⁻³ − 1000). Inset: mean profile over 65°S–45°S (dashed lines). The two unconstrained runs are the latest of default_eps.',
   noconstraint: 'What the unconstrained model has learned: data (32 states) against the unconstrained runs of default_eps. Most of its error is a uniform offset of each level, per member; the figures separate that offset from the spatial structure.',
+  aposteriori: 'A-posteriori: 1/4° NEMO runs started from the median member (RMSE to the data mean) of each generation of the optimal sweep, converted to a NEMO restart, one experiment at a time (10y : 10 years of monthly means, daily_2m : 2 months of daily means). Time series of the runs against the 1/4° spin-up restart, and snapshots.',
   apriori: 'For the selected state (batch average, median or member): SST, k-means clusters of the (T, S) profiles (fit once on the 8 data states, every run assigned to the nearest centre, batch average = most frequent cluster) and their profiles (dashed: k-means centres, solid: mean over the columns of this state in each cluster), mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
 };
 let A = null;  // a-priori data, loaded with the tab
@@ -157,29 +166,37 @@ function meanGrid(flat, n) {
   }
   return z;
 }
-function bandProfile(z) {
+function bandProfile(z, latitude = D.latitude) {
   return z.map(row => {
     let s = 0, c = 0;
-    D.latitude.forEach((lat, j) => { if (lat >= BAND[0] && lat < BAND[1] && row[j] !== null) { s += row[j]; c++; } });
+    latitude.forEach((lat, j) => { if (lat >= BAND[0] && lat < BAND[1] && row[j] !== null) { s += row[j]; c++; } });
     return c ? s / c : null;
   });
 }
 const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
 const sci = v => v.toExponential(2);
 
-function draw(div, z, showScale) {
+// Section z (depth, lat) as filled σ₀ contours with the profile over the BAND latitudes as inset. `grid` : its latitude and
+// depth (default the 1° grid of D), `title` : optional title above the plot.
+// σ₀ sections filled per contour level (as paper/fig1_density_profile.py) or, when toggled, with a continuous colour scale
+let sigmaContinuous = false;
+try { sigmaContinuous = localStorage.getItem('sigmaContinuous') === '1'; } catch (e) {}
+function draw(div, z, showScale, grid = null, title = '') {
+  const latitude = grid ? grid.latitude : D.latitude, depth = grid ? grid.depth : D.depth;
+  const y = grid ? depth.map(stretch) : Y, text = grid ? depth.map(d => latitude.map(() => d.toFixed(0))) : DEPTH_TEXT;
   const traces = [
-    { type: 'contour', x: D.latitude, y: Y, z, text: DEPTH_TEXT, colorscale: D.colorscale, zmin: LEVELS.start, zmax: LEVELS.end,
-      contours: { ...LEVELS, coloring: 'fill' }, line: { color: 'black', width: 0.6 }, connectgaps: false,
+    { type: 'contour', x: latitude, y, z, text, colorscale: D.colorscale, zmin: LEVELS.start, zmax: LEVELS.end,
+      contours: { ...LEVELS, coloring: sigmaContinuous ? 'heatmap' : 'fill' }, line: { color: 'black', width: 0.6 }, connectgaps: false,
       showscale: showScale, colorbar: { len: 0.9, thickness: 10, title: { text: 'σ₀', side: 'right' } },
       hovertemplate: 'lat %{x:.1f}°<br>depth %{text} m<br>σ₀ %{z:.2f}<extra></extra>' },
-    { type: 'scatter', x: bandProfile(z), y: Y, customdata: D.depth, xaxis: 'x2', yaxis: 'y', mode: 'lines',
+    { type: 'scatter', x: bandProfile(z, latitude), y, customdata: depth, xaxis: 'x2', yaxis: 'y', mode: 'lines',
       line: { color: 'black', width: 2 }, hovertemplate: 'σ₀ %{x:.2f}<br>depth %{customdata:.0f} m<extra></extra>' },
   ];
   const band = BAND.map(lat => ({ type: 'line', xref: 'x', yref: 'paper', x0: lat, x1: lat, y0: 0, y1: 1,
                                   line: { color: 'gray', dash: 'dash', width: 1 } }));
   const layout = {
-    margin: { l: 48, r: showScale ? 10 : 6, t: 6, b: 34 }, showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)',
+    margin: { l: 48, r: showScale ? 10 : 6, t: title ? 20 : 6, b: 34 }, showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)',
+    title: title ? { text: title, font: { size: 11 }, x: 0.02, y: 0.98 } : undefined,
     xaxis: { domain: [0, 0.84], title: { text: 'latitude [°N]', font: { size: 11 } }, tickfont: { size: 10 } },
     xaxis2: { domain: [0.87, 1], range: [25, 28.5], tickfont: { size: 9 }, nticks: 4, showgrid: true, gridcolor: '#ddd' },
     yaxis: { range: [stretch(DEPTH_MAX), 0], tickvals: DEPTH_TICKS.map(stretch), ticktext: DEPTH_TICKS.map(String),
@@ -614,6 +631,14 @@ function showMemory() {
   document.getElementById('mem').textContent = `decoded ${MB(decodedBytes)}${heap}`;
 }
 setInterval(showMemory, 1000);
+const continuousBox = document.getElementById('sigma-continuous');
+continuousBox.checked = sigmaContinuous;
+continuousBox.addEventListener('change', () => {
+  sigmaContinuous = continuousBox.checked;
+  try { localStorage.setItem('sigmaContinuous', sigmaContinuous ? '1' : '0'); } catch (e) {}
+  if (tab === 'density') { renderAll(); drawScale(); }
+  else if (tab === 'aposteriori' && window.redrawAposteriori) window.redrawAposteriori();
+});
 function setTab(name) {
   tab = name;
   document.body.dataset.tab = name;
@@ -621,6 +646,7 @@ function setTab(name) {
   document.getElementById('sub').textContent = SUBTITLES[name];
   const go = () => { renderAll(); drawScale(); fit(); };
   if (name === 'noconstraint') window.showNoConstraint();
+  else if (name === 'aposteriori') window.showAposteriori();
   else if (name === 'apriori') loadApriori().then(go, () => {}); else go();
 }
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -641,9 +667,10 @@ const scaleCard = document.createElement('div');
 scaleCard.className = 'col';
 scaleCard.innerHTML = '<div class="head"><h2>Colour scale</h2></div><div class="scale"></div>';
 grid.appendChild(scaleCard);
-function colorbar(colorscale, levels, title, y) {
-  return { type: 'contour', z: [[levels.start, levels.end]], colorscale, zmin: levels.start, zmax: levels.end,
-           contours: { ...levels, coloring: 'fill' }, hoverinfo: 'skip',
+function colorbar(colorscale, levels, title, y, continuous = false) {
+  // a 1 x 2 contour cannot be drawn with heatmap coloring (plotly createImageData error) : a heatmap carries the continuous bar
+  return { type: continuous ? 'heatmap' : 'contour', z: [[levels.start, levels.end]], colorscale, zmin: levels.start, zmax: levels.end,
+           ...(continuous ? {} : { contours: { ...levels, coloring: 'fill' } }), hoverinfo: 'skip',
            colorbar: { orientation: 'h', x: 0.5, y, yanchor: 'top', len: 0.9, thickness: 9, tickfont: { size: 9 }, nticks: 8,
                        title: { text: title, side: 'top', font: { size: 10 } } } };
 }
@@ -675,7 +702,7 @@ function aprioriBars() {
 }
 function drawScale() {
   const bars = tab === 'density' || !A
-    ? [colorbar(D.colorscale, LEVELS, 'potential density anomaly σ₀ [kg m⁻³ − 1000]', 0.6)]
+    ? [colorbar(D.colorscale, LEVELS, 'potential density anomaly σ₀ [kg m⁻³ − 1000]', 0.6, sigmaContinuous)]
     : aprioriBars();
   Plotly.react(scaleCard.querySelector('.scale'), bars,
     { margin: { l: 10, r: 10, t: 10, b: 10 }, paper_bgcolor: 'rgba(0,0,0,0)',
@@ -684,7 +711,7 @@ function drawScale() {
 }
 
 function fit() {
-  if (tab === 'noconstraint') return;
+  if (tab === 'noconstraint' || tab === 'aposteriori') return;
   // three rows of panels in the window : plot height = what is left after the header and the panel chrome
   const grid = document.getElementById('grid'), card = cols[0].el, plot = card.querySelector(tab === 'density' ? '.plot' : '.amap');
   const chrome = card.offsetHeight - plot.offsetHeight;
@@ -703,5 +730,6 @@ setSweep(DEFAULT_SWEEP);
 setTab('density');
 </script>
 <script src="density_viewer_noconstraint_tab.js"></script>
+<script src="density_viewer_aposteriori_tab.js"></script>
 </body>
 </html>

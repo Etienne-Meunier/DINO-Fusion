@@ -80,14 +80,15 @@ def temperature_500m_30NS_metric(temperature,   file_mask):
 
     # Taking Temperature At 500m depth and between 30N and 30S.
 
-    t500_30NS=temperature.sel(depth=500,method='nearest').where(abs(temperature.nav_lat)<30,drop=False)
+    latitude=file_mask.gphit.squeeze()
+    t500_30NS=temperature.sel(depth=500,method='nearest').where(abs(latitude)<30,drop=False)
 
     # Computing Area Weights from Mask over 30N-30S latitude zone and @500m depth
     e1t=file_mask.e1t.squeeze()
     e2t=file_mask.e2t.squeeze()
     e3t=file_mask.e3t_0.squeeze()
     tmask=file_mask.tmask.squeeze()
-    area_500m_30NS=e1t*e2t*e3t*tmask.sel(depth=500,method='nearest').where(abs(temperature.nav_lat)<30,drop=False)
+    area_500m_30NS=e1t*e2t*e3t*tmask.sel(depth=500,method='nearest').where(abs(latitude)<30,drop=False)
 
     #Returning Average Temperature at 500m depth as a numpy scalar
     return ((t500_30NS*area_500m_30NS).sum(dim=["nav_lat","nav_lon"])/area_500m_30NS.sum(dim=["nav_lat","nav_lon"]))
@@ -120,14 +121,16 @@ def temperature_BWbox_metric(thetao,   file_mask, depth_box=3000):
 
     """
 
-    t_BW=thetao.where(1-(thetao.depth<depth_box)*(abs(thetao.nav_lat)<30))
+    # Latitude from the mask: `thetao` may only carry the grid index along nav_lat
+    latitude=file_mask.gphit.squeeze()
+    t_BW=thetao.where(1-(thetao.depth<depth_box)*(abs(latitude)<30))
 
     # Computing Area Weights from Mask over Box
     e1t=file_mask.e1t.squeeze()
     e2t=file_mask.e2t.squeeze()
     e3t=file_mask.e3t_0.squeeze()
     tmask=file_mask.tmask.squeeze()
-    area_BW=e1t*e2t*e3t*tmask.where(1-(thetao.depth<depth_box)*(abs(thetao.nav_lat)<30))
+    area_BW=e1t*e2t*e3t*tmask.where(1-(thetao.depth<depth_box)*(abs(latitude)<30))
 
     #Returning Average Temperature on Box
     return ((t_BW*area_BW).sum(dim=["nav_lat","nav_lon","depth"])/area_BW.sum(dim=["nav_lat","nav_lon","depth"]))
@@ -163,7 +166,8 @@ def temperature_DWbox_metric(thetao,   file_mask, depth_box=3000):
     e2t=file_mask.e2t.squeeze()
     e3t=file_mask.e3t_0.squeeze()
     tmask=file_mask.tmask.squeeze()
-    condition = (thetao.depth<depth_box)*(thetao.depth>500)*(abs(thetao.nav_lat)<30)
+    latitude=file_mask.gphit.squeeze()
+    condition = (thetao.depth<depth_box)*(thetao.depth>500)*(abs(latitude)<30)
     t_DW=thetao.where(condition)
 
     # Computing Area Weights from Mask over Box

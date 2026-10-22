@@ -1,0 +1,13 @@
+W1019 02:18:43.539000 38495 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00, 26.36it/s]
+0 999 1s
+100 899 29s
+200 799 60s
+300 699 91s
+400 599 122s
+500 499 160s
+600 399 204s
+700 299 246s
+800 199 288s
+900 99 329s
+done /Users/emeunier/Desktop/Projets/DINO-Fusion/Results/investigation_mean_bias/generation/runs/mps_s1_b16 370.68228673934937

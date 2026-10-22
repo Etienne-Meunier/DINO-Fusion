@@ -32,7 +32,7 @@ import xarray as xr
 from sklearn.cluster import KMeans
 
 from build_density_viewer import (PRP, INFERENCE, BASELINES, N_CLUSTERS, TS_T_EDGES, TS_S_EDGES, TrainingConfig, Observer,
-                                  TransformationPipeline, get_infos, get_dataloader, get_density_at_surface,
+                                  TransformationPipeline, get_infos, get_dataloader, DATA_SEED, get_density_at_surface,
                                   ProfileClusters, acc_mask, b64, compute_density, ts_histograms, zonal_sections)
 
 OUT = Path(__file__).parent / 'density_viewer_noconstraint.js'
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     random.seed(0); np.random.seed(0); torch.manual_seed(0)
     transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device='cpu')
-    batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True)))
+    batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True, seed=DATA_SEED)))
     with torch.no_grad():
         data = {k: v.cpu().numpy() for k, v in observer.unnormalized(batch).items()}
     clusters = ProfileClusters({f: data[f][:N_DATA_FIT] for f in FIELDS}, tmask)

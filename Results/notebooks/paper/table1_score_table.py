@@ -1,4 +1,4 @@
-"""Table 1: mean ± std over the batch of the box metrics and of the density error, one row per source (full run name)."""
+"""Table 1: mean ± std over the batch of the box metrics and of the density error, one row per source, ordered and named as in NAMES."""
 from common import *
 
 from functools import partial
@@ -11,6 +11,9 @@ box_metrics = {'BWbox': partial(temperature_BWbox_metric, depth_box=1500),
 columns = [('BWbox', 'toce'), ('BWbox', 'soce'),
            ('DWbox', 'toce'), ('DWbox', 'soce'),
            ('density_errors', 'density')]
+LABELS = {('BWbox', 'toce'): r'BW T [$^\circ$C]', ('BWbox', 'soce'): r'BW S [g kg$^{-1}$]',
+          ('DWbox', 'toce'): r'DW T [$^\circ$C]', ('DWbox', 'soce'): r'DW S [g kg$^{-1}$]',
+          ('density_errors', 'density'): r'Density error [\%]'}
 
 
 stats = []
@@ -30,20 +33,23 @@ for source, x in sources.items():
 stats = pd.DataFrame(stats)
 
 
-def format_mean_std(mean, std, precision=1):
-    """Format `mean ± std`, with the std in scientific notation when below 0.1."""
-    std_str = f'{std:.1e}'.replace('e-0', 'e-') if std < 0.1 else f'{std:.{precision}f}'
+def format_mean_std(mean, std, precision=2):
+    """Format `mean ± std` with `precision` decimals, a std that rounds to zero written as `< 10^-precision`."""
+    floor = 10 ** -precision
+    std_str = f'< {floor:.{precision}f}' if std < floor / 2 else f'{std:.{precision}f}'
     return f'{mean:.{precision}f} ± {std_str}'
 
 
 grouped = stats.groupby(['source', 'metric', 'field'])['value']
 means, stds = grouped.mean(), grouped.std()
 table = pd.DataFrame({
-    f'{metric} {field}': [format_mean_std(means[(s, metric, field)], stds[(s, metric, field)]) for s in sources]
+    f'{metric} {field}': [format_mean_std(means[(s, metric, field)], stds[(s, metric, field)], 1 if metric == 'density_errors' else 2) for s in sources]
     for metric, field in columns}, index=list(sources))
+ORDER = ['data', 'none', 'none_border0', 'negative_grad_density_huber_border0', 'mean_density_border0', 'zero_mean_border0']
+table = table.loc[[s for s in ORDER if s in table.index]]
 print(table.to_string())
 
-latex = table.rename(index=lambda s: s.replace('_', r'\_'), columns=lambda c: c.replace('_', r'\_'))
+latex = table.rename(index=NAMES, columns={f'{m} {f}': LABELS[(m, f)] for m, f in columns})
 latex = latex.map(lambda s: s.replace('±', r'$\pm$'))
 latex = latex.to_latex(column_format='l' + 'c' * len(columns))
 print(latex)

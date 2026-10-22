@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from configs.base_config import TrainingConfig
-from DataLoader import get_dataloader, get_infos
+from DataLoader import DATA_SEED, get_dataloader, get_infos
 from TransformFields import TransformationPipeline
 from pipelines.State import Observer
 from pipelines.losses import LOSSES, eps_data, get_loss
@@ -59,7 +59,7 @@ def load_mask():
 
 config = TrainingConfig()
 transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device=device)
-dataloader = get_dataloader(config.data_file, transform, batch_size=batch_size, shuffle=True)
+dataloader = get_dataloader(config.data_file, transform, batch_size=batch_size, shuffle=True, seed=DATA_SEED)
 observer = Observer('data', config, device=device)
 losses = {name: get_loss(name, observer) for name in LOSSES}
 

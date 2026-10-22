@@ -7,8 +7,8 @@ One row per source, batch average as the default view of the tab. Columns:
         the first N_FIT data states (as the tab), every state of every source assigned to the nearest centre.
     Clusters in T-S : centres of the k-means (dashed) and mean profile of the columns of the batch in each cluster
         (solid, members weighted by their column count), one marker per level, sigma_0 isopycnals behind.
-    T-S diagram : volume fraction of each (T, S) bin averaged over the batch, ACC (reentrant channel) in blue and the
-        rest of the basin in red, each normalised by its own volume, sigma_0 isopycnals.
+    T-S diagram : volume fraction of each (T, S) bin averaged over the batch, ACC (reentrant channel) in solar_r and the
+        rest of the basin in greys, log10 scale, each normalised by its own volume, sigma_0 isopycnals.
 Both T-S panels have S on the x axis and T on the y axis.
 
 Main figure: sources of CONFIGS_MAIN. Appendix: every source of `sources`."""
@@ -22,6 +22,8 @@ import cmocean.cm as cm
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.lines import Line2D
 from metrics import get_density_at_surface
+plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7,
+                     'ytick.labelsize': 7, 'legend.fontsize': 7})
 from build_density_viewer import N_CLUSTERS, N_DATA, TS_S_EDGES, TS_T_EDGES, ProfileClusters, acc_mask, ts_histograms
 
 CONFIGS_MAIN = ['data', 'zero_mean_border0', 'negative_grad_density_huber_border0']
@@ -95,12 +97,13 @@ def setup_map(ax, left_labels):
     gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linewidth=0.5, color='black', alpha=0.7, linestyle='--')
     gl.top_labels = gl.right_labels = gl.bottom_labels = False
     gl.left_labels = left_labels
+    gl.ylabel_style = {'size': 6}
 
 
 def isopycnals(ax):
     """sigma_0 isopycnals on (S, T) axes, labelled."""
     cs = ax.contour(s_grid, t_grid, sigma_grid, levels=SIGMA_LEVELS, colors='#999', linewidths=0.6)
-    ax.clabel(cs, cs.levels[::2], fontsize=7, colors='#777')
+    ax.clabel(cs, cs.levels[::2], fontsize=5, colors='#777')
 
 
 def plot_cluster_ts(ax, state):
@@ -115,11 +118,11 @@ def plot_cluster_ts(ax, state):
 
 def plot_ts_diagram(ax, state):
     """
-    log10 volume fraction of the rest of the basin (red) and of the ACC (blue, on top) in (S, T), sigma_0 isopycnals.
+    log10 volume fraction of the rest of the basin (greys) and of the ACC (yellow-brown, on top) in (S, T), sigma_0 isopycnals.
     Returns the meshes of the ACC and of the rest.
     """
     meshes = {}
-    for r, cmap, alpha in [(1, cm.amp, 1.), (0, cm.ice_r, 0.8)]:
+    for r, cmap, alpha in [(1, 'Greys', 1.), (0, cm.solar_r, 0.8)]:
         h = np.ma.masked_less_equal(state['ts'][r], 0)
         meshes[r] = ax.pcolormesh(TS_S_EDGES, TS_T_EDGES, np.log10(h), cmap=cmap, vmin=TS_LOG_RANGE[0],
                                   vmax=TS_LOG_RANGE[1], alpha=alpha, rasterized=True)
@@ -134,8 +137,8 @@ def bottom_colorbar(fig, ax, mappable, label, offset, **kwargs):
     p, height = ax.get_position(), fig.get_size_inches()[1]
     cbar = fig.colorbar(mappable, cax=fig.add_axes([p.x0, p.y0 - (offset + 0.1) / height, p.width, 0.1 / height]),
                         orientation='horizontal', **kwargs)
-    cbar.set_label(label, fontsize=9)
-    cbar.ax.tick_params(labelsize=8)
+    cbar.set_label(label, fontsize=7)
+    cbar.ax.tick_params(labelsize=6.5)
     return cbar
 
 
@@ -146,8 +149,8 @@ def plot_grid(configs, name):
             print(f'WARNING : {s} has no run in {PREFIX}, skipped')
     configs = [s for s in configs if s in sources]
     nrows, ncols = len(configs), len(COLUMNS)
-    fig = plt.figure(figsize=(13, 4 * nrows))
-    gs = fig.add_gridspec(nrows, ncols, width_ratios=[1, 1, 1.5, 1.5], hspace=0.3, wspace=0.3)
+    fig = plt.figure(figsize=(7.5, 2.3 * nrows))
+    gs = fig.add_gridspec(nrows, ncols, width_ratios=[1, 1, 1.5, 1.5], hspace=0.3, wspace=0.45)
     proj = ccrs.Orthographic(central_longitude=-30, central_latitude=0)
     axs = np.empty((nrows, ncols), object)
     cluster_cmap = ListedColormap(CLUSTER_COLORS)
@@ -163,27 +166,25 @@ def plot_grid(configs, name):
         for j in range(2):
             setup_map(axs[i, j], j == 0)
         plot_cluster_ts(axs[i, 2], state)
-        acc_mesh, rest_mesh = plot_ts_diagram(axs[i, 3], state)
+        plot_ts_diagram(axs[i, 3], state)
         for j in range(2, 4):
             axs[i, j].set_ylabel('T [°C]')
-            axs[i, j].tick_params(labelsize=8)
+            axs[i, j].tick_params(labelsize=7)
         for j, column in enumerate(COLUMNS):
-            axs[i, j].set_title(f'{chr(ord("a") + i * ncols + j)}) {column}', fontsize=10)
+            axs[i, j].set_title(f'{chr(ord("a") + i * ncols + j)}) {column}')
         axs[i, 0].text(-0.45, 0.5, NAMES[s], transform=axs[i, 0].transAxes, rotation=90, ha='center', va='center',
-                       fontsize=11)
+                       fontsize=8)
     for j in range(2, 4):
         axs[-1, j].set_xlabel(r'S [g kg$^{-1}$]')
 
     fig.canvas.draw()
-    bottom_colorbar(fig, axs[-1, 0], cf, 'SST [°C]', 0.15, ticks=SST_LEVELS[::9])
-    bottom_colorbar(fig, axs[-1, 1], cl, r'cluster, by increasing $\sigma_0$', 0.15, ticks=np.arange(1, N_CLUSTERS + 1))
+    bottom_colorbar(fig, axs[-1, 0], cf, 'SST [°C]', 0.1, ticks=SST_LEVELS[::9])
+    bottom_colorbar(fig, axs[-1, 1], cl, r'cluster, by increasing $\sigma_0$', 0.1, ticks=np.arange(1, N_CLUSTERS + 1))
     p, height = axs[-1, 2].get_position(), fig.get_size_inches()[1]
     fig.legend([Line2D([], [], color='k', linestyle='--', marker='o', markersize=1.5, linewidth=1),
                 Line2D([], [], color='k', marker='o', markersize=2, linewidth=1.5)],
-               ['k-means centre (data)', 'mean profile of the cluster'], loc='upper center', fontsize=8, frameon=False,
-               bbox_to_anchor=(p.x0 + p.width / 2, p.y0 - 0.5 / height))
-    bottom_colorbar(fig, axs[-1, 3], acc_mesh, r'log$_{10}$ volume fraction, ACC', 0.5)
-    bottom_colorbar(fig, axs[-1, 3], rest_mesh, r'log$_{10}$ volume fraction, rest of the basin', 1.0)
+               ['k-means centre (data)', 'mean profile of the cluster'], loc='upper center', fontsize=7, frameon=False,
+               bbox_to_anchor=(p.x0 + p.width / 2, p.y0 - 0.3 / height))
     os.makedirs(FIGURES, exist_ok=True)
     fig.savefig(f'{FIGURES}/{name}.pdf', bbox_inches='tight', dpi=200)
     return fig

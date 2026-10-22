@@ -1,0 +1,8 @@
+W1019 02:07:30.676000 35350 site-packages/torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+Loading pipeline components...:   0%|          | 0/2 [00:00<?, ?it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00, 18.62it/s]Loading pipeline components...: 100%|██████████| 2/2 [00:00<00:00, 18.53it/s]
+0 999 3s
+100 899 303s
+200 799 619s
+300 699 1006s
+/Users/emeunier/miniforge3/envs/diffusion/lib/python3.12/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

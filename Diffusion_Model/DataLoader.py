@@ -4,6 +4,7 @@ import types, tarfile, collections, io, torch
 from torchvision import transforms
 from tensordict.tensordict import TensorDict
 import numpy as np
+import random
 from TransformFields import TransformationPipeline
 import re
 
@@ -51,11 +52,21 @@ def strip_ext(sample):
 def drop_meta(sample):
     return {k: v for k, v in sample.items() if not k.startswith("__")}
 
-def get_dataloader(tar_file, transform=None, batch_size=5, shuffle=True) :
+DATA_SEED = 0  # seed of the shuffled data batches drawn by the analysis scripts (Results/notebooks)
+
+
+def get_dataloader(tar_file, transform=None, batch_size=5, shuffle=True, seed=None) :
+    """
+    Batches of the states of the webdataset `tar_file`, transformed by `transform` if given.
+        shuffle : shuffle with a buffer of 1000 states
+        seed : seed of the shuffle, fixes the order of the first pass over the returned dataloader only (later passes
+               continue the same rng), None draws a new order each call
+    """
     dataset = wds.WebDataset(tar_file).select(lambda x : 'infos' not in x['__key__'])
 
     if shuffle :
-        dataset=dataset.shuffle(1000)
+        # webdataset seeds its own shuffle rng from pid and time: the global `random.seed` has no effect on it.
+        dataset=dataset.shuffle(1000, rng=None if seed is None else random.Random(seed))
 
     dataset = dataset.decode().map(strip_ext)
     dataset = dataset.map(lambda s: {k: s[k] for k in ["toce", "ssh", "soce"] if k in s})

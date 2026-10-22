@@ -26,14 +26,14 @@ import xarray as xr
 from sklearn.cluster import KMeans
 
 from configs.base_config import TrainingConfig
-from DataLoader import get_dataloader, get_infos
+from DataLoader import DATA_SEED, get_dataloader, get_infos
 from TransformFields import TransformationPipeline
 from pipelines.State import Observer
 from pipelines.losses import get_loss
 from metrics import compute_density_error, get_density_at_surface
 
 INFERENCE = f'{os.environ["OCEANDATA"]}/models/dino-fusion/tav0h83b/inference'
-SWEEPS = ['sweep_strength', 'default_eps', 'optimal']
+SWEEPS = ['sweep_density_huber', 'optimal']
 LOSSES = ['zero_mean', 'mean_density', 'negative_grad_density_huber']
 BASELINES = ['none', 'none_border0']  # latest run of each in default_eps
 OUT = Path(__file__).parent / 'density_viewer_data.js'
@@ -228,7 +228,7 @@ if __name__ == '__main__':
 
     random.seed(0); np.random.seed(0); torch.manual_seed(0)
     transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device='cpu')
-    batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True)))
+    batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True, seed=DATA_SEED)))
     out = {'runs': [], 'baselines': {}}
     apriori = {'runs': [], 'baselines': {}}
     with torch.no_grad():
