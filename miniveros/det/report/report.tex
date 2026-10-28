@@ -1,0 +1,203 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{siunitx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{enumitem}
+\captionsetup{font=small}
+\setlist[itemize]{nosep, leftmargin=1.2em}
+\setlength{\parskip}{3pt}
+
+\title{A deterministic emulator of the Veros ACC last-year state}
+\author{}
+\date{28 October 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Summary}
+\begin{itemize}
+  \item Goal: predict the last-year temperature of the Veros ACC channel directly from the EKE-closure
+        coefficients $(c_k, c_\epsilon)$, skipping the 100-year integration.
+  \item Method: a small deterministic network $z \mapsto$ 20 leading PCA coefficients of the training states,
+        $z = (\log c_k, \log c_\epsilon)$ standardised, averaged over 5 initialisations. It fits on the run
+        states in seconds on a CPU, with no GPU and no sampling.
+  \item Interpolation (scattered points, a band of three rows, the $5\times5$ and $7\times7$ centre blocks,
+        leave-one-out): RMSE 0.016--\SI{0.037}{K}. The nearest training run gives 0.038--\SI{0.118}{K} and
+        the best classical emulator, a Gaussian process on one collapsed parameter $s$, 0.019--\SI{0.046}{K}.
+  \item Extrapolation (top row, outer 51, outer 75): 0.059 / 0.068 / \SI{0.123}{K}, against
+        0.079 / 0.075 / \SI{0.125}{K} for the GP on $s$ and 0.176 / 0.134 / \SI{0.159}{K} for the nearest run.
+        The warm corner sets the error: \SI{0.15}{K} one row from the training set, \SI{1.06}{K} three cells
+        away.
+  \item With only four training runs it loses to the GP on $s$ (0.139 vs \SI{0.120}{K}).
+\end{itemize}
+
+\section{Data}
+\begin{itemize}
+  \item 100 Veros ACC runs on a $10\times10$ log-spaced grid, $c_k\in[0.0125,\,0.8]$,
+        $c_\epsilon\in[0.0875,\,5.6]$ (ratio $2^{2/3}$); 100 years, 30-day output; interior grid
+        $30\times42\times15$ (x, y, z) with a 930-cell ridge.
+  \item Target: $y_r \in \mathbb{R}^{17970}$, the mean temperature of the last 12 outputs (360 days) of run $r$
+        on the water cells. $S = \SI{35}{psu}$ everywhere, so it is dropped.
+  \item The runs still drift, so the averaging window matters. Over the last 20 years, the RMS change from the
+        first to the last year is \SI{0.16}{K}, and the last-year mean differs from the 20-year mean by
+        \SI{0.08}{K}.
+  \item The two parameters act through one combination, $s = \log c_k - 1.08\,\log c_\epsilon$
+        (Figure~\ref{fig:data}). Below $s \approx -2$ (48 runs) the domain-mean $T$ stays within
+        \SI{0.09}{K}; above, it rises by \SI{1.1}{K}.
+\end{itemize}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.9\textwidth]{../results/data.png}
+\caption{Mean last-year $T$ over the water cells: over the parameter grid (left) and against $s$ (right), the
+direction along which the first PCA coefficient of the states varies linearly.}
+\label{fig:data}
+\end{figure}
+
+\section{Method}
+\begin{itemize}
+  \item Input $z$: $(\log c_k, \log c_\epsilon)$ standardised over the design.
+  \item Output: a field in the span of the training states,
+        \begin{equation}
+          \hat y(z) = \mu + \sum_{k=1}^{K} a_k(z)\, v_k, \qquad K = 20,
+        \end{equation}
+        where $\mu$ and $v_k$ are the mean and the leading principal directions of the training states.
+  \item Network $a(z)$: a multilayer perceptron $2 \to 64 \to 64 \to K$ (scikit-learn, L-BFGS), with targets
+        $a_k(z_r) = v_k^\top(y_r - \mu)$ divided by $\operatorname{std}(a_1)$. With orthonormal $v_k$, the loss is
+        then the physical MSE of the projected field up to a constant:
+        \begin{equation}
+          \mathcal{L} = \frac{1}{n}\sum_{r=1}^{n} \frac{\lVert a(z_r) - V^\top(y_r - \mu)\rVert^2}{\operatorname{std}(a_1)^2}
+          + \frac{\alpha}{n}\lVert W \rVert^2 .
+        \end{equation}
+  \item The prediction is the mean of 5 networks that differ only in their initialisation.
+  \item $(\text{activation}, \alpha) \in \{\text{ReLU}, \tanh\} \times \{10^{-4}, \ldots, 1\}$ is chosen by 5-fold
+        cross-validation on the training runs of each split. The choice is ReLU with $\alpha = 10^{-4}$ to
+        $10^{-2}$ everywhere except two splits: tanh on the $7\times7$ block, and $\alpha = 1$ with four
+        training runs, where the cross-validation is not meaningful. The scores are flat for
+        $\alpha \le 10^{-2}$.
+  \item Fitting on run means rather than on snapshots changes nothing:
+        $\sum_t \lVert f(z_r) - x_{r,t}\rVert^2 = n_t \lVert f(z_r) - \bar x_r\rVert^2 + \text{const}$.
+  \item Baselines:
+        \begin{itemize}
+          \item the training mean;
+          \item the nearest training run in $z$;
+          \item thin-plate RBF interpolation of every cell;
+          \item a GP per PCA coefficient on $z$ (Mat\'ern 5/2, one length scale per input, white noise);
+          \item the same GP on $s = w^\top z$, with $w$ from a linear fit of $a_1$ on $z$.
+        \end{itemize}
+\end{itemize}
+
+\section{Evaluation}
+\begin{itemize}
+  \item Eight hold-out splits of the grid, plus leave-one-out over the 100 runs:
+        \begin{itemize}
+          \item interpolation: 10 scattered interior runs; the rows $c_k$ = 0.126, 0.2, 0.3175; the centre
+                $5\times5$ and $7\times7$ blocks;
+          \item extrapolation: the top row ($c_k = 0.8$); the 51 or 75 outer runs, training on the centre;
+          \item four training runs, one step in from each corner.
+        \end{itemize}
+  \item Metric: RMSE over the water cells against the last-year mean, per held-out run, then the mean and
+        median over the runs.
+  \item Cost: a fit takes seconds on one core and a prediction microseconds. The whole evaluation takes
+        \SI{25}{min} on 8 cores, mostly the hyper-parameter search.
+\end{itemize}
+
+\begin{table}[H]
+\centering\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+split & held out / train & network (median) & GP on $s$ & GP on $z$ & RBF & nearest run & mean state \\
+\midrule
+scattered & 10 / 90 & \textbf{0.016} (0.013) & 0.019 & 0.022 & 0.021 & 0.038 & 0.161 \\
+band (three rows) & 30 / 70 & \textbf{0.037} (0.032) & 0.046 & 0.051 & 0.057 & 0.118 & 0.204 \\
+centre $5\times5$ & 25 / 75 & \textbf{0.026} (0.023) & 0.029 & 0.037 & 0.037 & 0.080 & 0.162 \\
+centre $7\times7$ & 49 / 51 & \textbf{0.035} (0.032) & 0.036 & 0.070 & 0.068 & 0.116 & 0.203 \\
+leave-one-out & 100 / 99 & \textbf{0.024} (0.017) & 0.028 & 0.032 & 0.034 & 0.085 & 0.221 \\
+\midrule
+top row & 10 / 90 & \textbf{0.059} (0.033) & 0.079 & 0.083 & 0.084 & 0.176 & 0.482 \\
+outer 51 & 51 / 49 & \textbf{0.068} (0.028) & 0.075 & 0.088 & 0.093 & 0.134 & 0.265 \\
+outer 75 & 75 / 25 & \textbf{0.123} (0.057) & 0.125 & 0.164 & 0.138 & 0.159 & 0.226 \\
+\midrule
+four runs & 96 / 4 & 0.139 (0.127) & \textbf{0.120} & 0.234 & 0.146 & 0.181 & 0.260 \\
+\bottomrule
+\end{tabular}
+\caption{RMSE (K) of the last-year temperature over the water cells, mean over the held-out runs; for the network
+also the median. Bold: lowest mean per split.}
+\label{tab:main}
+\end{table}
+
+\section{Findings}
+\begin{itemize}
+  \item \textbf{The network is best in 8 of 9 evaluations} (Table~\ref{tab:main}, Figure~\ref{fig:splits}).
+        In interpolation its error is half or less of the nearest run's.
+  \item \textbf{Inside the grid it barely beats the GP on $s$.} On the $7\times7$ block it gets 0.035 vs
+        \SI{0.036}{K} and wins 26 runs of 49; in leave-one-out it wins 61 of 100. Since the parameters act
+        almost only through $s$, a one-dimensional GP is a strong reference.
+  \item \textbf{Its gain is at the grid edges.} On the top row it gets 0.059 vs \SI{0.079}{K}, and at the
+        corner run 0.15 vs \SI{0.37}{K}. In leave-one-out, its largest errors are at the two high-$c_k$
+        corners: 0.16 and \SI{0.12}{K} (Figure~\ref{fig:loo}).
+  \item \textbf{The error sits in the upper \SI{500}{m}} (Figure~\ref{fig:profiles}). In interpolation it is
+        0.02--\SI{0.05}{K} there and 0.01--\SI{0.02}{K} below \SI{1000}{m}.
+  \item \textbf{Large gaps defeat it.} On outer 75 (25 training runs) its median is 0.057 vs \SI{0.038}{K} for
+        the GP on $s$. With four runs it gets 0.139 vs \SI{0.120}{K}, and in the flat regime the nearest run is
+        better still (median \SI{0.064}{K}).
+  \item \textbf{The warm corner} ($c_k = 0.8$, $c_\epsilon = 0.0875$) is the hardest state. Three cells from the
+        training set (outer 75), it is off by \SI{1.06}{K}: a cold bias of \SI{-0.71}{K}, reaching \SI{-6.4}{K}
+        locally (Figure~\ref{fig:examples}). Every method is above \SI{1}{K} there.
+  \item \textbf{Part of that is the basis.} Projecting the held-out truth on the 20 training principal
+        directions already leaves 0.010--\SI{0.017}{K} in interpolation and 0.031--\SI{0.079}{K} in
+        extrapolation. On outer 75 that is \SI{0.079}{K} of the network's \SI{0.123}{K}.
+  \item \textbf{The spread over initialisations is not an uncertainty.} It is 0.005--\SI{0.016}{K} in
+        interpolation and 0.013--\SI{0.024}{K} in extrapolation, while the error grows from 0.016 to
+        \SI{0.139}{K}.
+\end{itemize}
+
+\section{Next steps}
+\begin{itemize}
+  \item Inputs $(s, s_\perp)$ instead of $(\log c_k, \log c_\epsilon)$, to build in the collapse that makes the
+        GP on $s$ strong with few runs.
+  \item For extrapolation, either a decoder not restricted to the span of the training states, or more runs
+        near the warm corner.
+  \item An uncertainty from resampling the training runs rather than the initialisations.
+  \item Fixed hyper-parameters (ReLU, $\alpha = 10^{-3}$): the cross-validation scores are flat, and the
+        evaluation would run about 50 times faster.
+\end{itemize}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.72\textwidth]{../results/splits.png}
+\caption{Mean RMSE over the held-out runs per split (log scale), for the network and the three best
+baselines; held-out run counts in brackets.}
+\label{fig:splits}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{../results/loo_maps.png}
+\caption{Leave-one-out RMSE of every run over the parameter grid (each run predicted from the 99 others).}
+\label{fig:loo}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{../results/profiles.png}
+\caption{RMSE by depth, mean over the held-out runs of each split.}
+\label{fig:profiles}
+\end{figure}
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{../results/examples.png}
+\caption{Truth at \SI{646}{m} (left), network error at \SI{646}{m} (centre) and zonal mean of the error
+(right). Top: the centre run of the $7\times7$ block, held out with the block (RMSE \SI{0.054}{K}). Bottom:
+the warm corner run, held out with the outer 75 (RMSE \SI{1.06}{K}).}
+\label{fig:examples}
+\end{figure}
+
+\end{document}
