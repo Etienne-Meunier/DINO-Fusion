@@ -142,14 +142,22 @@ also the median. Bold: lowest mean per split.}
   \item \textbf{Its gain is at the grid edges.} On the top row it gets 0.059 vs \SI{0.079}{K}, and at the
         corner run 0.15 vs \SI{0.37}{K}. In leave-one-out, its largest errors are at the two high-$c_k$
         corners: 0.16 and \SI{0.12}{K} (Figure~\ref{fig:loo}).
-  \item \textbf{The error sits in the upper \SI{500}{m}} (Figure~\ref{fig:profiles}). In interpolation it is
-        0.02--\SI{0.05}{K} there and 0.01--\SI{0.02}{K} below \SI{1000}{m}.
+  \item \textbf{The error sits in the upper \SI{500}{m}} (Figures~\ref{fig:profiles} and~\ref{fig:examples}). In
+        interpolation it is 0.02--\SI{0.05}{K} there and 0.01--\SI{0.02}{K} below \SI{1000}{m}. At the centre of
+        the $7\times7$ block, the predicted anomaly has a pattern correlation of 0.87 with the truth and 80\,\% of
+        its amplitude; the error is largest at 300--\SI{500}{m} next to the southern boundary.
   \item \textbf{Large gaps defeat it.} On outer 75 (25 training runs) its median is 0.057 vs \SI{0.038}{K} for
         the GP on $s$. With four runs it gets 0.139 vs \SI{0.120}{K}, and in the flat regime the nearest run is
         better still (median \SI{0.064}{K}).
-  \item \textbf{The warm corner} ($c_k = 0.8$, $c_\epsilon = 0.0875$) is the hardest state. Three cells from the
-        training set (outer 75), it is off by \SI{1.06}{K}: a cold bias of \SI{-0.71}{K}, reaching \SI{-6.4}{K}
-        locally (Figure~\ref{fig:examples}). Every method is above \SI{1}{K} there.
+  \item \textbf{The warm corner} ($c_k = 0.8$, $c_\epsilon = 0.0875$) is the hardest state
+        (Figure~\ref{fig:examples}).
+        \begin{itemize}
+          \item One row from the training set (top row), the network reproduces its warming: correlation 0.99,
+                amplitude 1.01, \SI{0.15}{K}.
+          \item Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.56) with 30\,\%
+                of the amplitude: a cold bias of \SI{-0.71}{K} and \SI{1.06}{K} RMSE.
+          \item Every method is above \SI{1}{K} there.
+        \end{itemize}
   \item \textbf{Part of that is the basis.} Projecting the held-out truth on the 20 training principal
         directions already leaves 0.010--\SI{0.017}{K} in interpolation and 0.031--\SI{0.079}{K} in
         extrapolation. On outer 75 that is \SI{0.079}{K} of the network's \SI{0.123}{K}.
@@ -194,9 +202,14 @@ baselines; held-out run counts in brackets.}
 \begin{figure}[!htb]
 \centering
 \includegraphics[width=\textwidth]{../results/examples.png}
-\caption{Truth at \SI{646}{m} (left), network error at \SI{646}{m} (centre) and zonal mean of the error
-(right). Top: the centre run of the $7\times7$ block, held out with the block (RMSE \SI{0.054}{K}). Bottom:
-the warm corner run, held out with the outer 75 (RMSE \SI{1.06}{K}).}
+\caption{Zonal-mean sections of the last-year anomaly, relative to the mean of the 100 runs: truth, network and
+their difference, with one colour scale per run. Levels are drawn with equal height. Left: the split (grey:
+training runs; open circles: held out; star: the run shown).
+Top: the centre run of the $7\times7$ block, held out with the block.
+Middle and bottom: the warm-corner run, held out with the top row (90 training runs) and with the outer 75
+(25 training runs).
+Correlation and amplitude (the regression slope of the predicted on the true anomaly) are over all water
+cells.}
 \label{fig:examples}
 \end{figure}
 

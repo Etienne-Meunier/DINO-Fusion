@@ -66,9 +66,12 @@ held-out runs. Full tables are in `results/summary.md`.
 - **Large gaps are where it loses.** On outer 75 (25 training runs), the network's median is 0.057 K vs 0.038 K for
   GP on s. On four runs, the network gets 0.139 K vs 0.120 K for GP on s, and the nearest run has the best median
   (0.064 K) in the flat regime.
-- **The warm corner (c_k 0.8, c_eps 0.0875) is the hardest state.** When its nearest training run is three cells
-  away (outer 75), the error is 1.06 K, with a cold bias of -0.71 K and down to -6.4 K locally (`examples.png`).
-  Every method is above 1 K there (1.06 to 1.36 K). With all neighbours present (LOO), the error is 0.16 K.
+- **The warm corner (c_k 0.8, c_eps 0.0875) is the hardest state** (`examples.png`).
+  - One row from the training set (top row), the network reproduces its warming: correlation 0.99, amplitude 1.01,
+    0.15 K.
+  - Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.56) with 30 % of the
+    amplitude: a cold bias of -0.71 K and 1.06 K RMSE.
+  - Every method is above 1 K there (1.06 to 1.36 K). With all neighbours present (LOO), the error is 0.16 K.
 - **The seed-ensemble spread is not an uncertainty.** It is 0.005 to 0.016 K in interpolation and 0.013 to 0.024 K
   in extrapolation, while the error grows from 0.016 to 0.139 K.
 
@@ -76,7 +79,8 @@ Figures in `results/`:
 - `splits.png`: the table above.
 - `loo_maps.png`: LOO error over the grid.
 - `profiles.png`: RMSE by depth for every split.
-- `examples.png`: truth and network error for the centre run of the 7 x 7 block and for the warm corner in outer 75.
+- `examples.png`: zonal-mean sections of the anomaly (truth, network, error) for the centre run of the 7 x 7 block,
+  and for the warm corner held out with the top row and with the outer 75.
 
 ## Usage (from the miniveros directory)
 

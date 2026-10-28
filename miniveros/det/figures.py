@@ -149,40 +149,61 @@ def fig_profiles(levels, out):
     legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.95)); fig.savefig(out / "profiles.png", dpi=150); plt.close(fig)
 
 
-def fig_examples(data, results, out, level_m=-646.0):
+EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("top", "ck0.8_eps0.0875"), ("outer75", "ck0.8_eps0.0875")]
+
+
+def fig_examples(data, rmse, results, out):
+    """Per example run, left: where it sits among the training runs; right: zonal-mean sections of the true and the
+    predicted anomaly (relative to the mean of all runs) and of the error, on one colour scale per run."""
     ex = np.load(results / "examples.npz")
-    keys = sorted({k.rsplit("/", 1)[0] for k in ex.files})
-    if not keys:
+    rows = [(s, r) for s, r in EXAMPLE_ROWS if f"{s}/{r}/mlp" in ex.files and (s, "mlp") in rmse]
+    if not rows:
         return
     water, zt = ~data["mask_land"], data["zt"]
     names = [str(n) for n in data["run_names"]]
-    k = int(np.argmin(np.abs(zt - level_m)))
+    cks, epss = np.unique(data["run_ck"]), np.unique(data["run_eps"])
+    ick, ieps = np.searchsorted(cks, data["run_ck"]), np.searchsorted(epss, data["run_eps"])
+    ref = data["temp"].mean(0)
+    zonal = lambda f: np.nanmean(np.where(water, f, np.nan), axis=2)              # (Z, Y, X) -> (Z, Y)
+    sections, stats, lim = [], [], {}
+    for s, r in rows:
+        pred = np.zeros(water.shape); pred[water] = ex[f"{s}/{r}/mlp"]
+        ta, pa = data["temp"][names.index(r)][water] - ref[water], pred[water] - ref[water]
+        stats.append((np.corrcoef(ta, pa)[0, 1], ta @ pa / (ta @ ta)))           # pattern correlation, amplitude
+        t, p = zonal(data["temp"][names.index(r)] - ref), zonal(pred - ref)
+        sections.append((t, p, p - t))
+        lim[r] = max(lim.get(r, 0.0), np.nanmax(np.abs(t)), np.nanmax(np.abs(p)))
 
-    def grid(v):
-        g = np.full(water.shape, np.nan); g[water] = v; return g
-
-    fig, axs = plt.subplots(len(keys), 3, figsize=(10, 3.3 * len(keys)), squeeze=False,
-                            gridspec_kw=dict(width_ratios=[1, 1, 1.45]))
-    for row, key in zip(axs, keys):
-        split, run = key.split("/")
-        truth = data["temp"][names.index(run)]
-        truth = np.where(water, truth, np.nan)
-        err = grid(ex[f"{key}/mlp"]) - truth
-        lim = np.nanmax(np.abs(err)); norm = TwoSlopeNorm(0.0, -lim, lim)
-        im0 = row[0].imshow(truth[k], origin="lower", cmap=BLUES)
-        row[0].set_title(f"{run}, held out in {LABEL[split]}\ntruth at {-zt[k]:.0f} m (K)")
-        im1 = row[1].imshow(err[k], origin="lower", cmap=DIVERGING, norm=norm)
-        row[1].set_title(f"network − truth at {-zt[k]:.0f} m (K)\nRMSE {np.sqrt(np.nanmean(err ** 2)):.3f} K over all cells")
-        zonal = np.nanmean(err, axis=2)                                         # (Z, Y)
-        im2 = row[2].pcolormesh(np.arange(zonal.shape[1]), -zt, zonal, cmap=DIVERGING, norm=norm, shading="nearest")
-        row[2].invert_yaxis(); row[2].set_title("network − truth, zonal mean (K)")
-        row[2].set_xlabel("y index"); row[2].set_ylabel("depth (m)")
-        for ax, im in zip(row, (im0, im1, im2)):
-            ax.tick_params(length=0)
-            cb = fig.colorbar(im, ax=ax, shrink=0.8, pad=0.02); cb.outline.set_visible(False)
-        for ax in row[:2]:
-            ax.set_xlabel("x index"); ax.set_ylabel("y index")
-    fig.tight_layout(); fig.savefig(out / "examples.png", dpi=150); plt.close(fig)
+    fig, axs = plt.subplots(len(rows), 5, figsize=(11.5, 3.0 * len(rows) + 0.3), squeeze=False,
+                            gridspec_kw=dict(width_ratios=[0.6, 0.12, 1, 1, 1], hspace=0.5))
+    for ax in axs[:, 1]:
+        ax.set_visible(False)                                                      # spacer for the depth labels
+    axs = axs[:, [0, 2, 3, 4]]
+    levels = [14, 11, 8, 6, 4, 2, 0]                                               # depth labels, levels drawn equal
+    for (s, r), (t, p, e), (corr, amp), a in zip(rows, sections, stats, axs):
+        held = {names.index(n) for n in rmse[(s, "mlp")]}
+        tr = np.array([j for j in range(len(names)) if j not in held]); ho = np.array(sorted(held))
+        j = names.index(r)
+        a[0].scatter(ieps[ho], ick[ho], s=12, facecolor="none", edgecolor=AXIS, linewidth=0.8)
+        a[0].scatter(ieps[tr], ick[tr], s=12, color=MUTED)
+        a[0].scatter(ieps[j], ick[j], s=90, marker="*", color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.5, zorder=3)
+        a[0].set_aspect("equal"); a[0].set_xlim(-0.8, len(epss) - 0.2); a[0].set_ylim(-0.8, len(cks) - 0.2)
+        a[0].set_xticks([0, 3, 6, 9], [f"{x:.3g}" for x in epss[[0, 3, 6, 9]]], fontsize=7)
+        a[0].set_yticks([0, 3, 6, 9], [f"{x:.3g}" for x in cks[[0, 3, 6, 9]]], fontsize=7)
+        a[0].set_xlabel("c_eps", fontsize=8); a[0].set_ylabel("c_k", fontsize=8); a[0].tick_params(length=0)
+        a[0].set_title(f"{LABEL[s]} held out\n{len(tr)} training runs (grey)", fontsize=8.5)
+        norm = TwoSlopeNorm(0.0, -lim[r], lim[r])
+        titles = ("true anomaly\n(zonal mean)", f"network\ncorrelation {corr:.2f}, amplitude {amp:.2f}",
+                  f"network − truth\nRMSE {rmse[(s, 'mlp')][r]:.3f} K")
+        for ax, sec, title in zip(a[1:], (t, p, e), titles):
+            im = ax.pcolormesh(np.arange(sec.shape[1] + 1) - 0.5, np.arange(len(zt) + 1) - 0.5, sec, cmap=DIVERGING, norm=norm)
+            ax.set_title(title); ax.tick_params(length=0)
+            ax.set_yticks(levels, [f"{-zt[k]:.0f}" for k in levels] if ax is a[1] else [])
+        a[1].set_ylabel("depth (m)")
+        cb = fig.colorbar(im, ax=list(a[1:]), shrink=0.9, pad=0.012); cb.set_label("K"); cb.outline.set_visible(False)
+    for ax in axs[-1, 1:]:
+        ax.set_xlabel("y index (south → north)")
+    fig.savefig(out / "examples.png", dpi=150, bbox_inches="tight"); plt.close(fig)
 
 
 def main(argv=None):
@@ -197,7 +218,7 @@ def main(argv=None):
     fig_splits(rmse, results)
     fig_loo_maps(rmse, data["run_ck"], data["run_eps"], [str(n) for n in data["run_names"]], results)
     fig_profiles(levels, results)
-    fig_examples(data, results, results)
+    fig_examples(data, rmse, results, results)
     print(f"figures in {results}")
 
 

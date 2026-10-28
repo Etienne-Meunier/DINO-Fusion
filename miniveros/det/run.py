@@ -38,7 +38,7 @@ SPLITS = {                    # the eight hold-out splits, as choose_holdout arg
 GRID = [dict(activation=a, alpha=al) for a in ("relu", "tanh") for al in (1e-4, 1e-3, 1e-2, 1e-1, 1.0)]
 BASELINES = {"gp_s": lambda: GP(on="s"), "gp": GP, "rbf": RBF, "nearest": Nearest, "mean": TrainMean}
 METHODS = ["mlp", *BASELINES]
-EXAMPLES = {"centre7": ["ck0.126_eps0.8819"], "outer75": ["ck0.8_eps0.0875"]}   # predictions kept for the figures
+EXAMPLES = {"centre7": ["ck0.126_eps0.8819"], "top": ["ck0.8_eps0.0875"], "outer75": ["ck0.8_eps0.0875"]}  # for the figures
 
 
 def fit_predict(tr, te, Z, Y, mlp_params):
