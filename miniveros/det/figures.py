@@ -41,15 +41,22 @@ plt.rcParams.update({"figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "sa
 
 
 def load(results: Path):
-    rmse = defaultdict(dict)          # (split, method) -> {run: rmse}
+    """RMSE per (split, method) and run (the network averaged over its seed sets), the network's split-mean RMSE
+    per seed set, and the RMSE by depth."""
+    acc = defaultdict(lambda: defaultdict(list))   # (split, method) -> {run: [rmse per seed set]}
+    per_seed = defaultdict(lambda: defaultdict(list))   # split -> {seed: [rmse per run]}
     with open(results / "metrics.csv") as f:
         for r in csv.DictReader(f):
-            rmse[(r["split"], r["method"])][r["run"]] = float(r["rmse_K"])
+            acc[(r["split"], r["method"])][r["run"]].append(float(r["rmse_K"]))
+            if r["method"] == "mlp":
+                per_seed[r["split"]][r["seed"]].append(float(r["rmse_K"]))
+    rmse = {k: {run: float(np.mean(v)) for run, v in d.items()} for k, d in acc.items()}
+    seed_means = {s: [float(np.mean(v)) for v in d.values()] for s, d in per_seed.items()}
     levels = defaultdict(list)        # (split, method) -> [(z, rmse)]
     with open(results / "levels.csv") as f:
         for r in csv.DictReader(f):
             levels[(r["split"], r["method"])].append((float(r["z_m"]), float(r["rmse_K"])))
-    return rmse, levels
+    return rmse, seed_means, levels
 
 
 def legend_on_top(fig):
@@ -90,13 +97,15 @@ def fig_data(data, out):
     print(f"data.png: s = log c_k - {b:.3f} log c_eps; domain-mean T {tm.min():.3f} to {tm.max():.3f} K")
 
 
-def fig_splits(rmse, out):
+def fig_splits(rmse, seed_means, out):
     splits = [s for s in ORDER if (s, "mlp") in rmse]
     fig, ax = plt.subplots(figsize=(6.4, 0.42 * len(splits) + 1.0))
     for j, (m, (_, c, mk, _)) in enumerate(STYLE.items()):
         x = [np.mean(list(rmse[(s, m)].values())) for s in splits]
-        ax.scatter(x, np.arange(len(splits)) + 0.12 * (j - 1.5), color=c, marker=mk, s=30, zorder=3,
-                   edgecolor=SURFACE, linewidth=0.8)
+        y = np.arange(len(splits)) + 0.12 * (j - 1.5)
+        if m == "mlp":                                           # range of the split mean over the seed sets
+            ax.hlines(y, [min(seed_means[s]) for s in splits], [max(seed_means[s]) for s in splits], color=c, lw=1.6)
+        ax.scatter(x, y, color=c, marker=mk, s=30, zorder=3, edgecolor=SURFACE, linewidth=0.8)
     ax.set_yticks(range(len(splits)), [f"{LABEL[s]} ({len(rmse[(s, 'mlp')])})" for s in splits])
     ax.set_xscale("log"); ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2], ["0.01", "0.02", "0.05", "0.1", "0.2"])
     ax.invert_yaxis(); ax.grid(axis="x"); ax.set_axisbelow(True); ax.tick_params(length=0)
@@ -132,7 +141,8 @@ EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("four", "ck0.126_eps0.8819"),
 
 def fig_examples(data, rmse, results, out):
     """Per example run, left: where it sits among the training runs; right: zonal-mean sections of the true and the
-    predicted anomaly (relative to the mean of all runs) and of the error, on one colour scale per run."""
+    predicted anomaly, relative to the mean of the split's training runs (what the network has to add to it), and of
+    the error, on one colour scale per run. The prediction is the network's first seed set (examples.npz)."""
     ex = np.load(results / "examples.npz")
     rows = [(s, r) for s, r in EXAMPLE_ROWS if f"{s}/{r}/mlp" in ex.files and (s, "mlp") in rmse]
     if not rows:
@@ -141,13 +151,14 @@ def fig_examples(data, rmse, results, out):
     names = [str(n) for n in data["run_names"]]
     cks, epss = np.unique(data["run_ck"]), np.unique(data["run_eps"])
     ick, ieps = np.searchsorted(cks, data["run_ck"]), np.searchsorted(epss, data["run_eps"])
-    ref = data["temp"].mean(0)
     zonal = lambda f: np.nanmean(np.where(water, f, np.nan), axis=2)              # (Z, Y, X) -> (Z, Y)
     sections, stats, lim = [], [], {}
     for s, r in rows:
+        held = {names.index(n) for n in rmse[(s, "mlp")]}
+        ref = data["temp"][[j for j in range(len(names)) if j not in held]].mean(0)   # mean of the training runs
         pred = np.zeros(water.shape); pred[water] = ex[f"{s}/{r}/mlp"]
         ta, pa = data["temp"][names.index(r)][water] - ref[water], pred[water] - ref[water]
-        stats.append((np.corrcoef(ta, pa)[0, 1], ta @ pa / (ta @ ta)))           # pattern correlation, amplitude
+        stats.append((np.corrcoef(ta, pa)[0, 1], ta @ pa / (ta @ ta), np.sqrt(((pa - ta) ** 2).mean())))
         t, p = zonal(data["temp"][names.index(r)] - ref), zonal(pred - ref)
         sections.append((t, p, p - t))
         lim[r] = max(lim.get(r, 0.0), np.nanmax(np.abs(t)), np.nanmax(np.abs(p)))
@@ -158,7 +169,7 @@ def fig_examples(data, rmse, results, out):
         ax.set_visible(False)                                                      # spacer for the depth labels
     axs = axs[:, [0, 2, 3, 4]]
     levels = [14, 11, 8, 6, 4, 2, 0]                                               # depth labels, levels drawn equal
-    for (s, r), (t, p, e), (corr, amp), a in zip(rows, sections, stats, axs):
+    for (s, r), (t, p, e), (corr, amp, err), a in zip(rows, sections, stats, axs):
         held = {names.index(n) for n in rmse[(s, "mlp")]}
         tr = np.array([j for j in range(len(names)) if j not in held]); ho = np.array(sorted(held))
         j = names.index(r)
@@ -172,7 +183,7 @@ def fig_examples(data, rmse, results, out):
         a[0].set_title(f"split: {LABEL[s]}\n{len(tr)} training runs (grey)", fontsize=8.5)
         norm = TwoSlopeNorm(0.0, -lim[r], lim[r])
         titles = ("true anomaly\n(zonal mean)", f"network\ncorrelation {corr:.2f}, amplitude {amp:.2f}",
-                  f"network − truth\nRMSE {rmse[(s, 'mlp')][r]:.3f} K")
+                  f"network − truth\nRMSE {err:.3f} K")
         for ax, sec, title in zip(a[1:], (t, p, e), titles):
             im = ax.pcolormesh(np.arange(sec.shape[1] + 1) - 0.5, np.arange(len(zt) + 1) - 0.5, sec, cmap=DIVERGING, norm=norm)
             ax.set_title(title); ax.tick_params(length=0)
@@ -191,9 +202,9 @@ def main(argv=None):
     a = p.parse_args(argv)
     results = Path(a.results)
     data = np.load(a.data)
-    rmse, levels = load(results)
+    rmse, seed_means, levels = load(results)
     fig_data(data, results)
-    fig_splits(rmse, results)
+    fig_splits(rmse, seed_means, results)
     fig_profiles(levels, results)
     fig_examples(data, rmse, results, results)
     print(f"figures in {results}")

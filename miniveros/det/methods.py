@@ -32,12 +32,13 @@ class MLP:
     """net(z) -> k leading PCA coefficients of the training states; an ensemble of ``members`` nets.
 
     The coefficients are divided by one constant (the std of the first), so the network's MSE is the physical MSE
-    of the projected field up to a factor. The members differ only in their initialisation; the prediction is their
-    mean, and ``predict(Z, spread=True)`` also returns their spread (std over members, mean over cells, K)."""
+    of the projected field up to a factor. The members differ only in their initialisation (``random_state`` =
+    ``seed`` + member index); the prediction is their mean, and ``predict(Z, spread=True)`` also returns their
+    spread (std over members, mean over cells, K)."""
 
-    def __init__(self, hidden=(64, 64), activation="relu", alpha=1e-2, k=20, members=5, max_iter=5000):
+    def __init__(self, hidden=(64, 64), activation="relu", alpha=1e-2, k=20, members=5, max_iter=5000, seed=0):
         self.hidden, self.activation, self.alpha = tuple(hidden), activation, alpha
-        self.k, self.members, self.max_iter = k, members, max_iter
+        self.k, self.members, self.max_iter, self.seed = k, members, max_iter, seed
 
     def fit(self, Z, Y):
         from sklearn.neural_network import MLPRegressor
@@ -45,7 +46,7 @@ class MLP:
         A = self.pca.coefficients(Y)
         self.scale = A[:, 0].std()
         self.nets = [MLPRegressor(hidden_layer_sizes=self.hidden, activation=self.activation, alpha=self.alpha,
-                                  solver="lbfgs", max_iter=self.max_iter, tol=1e-8, random_state=i).fit(Z, A / self.scale)
+                                  solver="lbfgs", max_iter=self.max_iter, tol=1e-8, random_state=self.seed + i).fit(Z, A / self.scale)
                      for i in range(self.members)]
         return self
 
@@ -89,7 +90,9 @@ class RBF:
 
 
 class GP:
-    """One Gaussian process per PCA coefficient (Matern 5/2, one length scale per input, white noise).
+    """One Gaussian process per PCA coefficient (Matern 5/2, one length scale per input, white noise), with the
+    hyper-parameters fitted by maximum marginal likelihood (no cross-validation). The noise may take up to the
+    whole (normalised) variance, so coefficients that look like noise are fitted as noise.
 
     ``on="s"``: the input is the single coordinate s = w . z along which the first PCA coefficient of the training
     states varies linearly (unit w from a least-squares fit): the one-dimensional collapse of the two parameters."""
@@ -109,7 +112,7 @@ class GP:
             w = np.linalg.lstsq(np.c_[Z, np.ones(len(Z))], A[:, 0], rcond=None)[0][:2]
             self.w = w / np.linalg.norm(w)
         X = self._x(Z)
-        kernel = ConstantKernel(1.0) * Matern(np.ones(X.shape[1]), (1e-2, 1e2), nu=2.5) + WhiteKernel(1e-6, (1e-10, 1e-1))
+        kernel = ConstantKernel(1.0) * Matern(np.ones(X.shape[1]), (1e-2, 1e2), nu=2.5) + WhiteKernel(1e-6, (1e-10, 1.0))
         self.gps = [GaussianProcessRegressor(kernel, normalize_y=True, n_restarts_optimizer=2, random_state=0).fit(X, a)
                     for a in A.T]
         return self
@@ -119,18 +122,26 @@ class GP:
         return self.pca.field(np.stack([g.predict(X) for g in self.gps], axis=1))
 
 
-def select(make, grid, Z, Y, folds=5, n_jobs=-1):
-    """The grid point with the lowest k-fold cross-validated RMSE (mean over runs) on (Z, Y), and all the scores.
-    Called on the training runs of a split only."""
+def select(make, grid, Z, Y, folds=5, repeats=3, n_jobs=-1):
+    """Hyper-parameters by repeated k-fold cross-validation on (Z, Y), the training runs of a split, and the
+    one-standard-error rule: among the grid points whose CV RMSE (mean over runs) is within one standard error of
+    the best, the most regularised one (largest alpha; ties by lower CV RMSE). The standard error is that of the
+    best point's per-run CV RMSE. Returns the chosen point, the CV RMSE of every point and the standard error."""
     from joblib import Parallel, delayed
     from sklearn.model_selection import KFold
 
-    parts = list(KFold(min(folds, len(Z)), shuffle=True, random_state=0).split(Z))
+    parts = [p for rep in range(repeats) for p in KFold(min(folds, len(Z)), shuffle=True, random_state=rep).split(Z)]
 
     def score(params, tr, va):
         P = make(**params).fit(Z[tr], Y[tr]).predict(Z[va])
-        return np.sqrt(((P - Y[va]) ** 2).mean(1)).sum()
+        return va, np.sqrt(((P - Y[va]) ** 2).mean(1))
 
-    s = Parallel(n_jobs=n_jobs)(delayed(score)(g, tr, va) for g in grid for tr, va in parts)
-    s = np.asarray(s).reshape(len(grid), len(parts)).sum(1) / len(Z)
-    return grid[int(s.argmin())], s
+    res = Parallel(n_jobs=n_jobs)(delayed(score)(g, tr, va) for g in grid for tr, va in parts)
+    err = np.zeros((len(grid), len(Z)))                          # per-run CV RMSE, averaged over the repeats
+    for i, (va, e) in enumerate(res):
+        err[i // len(parts), va] += e / repeats
+    mean = err.mean(1)
+    best = int(mean.argmin())
+    se = err[best].std(ddof=1) / np.sqrt(len(Z))
+    pick = max((i for i in range(len(grid)) if mean[i] <= mean[best] + se), key=lambda i: (grid[i]["alpha"], -mean[i]))
+    return grid[pick], mean, se
