@@ -34,7 +34,9 @@
         0.079 / 0.075 / \SI{0.125}{K} for the GP on $s$ and 0.176 / 0.134 / \SI{0.159}{K} for the nearest run.
         The warm corner sets the error: \SI{0.15}{K} one row from the training set, \SI{1.06}{K} three cells
         away.
-  \item With only four training runs it loses to the GP on $s$ (0.139 vs \SI{0.120}{K}).
+  \item With only four training runs it loses to the GP on $s$ (0.139 vs \SI{0.120}{K}). Most of that gap
+        comes from the cross-validation, which picks the strongest weight decay on four runs; with
+        $\alpha = 10^{-3}$ the network gets \SI{0.123}{K}.
 \end{itemize}
 
 \section{Data}
@@ -141,14 +143,24 @@ also the median. Bold: lowest mean per split.}
         almost only through $s$, a one-dimensional GP is a strong reference.
   \item \textbf{Its gain is at the grid edges.} On the top row it gets 0.059 vs \SI{0.079}{K}, and at the
         corner run 0.15 vs \SI{0.37}{K}. In leave-one-out, its largest errors are at the two high-$c_k$
-        corners: 0.16 and \SI{0.12}{K} (Figure~\ref{fig:loo}).
+        corners: 0.16 and \SI{0.12}{K}.
   \item \textbf{The error sits in the upper \SI{500}{m}} (Figures~\ref{fig:profiles} and~\ref{fig:examples}). In
         interpolation it is 0.02--\SI{0.05}{K} there and 0.01--\SI{0.02}{K} below \SI{1000}{m}. At the centre of
         the $7\times7$ block, the predicted anomaly has a pattern correlation of 0.87 with the truth and 80\,\% of
         its amplitude; the error is largest at 300--\SI{500}{m} next to the southern boundary.
   \item \textbf{Large gaps defeat it.} On outer 75 (25 training runs) its median is 0.057 vs \SI{0.038}{K} for
-        the GP on $s$. With four runs it gets 0.139 vs \SI{0.120}{K}, and in the flat regime the nearest run is
-        better still (median \SI{0.064}{K}).
+        the GP on $s$.
+  \item \textbf{With four training runs the selected network is too flat} (Figure~\ref{fig:examples}, rows 2
+        and 5).
+        \begin{itemize}
+          \item A 4-fold cross-validation on four runs picks $\alpha = 1$, the strongest weight decay.
+          \item At the centre run the network then predicts 17\,\% of the anomaly (correlation 0.41,
+                \SI{0.114}{K}); the GP on $s$ gets it right (\SI{0.036}{K}).
+          \item Over the split it gets 0.139 vs \SI{0.120}{K} for the GP on $s$; in the flat regime the nearest
+                run is better still (median \SI{0.064}{K}).
+          \item With $\alpha = 10^{-3}$, a value the other splits choose, it gets \SI{0.123}{K} (median
+                \SI{0.065}{K}), level with the GP on $s$.
+        \end{itemize}
   \item \textbf{The warm corner} ($c_k = 0.8$, $c_\epsilon = 0.0875$) is the hardest state
         (Figure~\ref{fig:examples}).
         \begin{itemize}
@@ -156,6 +168,8 @@ also the median. Bold: lowest mean per split.}
                 amplitude 1.01, \SI{0.15}{K}.
           \item Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.56) with 30\,\%
                 of the amplitude: a cold bias of \SI{-0.71}{K} and \SI{1.06}{K} RMSE.
+          \item From the four runs, one diagonal step inside it, it has the pattern (correlation 0.88) with 43\,\%
+                of the amplitude: \SI{0.80}{K}.
           \item Every method is above \SI{1}{K} there.
         \end{itemize}
   \item \textbf{Part of that is the basis.} Projecting the held-out truth on the 20 training principal
@@ -173,8 +187,8 @@ also the median. Bold: lowest mean per split.}
   \item For extrapolation, either a decoder not restricted to the span of the training states, or more runs
         near the warm corner.
   \item An uncertainty from resampling the training runs rather than the initialisations.
-  \item Fixed hyper-parameters (ReLU, $\alpha = 10^{-3}$): the cross-validation scores are flat, and the
-        evaluation would run about 50 times faster.
+  \item Fixed hyper-parameters (ReLU, $\alpha = 10^{-3}$): the cross-validation scores are flat, the evaluation
+        would run about 50 times faster, and the four-run split would avoid the degenerate choice.
 \end{itemize}
 
 \begin{figure}[!htb]
@@ -187,13 +201,6 @@ baselines; held-out run counts in brackets.}
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=\textwidth]{../results/loo_maps.png}
-\caption{Leave-one-out RMSE of every run over the parameter grid (each run predicted from the 99 others).}
-\label{fig:loo}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
 \includegraphics[width=\textwidth]{../results/profiles.png}
 \caption{RMSE by depth, mean over the held-out runs of each split.}
 \label{fig:profiles}
@@ -201,13 +208,14 @@ baselines; held-out run counts in brackets.}
 
 \begin{figure}[!htb]
 \centering
-\includegraphics[width=\textwidth]{../results/examples.png}
+\includegraphics[width=0.93\textwidth]{../results/examples.png}
 \caption{Zonal-mean sections of the last-year anomaly, relative to the mean of the 100 runs: truth, network and
 their difference, with one colour scale per run. Levels are drawn with equal height. Left: the split (grey:
 training runs; open circles: held out; star: the run shown).
-Top: the centre run of the $7\times7$ block, held out with the block.
-Middle and bottom: the warm-corner run, held out with the top row (90 training runs) and with the outer 75
-(25 training runs).
+Rows 1--2: the centre run of the $7\times7$ block, held out with the block (51 training runs) and in the
+four-run split.
+Rows 3--5: the warm-corner run, held out with the top row (90 training runs), with the outer 75 (25) and in the
+four-run split (4).
 Correlation and amplitude (the regression slope of the predicted on the true anomaly) are over all water
 cells.}
 \label{fig:examples}

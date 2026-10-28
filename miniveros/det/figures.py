@@ -3,8 +3,8 @@
     python -m det.figures [--data data/veros_acc_lastyear.npz] [--results det/results]
 
 data.png: the target over the parameter grid and against the collapsed parameter s; splits.png: mean hold-out
-RMSE per split; loo_maps.png: leave-one-out RMSE over the parameter grid; profiles.png: RMSE by depth per split;
-examples.png: truth and network error for two held-out runs.
+RMSE per split; profiles.png: RMSE by depth per split; examples.png: true and predicted anomaly sections of two
+runs, each held out in several splits.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                    # noqa: E402
-from matplotlib.colors import LinearSegmentedColormap, LogNorm, TwoSlopeNorm   # noqa: E402
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm   # noqa: E402
 
 INK, INK2, MUTED, GRIDLINE, AXIS, SURFACE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 STYLE = {                     # method -> label, colour, marker, line style (the network and the two best baselines)
@@ -106,29 +106,6 @@ def fig_splits(rmse, out):
     legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.93)); fig.savefig(out / "splits.png", dpi=150); plt.close(fig)
 
 
-def fig_loo_maps(rmse, run_ck, run_eps, names, out):
-    if ("loo", "mlp") not in rmse:
-        return
-    cks, epss = np.unique(run_ck), np.unique(run_eps)
-    panels = ["mlp", "gp_s", "nearest"]
-    maps = {}
-    for m in panels:
-        g = np.full((len(cks), len(epss)), np.nan)
-        for r, v in rmse[("loo", m)].items():
-            i = names.index(r); g[np.searchsorted(cks, run_ck[i]), np.searchsorted(epss, run_eps[i])] = v
-        maps[m] = g
-    norm = LogNorm(min(np.nanmin(g) for g in maps.values()), max(np.nanmax(g) for g in maps.values()))
-    fig, axs = plt.subplots(1, 3, figsize=(10, 3.6), sharey=True)
-    for ax, m in zip(axs, panels):
-        im = ax.imshow(maps[m], origin="lower", cmap=BLUES, norm=norm)
-        ax.set_title(f"{STYLE[m][0]}\nmean {np.nanmean(maps[m]):.3f} K, median {np.nanmedian(maps[m]):.3f} K")
-        ax.set_xticks(range(0, len(epss), 3), [f"{e:.3g}" for e in epss[::3]])
-        ax.set_xlabel("c_eps"); ax.tick_params(length=0)
-    axs[0].set_yticks(range(0, len(cks), 3), [f"{c:.3g}" for c in cks[::3]]); axs[0].set_ylabel("c_k")
-    cb = fig.colorbar(im, ax=axs, shrink=0.85, pad=0.015); cb.set_label("leave-one-out RMSE (K)"); cb.outline.set_visible(False)
-    fig.savefig(out / "loo_maps.png", dpi=150, bbox_inches="tight"); plt.close(fig)
-
-
 def fig_profiles(levels, out):
     splits = [s for s in ORDER if (s, "mlp") in levels]
     nc = 3; nr = int(np.ceil(len(splits) / nc))
@@ -149,7 +126,8 @@ def fig_profiles(levels, out):
     legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.95)); fig.savefig(out / "profiles.png", dpi=150); plt.close(fig)
 
 
-EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("top", "ck0.8_eps0.0875"), ("outer75", "ck0.8_eps0.0875")]
+EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("four", "ck0.126_eps0.8819"),     # the centre run and the warm
+                ("top", "ck0.8_eps0.0875"), ("outer75", "ck0.8_eps0.0875"), ("four", "ck0.8_eps0.0875")]   # corner
 
 
 def fig_examples(data, rmse, results, out):
@@ -174,7 +152,7 @@ def fig_examples(data, rmse, results, out):
         sections.append((t, p, p - t))
         lim[r] = max(lim.get(r, 0.0), np.nanmax(np.abs(t)), np.nanmax(np.abs(p)))
 
-    fig, axs = plt.subplots(len(rows), 5, figsize=(11.5, 3.0 * len(rows) + 0.3), squeeze=False,
+    fig, axs = plt.subplots(len(rows), 5, figsize=(11.5, 2.7 * len(rows) + 0.3), squeeze=False,
                             gridspec_kw=dict(width_ratios=[0.6, 0.12, 1, 1, 1], hspace=0.5))
     for ax in axs[:, 1]:
         ax.set_visible(False)                                                      # spacer for the depth labels
@@ -191,7 +169,7 @@ def fig_examples(data, rmse, results, out):
         a[0].set_xticks([0, 3, 6, 9], [f"{x:.3g}" for x in epss[[0, 3, 6, 9]]], fontsize=7)
         a[0].set_yticks([0, 3, 6, 9], [f"{x:.3g}" for x in cks[[0, 3, 6, 9]]], fontsize=7)
         a[0].set_xlabel("c_eps", fontsize=8); a[0].set_ylabel("c_k", fontsize=8); a[0].tick_params(length=0)
-        a[0].set_title(f"{LABEL[s]} held out\n{len(tr)} training runs (grey)", fontsize=8.5)
+        a[0].set_title(f"split: {LABEL[s]}\n{len(tr)} training runs (grey)", fontsize=8.5)
         norm = TwoSlopeNorm(0.0, -lim[r], lim[r])
         titles = ("true anomaly\n(zonal mean)", f"network\ncorrelation {corr:.2f}, amplitude {amp:.2f}",
                   f"network − truth\nRMSE {rmse[(s, 'mlp')][r]:.3f} K")
@@ -216,7 +194,6 @@ def main(argv=None):
     rmse, levels = load(results)
     fig_data(data, results)
     fig_splits(rmse, results)
-    fig_loo_maps(rmse, data["run_ck"], data["run_eps"], [str(n) for n in data["run_names"]], results)
     fig_profiles(levels, results)
     fig_examples(data, rmse, results, results)
     print(f"figures in {results}")
