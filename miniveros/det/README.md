@@ -14,85 +14,87 @@ coefficients. Independent of the rest of the parent folder: no sampling, no GPU.
 
 ## Network
 
-- y(z) = mu + sum_{k=1..20} a_k(z) v_k, where mu and v_k are the mean and the leading EOFs of the training states.
-  Projecting the held-out truth on this basis leaves 0.01 to 0.02 K in interpolation and 0.03 to 0.08 K in
-  extrapolation: a floor for this design.
-- a(z) = MLP 2 -> 64 -> 64 -> 20 (scikit-learn `MLPRegressor`, L-BFGS, L2 weight alpha). The targets are
-  a_k / std(a_1), so the loss is the physical MSE of the projected field up to a constant.
-- Ensemble of 5 initialisations; the prediction is their mean.
-- (activation, alpha) in {ReLU, tanh} x {1e-4, 1e-3, 1e-2, 0.1, 1} is chosen by 5-fold cross-validation on the
-  training runs of each split. For leave-one-out it is chosen once, on all runs. The choice is ReLU with alpha
-  1e-4 to 1e-2 everywhere except centre 7 x 7 (tanh, 1e-3) and four runs (alpha 1, from a meaningless 4-run CV).
-  The CV scores are flat for alpha <= 1e-2 (`selected.csv`).
-- The network is fitted on the 100 states, not on snapshots, because
-  sum_t ||f(z_r) - x_{r,t}||^2 = n_t ||f(z_r) - mean_t x_{r,t}||^2 + const.
-- Cost: a fit takes seconds on one core, and a prediction microseconds. The whole evaluation below takes about
-  25 min on 8 cores, most of it in the hyper-parameter search.
+- y(z) = mu + sum_{k=1..K} a_k(z) v_k, where mu and v_k are the mean and the leading EOFs of the n training states,
+  and K = min(20, n - 1).
+- a(z) = MLP 2 -> 64 -> 64 -> K (scikit-learn `MLPRegressor`, L-BFGS, L2 weight alpha). The targets are
+  a_k / std(a_1), so the data term is the physical MSE of the projected field up to a constant.
+- Ensemble of 5 initialisations; the prediction is their mean. The evaluation is repeated with 4 such sets
+  (`run.SEEDS`), and the results average them.
+- Hyper-parameters: (activation, alpha) in {ReLU, tanh} x {1e-4, 1e-3, 1e-2, 0.1, 1}, chosen on the training runs
+  of each split.
+  - The search is 5-fold cross-validation repeated 3 times.
+  - The one-standard-error rule then takes the most regularised configuration within one standard error of the
+    best (`methods.select`).
+  - The choice is ReLU with alpha 1e-2 everywhere except outer 75 (alpha 0.1) and four runs (alpha 1).
+  - For leave-one-out the choice is made once, on all runs.
+- Cost: a fit takes seconds on one core. The whole evaluation takes about 1 h on 8 cores.
 
 ## Baselines
 
+None of them is tuned by cross-validation.
 - Training mean.
 - Nearest run in z.
-- Thin-plate RBF on every cell.
-- GP per PCA coefficient on z (Matern 5/2, one length scale per input, white noise).
-- **GP on s**: a GP on s = w . z alone, where w comes from a linear fit of the first PCA coefficient on z. This is
-  the one-dimensional collapse of the two parameters, roughly log c_k - 1.05 log c_eps.
+- Thin-plate RBF on every cell (exact interpolation).
+- GP per PCA coefficient on z (Matern 5/2, one length scale per input, white noise up to the full variance).
+- **GP on s**: the same GP on s = w . z alone, where w comes from a linear fit of the first PCA coefficient on z.
+  This is the one-dimensional collapse of the two parameters, roughly log c_k - 1.08 log c_eps.
 
 ## Results
 
-The splits are eight hold-out splits of the 10 x 10 grid, plus leave-one-out (LOO) over the 100 runs. The metric is the RMSE over the water cells against the last-year mean, averaged over the
-held-out runs. Full tables are in `results/summary.md`.
+There are eight hold-out splits of the 10 x 10 grid plus leave-one-out (LOO). The metric is the RMSE over the water
+cells against the last-year mean, averaged over the held-out runs; for the network it is the mean over 4
+initialisation sets, with their range in brackets. Full tables are in `results/summary.md`; the configuration
+sensitivity is in `results/sensitivity.csv`.
 
-| split | held out | network | GP on s | GP | RBF | nearest | mean state |
+| split | held out | network | GP on s | GP on z | RBF | nearest | mean state |
 |---|---|---|---|---|---|---|---|
-| leave-one-out | 100 | **0.024** | 0.028 | 0.032 | 0.034 | 0.085 | 0.221 |
-| scattered | 10 | **0.016** | 0.019 | 0.022 | 0.021 | 0.038 | 0.161 |
-| band of 3 rows | 30 | **0.037** | 0.046 | 0.051 | 0.057 | 0.118 | 0.204 |
-| centre 5 x 5 | 25 | **0.026** | 0.029 | 0.037 | 0.037 | 0.080 | 0.162 |
-| centre 7 x 7 | 49 | **0.035** | 0.036 | 0.070 | 0.068 | 0.116 | 0.203 |
-| top row | 10 | **0.059** | 0.079 | 0.083 | 0.084 | 0.176 | 0.482 |
-| outer 51 | 51 | **0.068** | 0.075 | 0.088 | 0.093 | 0.134 | 0.265 |
-| outer 75 | 75 | **0.123** | 0.125 | 0.164 | 0.138 | 0.159 | 0.226 |
-| four runs | 96 | 0.139 | **0.120** | 0.234 | 0.146 | 0.181 | 0.260 |
+| leave-one-out | 100 | **0.024** (0.024-0.024) | 0.028 | 0.032 | 0.034 | 0.085 | 0.221 |
+| scattered | 10 | **0.017** (0.017-0.017) | 0.019 | 0.022 | 0.021 | 0.038 | 0.161 |
+| band of 3 rows | 30 | **0.038** (0.037-0.039) | 0.045 | 0.051 | 0.057 | 0.118 | 0.204 |
+| centre 5 x 5 | 25 | **0.025** (0.024-0.025) | 0.029 | 0.035 | 0.037 | 0.080 | 0.162 |
+| centre 7 x 7 | 49 | **0.029** (0.028-0.030) | 0.035 | 0.069 | 0.068 | 0.116 | 0.203 |
+| top row | 10 | **0.049** (0.047-0.050) | 0.079 | 0.083 | 0.084 | 0.176 | 0.482 |
+| outer 51 | 51 | **0.067** (0.066-0.067) | 0.074 | 0.081 | 0.093 | 0.134 | 0.265 |
+| outer 75 | 75 | **0.114** (0.113-0.114) | 0.125 | 0.131 | 0.138 | 0.159 | 0.226 |
+| four runs (failure case) | 96 | 0.147 (0.134-0.169) | **0.120** | 0.235 | 0.146 | 0.181 | 0.260 |
 
-- **The network is best on 8 of the 9 evaluations.** In interpolation it is 0.016 to 0.037 K, half or less of the
-  nearest run. Its biggest lead is on the top row (extrapolation): 0.059 vs 0.079 K for GP on s, and at the corner
-  run 0.15 vs 0.37 K.
-- **Its margin over GP on s is small inside the grid.** Centre 7 x 7: 0.035 vs 0.036 K, with 26 run wins of 49.
-  LOO: 61 wins of 100. The parameters act almost only through s, and the network gains mostly at the grid edges.
-- **The error sits in the upper 500 m.** In interpolation it is 0.02 to 0.05 K there and 0.01 to 0.02 K below
-  1000 m (`profiles.png`). Within the grid, the largest LOO errors are at the two high-c_k corners.
-- **Large gaps are where it loses.** On outer 75 (25 training runs), the network's median is 0.057 K vs 0.038 K for
-  GP on s.
-- **With four training runs the selected network is too flat** (`examples.png`, rows 2 and 5).
-  - A 4-fold CV on four runs picks alpha = 1, the strongest weight decay.
-  - At the centre run the network then predicts 17 % of the anomaly (correlation 0.41, 0.114 K); GP on s gets it
-    right (0.036 K).
-  - Over the split: 0.139 K vs 0.120 K for GP on s; in the flat regime the nearest run has the best median (0.064 K).
-  - With alpha = 1e-3, a value the other splits choose, the network gets 0.123 K (median 0.065 K), level with GP on s.
+- **The network beats the GP on s in every interpolation evaluation.** Per-run paired Wilcoxon p ranges from 0.037
+  to < 0.001, the margin is 0.003 to 0.007 K, and its errors are a third of the nearest run's.
+- **In extrapolation it is better on outer 51 and outer 75** (p = 0.003 and 0.001). On the top row the gain is
+  mostly the warm-corner run (0.16 vs 0.37 K); without it the network gets 0.037 vs 0.046 K, and the test is not
+  significant (p = 0.19).
+- **Regularisation matters, initialisation does not.**
+  - Four initialisation sets change a split's mean by at most 0.002 K.
+  - Among the configurations cross-validation cannot tell apart, the test error spans up to 0.035 K, and on
+    centre 7 x 7, outer 51 and outer 75 only half of them beat the GP on s.
+  - The rule's choice, the most regularised, is the best of that set on those three splits and on centre 5 x 5.
+- **The error sits in the upper 500 m** (`profiles.png`). In interpolation it is 0.014 to 0.055 K there and 0.003
+  to 0.016 K below 1000 m.
 - **The warm corner (c_k 0.8, c_eps 0.0875) is the hardest state** (`examples.png`).
-  - One row from the training set (top row), the network reproduces its warming: correlation 0.99, amplitude 1.01,
-    0.15 K.
-  - Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.56) with 30 % of the
-    amplitude: a cold bias of -0.71 K and 1.06 K RMSE.
-  - From the four runs, one diagonal step inside it, it has the pattern (correlation 0.88) with 43 % of the
-    amplitude: 0.80 K.
-  - On outer 75 every method is above 1 K (1.06 to 1.36 K). With all neighbours present (LOO), the error is 0.16 K.
-- **The seed-ensemble spread is not an uncertainty.** It is 0.005 to 0.016 K in interpolation and 0.013 to 0.024 K
-  in extrapolation, while the error grows from 0.016 to 0.139 K.
+  - One row from the training set (top row): correlation 0.99, amplitude 0.99, 0.16 K.
+  - Three cells away (outer 75): correlation 0.62, a third of the amplitude, 1.06 K. Every method is between 1.06
+    and 1.45 K there.
+- **Part of the extrapolation error is the basis.** Projecting the held-out truth on the training EOFs leaves 0.01
+  to 0.02 K in interpolation and 0.03 to 0.08 K in extrapolation, mostly at the corner run.
+- **The seed-ensemble spread is not an uncertainty.** It is 0.003 to 0.010 K while the error reaches 0.114 K.
+- **Four training runs: a failure case.** Cross-validation cannot choose there, and the rule picks alpha = 1, which
+  makes the network too flat (45 % of the anomaly at the centre run). Over the ten configurations the network
+  ranges from 0.10 to 0.19 K, against 0.120 K for GP on s.
 
 Figures in `results/`:
+- `data.png`: the target over the grid and against s.
 - `splits.png`: the table above.
 - `profiles.png`: RMSE by depth for every split.
-- `examples.png`: zonal-mean sections of the anomaly (truth, network, error). The centre run of the 7 x 7 block is
-  held out with the block and in the four-run split; the warm corner with the top row, with the outer 75 and in the
-  four-run split.
+- `examples.png`: zonal-mean sections of the anomaly relative to the training mean (truth, network, error). The
+  centre run of the 7 x 7 block is held out with the block and in the four-run split; the warm corner with the top
+  row, with the outer 75 and in the four-run split.
 
 ## Usage (from the miniveros directory)
 
 ```bash
 python -m det.lastyear --raw-dir ../full_state/mnk965ig   # data/veros_acc_lastyear.npz, seconds
-python -m det.run                                         # results/metrics.csv, levels.csv, selected.csv, summary.md, examples.npz
+python -m det.run                                         # results/metrics.csv, levels.csv, selected.csv, summary.md, examples.npz (~1 h)
+python -m det.sensitivity                                 # results/sensitivity.csv (test RMSE of every configuration, ~4 min)
 python -m det.figures                                     # results/*.png
 ```
 
