@@ -19,3 +19,8 @@ __pycache__/
 .$*.bkp
 dask-worker-space/
 spirit.md
+miniveros/det/report/*.aux
+miniveros/det/report/*.log
+miniveros/det/report/*.out
+miniveros/det/report/*.fls
+miniveros/det/report/*.fdb_latexmk

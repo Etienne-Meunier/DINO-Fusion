@@ -1,0 +1,205 @@
+"""Figures of the deterministic-emulator evaluation, from the files written by det.run.
+
+    python -m det.figures [--data data/veros_acc_lastyear.npz] [--results det/results]
+
+data.png: the target over the parameter grid and against the collapsed parameter s; splits.png: mean hold-out
+RMSE per split; loo_maps.png: leave-one-out RMSE over the parameter grid; profiles.png: RMSE by depth per split;
+examples.png: truth and network error for two held-out runs.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+from collections import defaultdict
+from pathlib import Path
+
+import matplotlib
+import numpy as np
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt                                    # noqa: E402
+from matplotlib.colors import LinearSegmentedColormap, LogNorm, TwoSlopeNorm   # noqa: E402
+
+INK, INK2, MUTED, GRIDLINE, AXIS, SURFACE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
+STYLE = {                     # method -> label, colour, marker, line style (the network and the two best baselines)
+    "mlp": ("network (MLP)", "#2a78d6", "o", "-"),
+    "gp_s": ("GP on s", "#eb6834", "s", "-"),
+    "rbf": ("thin-plate RBF", "#1baf7a", "^", "-"),
+    "nearest": ("nearest run", MUTED, "D", "--"),
+}
+ORDER = ["loo", "scattered", "band", "centre5", "centre7", "top", "outer51", "outer75", "four"]
+LABEL = {"loo": "leave-one-out", "scattered": "scattered", "band": "band of 3 rows", "centre5": "centre 5×5",
+         "centre7": "centre 7×7", "top": "top row", "outer51": "outer 51", "outer75": "outer 75", "four": "four runs"}
+BLUES = LinearSegmentedColormap.from_list("blues", ["#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
+DIVERGING = LinearSegmentedColormap.from_list("blue_red", ["#184f95", "#6da7ec", "#f0efec", "#ec8a89", "#a52a2a"])
+for cmap in (BLUES, DIVERGING):
+    cmap.set_bad("#d9d8d2")                                       # land
+plt.rcParams.update({"figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
+                     "axes.edgecolor": AXIS, "axes.labelcolor": INK2, "xtick.color": INK2, "ytick.color": INK2,
+                     "text.color": INK, "axes.grid": False, "grid.color": GRIDLINE, "grid.linewidth": 0.6,
+                     "font.size": 9, "axes.titlesize": 9.5, "legend.frameon": False})
+
+
+def load(results: Path):
+    rmse = defaultdict(dict)          # (split, method) -> {run: rmse}
+    with open(results / "metrics.csv") as f:
+        for r in csv.DictReader(f):
+            rmse[(r["split"], r["method"])][r["run"]] = float(r["rmse_K"])
+    levels = defaultdict(list)        # (split, method) -> [(z, rmse)]
+    with open(results / "levels.csv") as f:
+        for r in csv.DictReader(f):
+            levels[(r["split"], r["method"])].append((float(r["z_m"]), float(r["rmse_K"])))
+    return rmse, levels
+
+
+def legend_on_top(fig):
+    h = [plt.Line2D([], [], color=c, marker=mk, ls=ls, lw=1.4, ms=6) for _, c, mk, ls in STYLE.values()]
+    fig.legend(h, [v[0] for v in STYLE.values()], loc="upper center", ncol=len(STYLE), bbox_to_anchor=(0.5, 1.0))
+
+
+def fig_data(data, out):
+    """Domain-mean last-year T (water cells) over the grid, and against s = log c_k - b log c_eps, the direction
+    along which the first PCA coefficient of all states varies linearly (as in the GP-on-s baseline)."""
+    from det.methods import PCA
+    water = ~data["mask_land"]
+    Y = data["temp"][:, water].astype(np.float64)
+    run_ck, run_eps = data["run_ck"], data["run_eps"]
+    logp = np.c_[np.log(run_ck), np.log(run_eps)]
+    a1 = PCA(1).fit(Y).coefficients(Y)[:, 0]
+    w = np.linalg.lstsq(np.c_[logp, np.ones(len(Y))], a1, rcond=None)[0][:2]
+    b = -w[1] / w[0]
+    s = logp[:, 0] - b * logp[:, 1]
+    tm = Y.mean(1)
+    cks, epss = np.unique(run_ck), np.unique(run_eps)
+    g = np.full((len(cks), len(epss)), np.nan)
+    g[np.searchsorted(cks, run_ck), np.searchsorted(epss, run_eps)] = tm
+    fig, axs = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw=dict(width_ratios=[1, 1.25]))
+    im = axs[0].imshow(g, origin="lower", cmap=BLUES)
+    axs[0].set_xticks(range(0, len(epss), 3), [f"{e:.3g}" for e in epss[::3]])
+    axs[0].set_yticks(range(0, len(cks), 3), [f"{c:.3g}" for c in cks[::3]])
+    axs[0].set_xlabel("c_eps"); axs[0].set_ylabel("c_k"); axs[0].tick_params(length=0)
+    axs[0].set_title("mean last-year T over water cells (K)")
+    cb = fig.colorbar(im, ax=axs[0], shrink=0.85, pad=0.02); cb.outline.set_visible(False)
+    axs[1].scatter(s, tm, s=22, color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.6, zorder=3)
+    axs[1].set_xlabel(f"s = log c_k − {b:.2f} log c_eps"); axs[1].set_ylabel("mean last-year T (K)")
+    axs[1].set_title("the two parameters act through s"); axs[1].grid(alpha=1); axs[1].set_axisbelow(True)
+    axs[1].tick_params(length=0)
+    for sp in ("top", "right"):
+        axs[1].spines[sp].set_visible(False)
+    fig.tight_layout(); fig.savefig(out / "data.png", dpi=150); plt.close(fig)
+    print(f"data.png: s = log c_k - {b:.3f} log c_eps; domain-mean T {tm.min():.3f} to {tm.max():.3f} K")
+
+
+def fig_splits(rmse, out):
+    splits = [s for s in ORDER if (s, "mlp") in rmse]
+    fig, ax = plt.subplots(figsize=(6.4, 0.42 * len(splits) + 1.0))
+    for j, (m, (_, c, mk, _)) in enumerate(STYLE.items()):
+        x = [np.mean(list(rmse[(s, m)].values())) for s in splits]
+        ax.scatter(x, np.arange(len(splits)) + 0.12 * (j - 1.5), color=c, marker=mk, s=30, zorder=3,
+                   edgecolor=SURFACE, linewidth=0.8)
+    ax.set_yticks(range(len(splits)), [f"{LABEL[s]} ({len(rmse[(s, 'mlp')])})" for s in splits])
+    ax.set_xscale("log"); ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2], ["0.01", "0.02", "0.05", "0.1", "0.2"])
+    ax.invert_yaxis(); ax.grid(axis="x"); ax.set_axisbelow(True); ax.tick_params(length=0)
+    ax.set_xlabel("mean RMSE over the held-out runs (K)")
+    for sp in ("top", "right", "left"):
+        ax.spines[sp].set_visible(False)
+    legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.93)); fig.savefig(out / "splits.png", dpi=150); plt.close(fig)
+
+
+def fig_loo_maps(rmse, run_ck, run_eps, names, out):
+    if ("loo", "mlp") not in rmse:
+        return
+    cks, epss = np.unique(run_ck), np.unique(run_eps)
+    panels = ["mlp", "gp_s", "nearest"]
+    maps = {}
+    for m in panels:
+        g = np.full((len(cks), len(epss)), np.nan)
+        for r, v in rmse[("loo", m)].items():
+            i = names.index(r); g[np.searchsorted(cks, run_ck[i]), np.searchsorted(epss, run_eps[i])] = v
+        maps[m] = g
+    norm = LogNorm(min(np.nanmin(g) for g in maps.values()), max(np.nanmax(g) for g in maps.values()))
+    fig, axs = plt.subplots(1, 3, figsize=(10, 3.6), sharey=True)
+    for ax, m in zip(axs, panels):
+        im = ax.imshow(maps[m], origin="lower", cmap=BLUES, norm=norm)
+        ax.set_title(f"{STYLE[m][0]}\nmean {np.nanmean(maps[m]):.3f} K, median {np.nanmedian(maps[m]):.3f} K")
+        ax.set_xticks(range(0, len(epss), 3), [f"{e:.3g}" for e in epss[::3]])
+        ax.set_xlabel("c_eps"); ax.tick_params(length=0)
+    axs[0].set_yticks(range(0, len(cks), 3), [f"{c:.3g}" for c in cks[::3]]); axs[0].set_ylabel("c_k")
+    cb = fig.colorbar(im, ax=axs, shrink=0.85, pad=0.015); cb.set_label("leave-one-out RMSE (K)"); cb.outline.set_visible(False)
+    fig.savefig(out / "loo_maps.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+
+
+def fig_profiles(levels, out):
+    splits = [s for s in ORDER if (s, "mlp") in levels]
+    nc = 3; nr = int(np.ceil(len(splits) / nc))
+    fig, axs = plt.subplots(nr, nc, figsize=(9, 2.6 * nr + 0.6), sharey=True, squeeze=False)
+    for ax, s in zip(axs.flat, splits):
+        for m, (_, c, mk, ls) in STYLE.items():
+            z, v = np.array(levels[(s, m)]).T
+            ax.plot(v, -z, color=c, ls=ls, lw=1.4, marker=mk, ms=3.5)
+        ax.set_title(LABEL[s]); ax.grid(alpha=1); ax.set_axisbelow(True); ax.tick_params(length=0)
+        ax.set_xlim(left=0)
+    for ax in axs.flat[len(splits):]:
+        ax.set_visible(False)
+    axs[0, 0].invert_yaxis()
+    for ax in axs[:, 0]:
+        ax.set_ylabel("depth (m)")
+    for ax in axs[-1]:
+        ax.set_xlabel("RMSE (K)")
+    legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.95)); fig.savefig(out / "profiles.png", dpi=150); plt.close(fig)
+
+
+def fig_examples(data, results, out, level_m=-646.0):
+    ex = np.load(results / "examples.npz")
+    keys = sorted({k.rsplit("/", 1)[0] for k in ex.files})
+    if not keys:
+        return
+    water, zt = ~data["mask_land"], data["zt"]
+    names = [str(n) for n in data["run_names"]]
+    k = int(np.argmin(np.abs(zt - level_m)))
+
+    def grid(v):
+        g = np.full(water.shape, np.nan); g[water] = v; return g
+
+    fig, axs = plt.subplots(len(keys), 3, figsize=(10, 3.3 * len(keys)), squeeze=False,
+                            gridspec_kw=dict(width_ratios=[1, 1, 1.45]))
+    for row, key in zip(axs, keys):
+        split, run = key.split("/")
+        truth = data["temp"][names.index(run)]
+        truth = np.where(water, truth, np.nan)
+        err = grid(ex[f"{key}/mlp"]) - truth
+        lim = np.nanmax(np.abs(err)); norm = TwoSlopeNorm(0.0, -lim, lim)
+        im0 = row[0].imshow(truth[k], origin="lower", cmap=BLUES)
+        row[0].set_title(f"{run}, held out in {LABEL[split]}\ntruth at {-zt[k]:.0f} m (K)")
+        im1 = row[1].imshow(err[k], origin="lower", cmap=DIVERGING, norm=norm)
+        row[1].set_title(f"network − truth at {-zt[k]:.0f} m (K)\nRMSE {np.sqrt(np.nanmean(err ** 2)):.3f} K over all cells")
+        zonal = np.nanmean(err, axis=2)                                         # (Z, Y)
+        im2 = row[2].pcolormesh(np.arange(zonal.shape[1]), -zt, zonal, cmap=DIVERGING, norm=norm, shading="nearest")
+        row[2].invert_yaxis(); row[2].set_title("network − truth, zonal mean (K)")
+        row[2].set_xlabel("y index"); row[2].set_ylabel("depth (m)")
+        for ax, im in zip(row, (im0, im1, im2)):
+            ax.tick_params(length=0)
+            cb = fig.colorbar(im, ax=ax, shrink=0.8, pad=0.02); cb.outline.set_visible(False)
+        for ax in row[:2]:
+            ax.set_xlabel("x index"); ax.set_ylabel("y index")
+    fig.tight_layout(); fig.savefig(out / "examples.png", dpi=150); plt.close(fig)
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--data", default="data/veros_acc_lastyear.npz")
+    p.add_argument("--results", default="det/results")
+    a = p.parse_args(argv)
+    results = Path(a.results)
+    data = np.load(a.data)
+    rmse, levels = load(results)
+    fig_data(data, results)
+    fig_splits(rmse, results)
+    fig_loo_maps(rmse, data["run_ck"], data["run_eps"], [str(n) for n in data["run_names"]], results)
+    fig_profiles(levels, results)
+    fig_examples(data, results, results)
+    print(f"figures in {results}")
+
+
+if __name__ == "__main__":
+    main()

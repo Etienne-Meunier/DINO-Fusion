@@ -8,6 +8,9 @@ This package is a fork of the `Diffusion_Model` package of DINO-Fusion (NEMO/DIN
 a parameter ensemble instead of one trajectory, conditioning on scalar parameters, in-memory data
 instead of webdataset tars, no vertical striding, and no `tensordict` dependency.
 
+A separate, deterministic approach (a small network from `(c_k, c_eps)` to the last-year state, CPU only)
+lives in `det/`; see `det/README.md`.
+
 ## Data
 
 Raw input: one `ck<ck>_eps<eps>.npz` per run (100 runs on a 10 x 10 log-spaced grid), each with
