@@ -15,7 +15,7 @@
 
 \title{A deterministic emulator of the Veros ACC last-year state}
 \author{}
-\date{28 October 2026}
+\date{31 October 2026}
 
 \begin{document}
 \maketitle
@@ -32,21 +32,35 @@
         \begin{itemize}
           \item The nearest training run gives 0.038--\SI{0.118}{K}.
           \item The best classical emulator, a Gaussian process on one collapsed parameter $s$, gives
-                0.019--\SI{0.045}{K}; the network beats it on all five evaluations (paired test, $p \le 0.04$).
+                0.019--\SI{0.045}{K}. The network is lower on all five evaluations, by 0.0025--\SI{0.0075}{K}.
+                With a Holm correction over the eight main evaluations, the difference is significant on four
+                ($p \le 0.044$) but not on the scattered split ($p = 0.074$).
         \end{itemize}
   \item Extrapolation (top row, outer 51, outer 75): 0.049 / 0.067 / \SI{0.114}{K}.
         \begin{itemize}
-          \item The GP on $s$ gives 0.079 / 0.074 / \SI{0.125}{K}; the network beats it on outer 51 and outer 75
-                ($p \le 0.003$), while on the top row most of the gain is one run.
+          \item The GP on $s$ gives 0.079 / 0.074 / \SI{0.125}{K}. The network is significantly better on outer 51
+                and outer 75 (Holm $p = 0.013$ and 0.004). On the top row most of the gain is one run, and the
+                difference is not significant.
           \item The nearest run gives 0.176 / 0.134 / \SI{0.159}{K}.
           \item The warm corner sets the error: \SI{0.16}{K} one row from the training set, \SI{1.06}{K} three cells
                 away.
         \end{itemize}
-  \item Robustness: four initialisation sets change these numbers by at most \SI{0.002}{K}. The choice of
-        regularisation matters more: among the configurations that cross-validation cannot tell apart, the test
-        error spans up to \SI{0.035}{K}.
-  \item With four training runs the hyper-parameters cannot be chosen, and depending on them the network gets
-        0.10--\SI{0.19}{K} against \SI{0.120}{K} for the GP on $s$ (Section~\ref{sec:four}).
+  \item The margin over the GP on $s$ depends on the selection rule.
+        \begin{itemize}
+          \item With the configuration of minimum CV error instead of the one-standard-error rule, the network is
+                still lower on 7 of the 8 evaluations. It ties on the $7\times7$ block and on outer 75, and only
+                leave-one-out stays significant after the Holm correction.
+          \item The one-standard-error rule was adopted after a first review had seen test errors, so its margins
+                are not a blind test.
+          \item Against the GP on $z$, the RBF and the nearest run, the network is lower under both rules.
+        \end{itemize}
+  \item Robustness: four initialisation sets move a split's mean by 0.0004--\SI{0.0010}{K}, and by
+        \SI{0.0028}{K} on the top row. Among the configurations that cross-validation cannot tell apart, the test
+        error spans up to \SI{0.03}{K}.
+  \item Reproducibility: with one BLAS thread, a refit reproduces every number bit for bit. With several
+        threads, a split's mean moves by up to \SI{0.0003}{K}.
+  \item With four training runs the hyper-parameters cannot be chosen. Depending on them, the network gets
+        0.10--\SI{0.19}{K}, against \SI{0.120}{K} for the GP on $s$ (Section~\ref{sec:four}).
 \end{itemize}
 
 \section{Data}
@@ -73,6 +87,7 @@ direction along which the first PCA coefficient of the states varies linearly.}
 \end{figure}
 
 \section{Method}
+\label{sec:method}
 \begin{itemize}
   \item Input $z$: $(\log c_k, \log c_\epsilon)$ standardised over the design.
   \item Output: a field in the span of the training states,
@@ -89,17 +104,24 @@ direction along which the first PCA coefficient of the states varies linearly.}
           + \frac{\alpha}{2n}\lVert W \rVert^2 .
         \end{equation}
   \item Ensemble: the prediction is the mean of 5 networks that differ only in their initialisation. The whole
-        evaluation is repeated with 4 such sets; reported values average them, with their range in brackets.
+        evaluation is repeated with 4 such sets, and reported values average them.
   \item Hyper-parameters: $(\text{activation}, \alpha) \in \{\text{ReLU}, \tanh\} \times
         \{10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}, 1\}$, chosen on the training runs of each split.
         \begin{itemize}
-          \item The search is 5-fold cross-validation repeated 3 times.
+          \item The search is 5-fold cross-validation repeated 3 times. A configuration's CV RMSE is its RMSE
+                per training run, averaged over the repeats and then over the runs.
           \item The one-standard-error rule then picks the most regularised configuration whose CV RMSE is within
-                one standard error of the best.
+                one standard error of the best. That standard error is over runs: the standard deviation of the
+                best configuration's per-run CV RMSE, over $\sqrt{n}$. It is larger than a standard error over
+                folds, so the rule leans towards regularisation.
           \item The choice is ReLU with $\alpha = 10^{-2}$ on every split except outer 75 ($\alpha = 10^{-1}$) and
                 four runs ($\alpha = 1$).
-          \item This rule replaced a single 5-fold cross-validation that took the minimum. An independent review
-                showed that choice was decided by fold noise. The new rule is applied unchanged to every split.
+          \item The minimum of the same scores is ReLU with $\alpha = 10^{-3}$ or $10^{-4}$, except on outer 75
+                ($10^{-2}$) and four runs ($1$).
+          \item The rule is not blind to the test sets. It replaced a single 5-fold cross-validation that took the
+                minimum, after an independent review had shown that choice to be decided by fold noise, and that
+                review had already computed test errors of other configurations. Table~\ref{tab:paired} therefore
+                also gives the network chosen by the minimum of the same cross-validation scores.
           \item For leave-one-out the choice is made once, on all 100 runs. Each held-out run therefore takes part
                 in it: a mild selection leak, with flat scores.
         \end{itemize}
@@ -129,102 +151,122 @@ direction along which the first PCA coefficient of the states varies linearly.}
         median over the runs.
   \item Paired comparison with the GP on $s$, on the per-run difference (network RMSE averaged over the 4
         initialisation sets, minus the GP's): its mean, a 95\,\% bootstrap interval, and a Wilcoxon signed-rank
-        $p$-value.
-  \item Sensitivity: the test RMSE of every configuration on every split (first initialisation set). It is not
-        used for the selection.
-  \item Cost: a fit takes seconds on one core, a prediction microseconds. The whole evaluation takes about one
-        hour on 8 cores, mostly the repeated cross-validation and the 100 leave-one-out refits.
+        $p$-value. The $p$-values are also given with a Holm correction over the eight main evaluations (the
+        four-run split excluded).
+  \item Sensitivity (Table~\ref{tab:sens}): the test RMSE of every configuration on every split, averaged over the
+        4 initialisation sets, and the choice of both rules when the cross-validation uses other partitions.
+        Neither is used for the selection.
+  \item Reproducibility: every fit runs with one BLAS thread.
+        \begin{itemize}
+          \item With the same library versions (scikit-learn 1.7.2, NumPy 2.2.5, OpenBLAS 0.3.30), a refit
+                reproduces every number bit for bit. The sensitivity check refits the chosen configurations in
+                other processes and matches every per-run RMSE exactly.
+          \item With several threads, L-BFGS stops at a slightly different point. Compared with an earlier run on
+                8 threads, a split's mean moved by up to \SI{0.0003}{K}, one initialisation set's mean by up to
+                \SI{0.0013}{K}, and a single run by up to \SI{0.008}{K}. Differences of that size are not
+                meaningful.
+        \end{itemize}
+  \item Cost: a fit takes seconds on one core, and a prediction microseconds. On 8 cores the evaluation takes
+        46 minutes, mostly the repeated cross-validation and the 100 leave-one-out refits; the sensitivity check
+        takes 28 minutes.
 \end{itemize}
 
 \begin{table}[H]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lrrrrrrrr}
-\toprule
-split & held out / train & network & median & GP on $s$ & GP on $z$ & RBF & nearest & mean state \\
-\midrule
-scattered & 10 / 90 & \textbf{0.017} (0.017--0.017) & 0.013 & 0.019 & 0.022 & 0.021 & 0.038 & 0.161 \\
-band (three rows) & 30 / 70 & \textbf{0.038} (0.037--0.039) & 0.033 & 0.045 & 0.051 & 0.057 & 0.118 & 0.204 \\
-centre $5\times5$ & 25 / 75 & \textbf{0.025} (0.024--0.025) & 0.020 & 0.029 & 0.035 & 0.037 & 0.080 & 0.162 \\
-centre $7\times7$ & 49 / 51 & \textbf{0.029} (0.028--0.030) & 0.026 & 0.035 & 0.069 & 0.068 & 0.116 & 0.203 \\
-leave-one-out & 100 / 99 & \textbf{0.024} (0.024--0.024) & 0.017 & 0.028 & 0.032 & 0.034 & 0.085 & 0.221 \\
-\midrule
-top row & 10 / 90 & \textbf{0.049} (0.047--0.050) & 0.033 & 0.079 & 0.083 & 0.084 & 0.176 & 0.482 \\
-outer 51 & 51 / 49 & \textbf{0.067} (0.066--0.067) & 0.027 & 0.074 & 0.081 & 0.093 & 0.134 & 0.265 \\
-outer 75 & 75 / 25 & \textbf{0.114} (0.113--0.114) & 0.041 & 0.125 & 0.131 & 0.138 & 0.159 & 0.226 \\
-\bottomrule
-\end{tabular}
+\input{../results/table_main.tex}
 \caption{RMSE (K) of the last-year temperature over the water cells, mean over the held-out runs. Network: mean over
-4 initialisation sets, with their range in brackets, and the median over runs. Bold: lowest mean per split. The
-four-run split is in Section~\ref{sec:four}.}
+the 4 initialisation sets; range: how much that mean varies across them; median: over the runs. Bold: lowest mean
+per split. The four-run split is in Section~\ref{sec:four}.}
 \label{tab:main}
 \end{table}
 
 \begin{table}[H]
-\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{lrrrrr}
-\toprule
- & \multicolumn{3}{c}{network minus GP on $s$} & \multicolumn{2}{c}{configurations within one standard error} \\
-\cmidrule(lr){2-4}\cmidrule(lr){5-6}
-split & difference [95\,\% interval] & Wilcoxon $p$ & wins & test RMSE (number) & below GP on $s$ \\
-\midrule
-scattered & $-0.0026$ [$-0.0054$, $-0.0006$] & 0.037 & 7/10 & 0.016--0.017 (5) & 5 \\
-band (three rows) & $-0.0074$ [$-0.0132$, $-0.0019$] & 0.015 & 23/30 & 0.036--0.041 (6) & 6 \\
-centre $5\times5$ & $-0.0044$ [$-0.0071$, $-0.0018$] & 0.004 & 17/25 & 0.025--0.029 (5) & 5 \\
-centre $7\times7$ & $-0.0059$ [$-0.0096$, $-0.0024$] & 0.002 & 35/49 & 0.029--0.045 (6) & 3 \\
-leave-one-out & $-0.0046$ [$-0.0086$, $-0.0015$] & $<0.001$ & 67/100 & -- & -- \\
-\midrule
-top row & $-0.0300$ [$-0.0769$, $-0.0006$] & 0.19 & 7/10 & 0.050--0.060 (5) & 5 \\
-outer 51 & $-0.0075$ [$-0.0123$, $-0.0031$] & 0.003 & 36/51 & 0.067--0.076 (5) & 3 \\
-outer 75 & $-0.0111$ [$-0.0170$, $-0.0059$] & 0.001 & 51/75 & 0.113--0.148 (6) & 3 \\
-\bottomrule
-\end{tabular}
-\caption{Left: paired comparison of the network with the GP on $s$, per held-out run (K; negative = network
-better). Right: test RMSE of the network over the configurations whose CV RMSE is within one standard error of
-the best (first initialisation set), and how many of them beat the GP on $s$.}
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\input{../results/table_paired.tex}
+\caption{Network minus GP on $s$, per held-out run (K; negative = network better): the mean difference, its 95\,\%
+bootstrap interval, the Wilcoxon signed-rank $p$ and the Holm-corrected $p$ over the eight comparisons. Left: the
+network as reported (one-standard-error rule). Right: the network chosen by the minimum CV RMSE instead (ReLU,
+with the $\alpha$ given), and its mean RMSE.}
 \label{tab:paired}
+\end{table}
+
+\begin{table}[H]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\input{../results/table_sensitivity.tex}
+\caption{Sensitivity to the configuration. Left: the configurations whose CV RMSE is within one standard error of
+the best, the range of their test RMSE (mean over the 4 initialisation sets), how many beat the GP on $s$, and the
+rank of the rule's choice among them (1 = lowest test RMSE). All ten: the range over the whole grid. Right: the
+choice of each rule when the cross-validation repeats use other partitions (``same'': unchanged).}
+\label{tab:sens}
 \end{table}
 
 \section{Findings}
 \begin{itemize}
-  \item \textbf{In interpolation the network beats every baseline} (Tables~\ref{tab:main} and~\ref{tab:paired},
-        Figure~\ref{fig:splits}).
+  \item \textbf{In interpolation the network has the lowest error of all methods} (Tables~\ref{tab:main}
+        and~\ref{tab:paired}, Figure~\ref{fig:splits}).
         \begin{itemize}
-          \item Its errors are a third of the nearest run's.
-          \item Against the GP on $s$ the margin is \SI{0.003}{}--\SI{0.007}{K}, significant on all five
-                evaluations ($p$ from 0.037 to $<0.001$).
+          \item Its mean error is 0.25--0.44 times the nearest run's.
+          \item Against the GP on $s$ the margin is 0.0025--\SI{0.0075}{K}. After the Holm correction it is
+                significant on band, both centre blocks and leave-one-out ($p \le 0.044$). It is not significant
+                on the scattered split ($p = 0.074$; 7 of 10 runs better).
         \end{itemize}
-  \item \textbf{In extrapolation it is better on outer 51 and outer 75} ($p = 0.003$ and 0.001). On the top row
-        the gain (0.049 vs \SI{0.079}{K}) is mostly the warm-corner run (0.16 vs \SI{0.37}{K}); without it the
-        network gets 0.037 vs \SI{0.046}{K} and wins 6 of 9, and the test is not significant ($p = 0.19$).
-  \item \textbf{The result depends on regularisation, not on initialisation} (Table~\ref{tab:paired}, right).
+  \item \textbf{In extrapolation it is better on outer 51 and outer 75} (Holm $p = 0.013$ and 0.004).
         \begin{itemize}
-          \item Four initialisation sets change a split's mean by at most \SI{0.002}{K}.
-          \item Among the configurations cross-validation cannot tell apart, the test error spans up to
-                \SI{0.035}{K}. On the $7\times7$ block, outer 51 and outer 75, only half of them beat the GP on
-                $s$.
-          \item On those three splits and the $5\times5$ block, the most regularised configuration (the rule's
-                choice) is the best of the set; on the top row it is nearly the best; on scattered and band it
-                is mid-range or above.
+          \item On the top row the gain (0.049 vs \SI{0.079}{K}) is mostly the warm-corner run (0.16 vs
+                \SI{0.37}{K}), and the test is not significant ($p = 0.19$).
+          \item Without that run, the network gets 0.037 vs \SI{0.046}{K} and wins 6 of 9.
         \end{itemize}
-  \item \textbf{The error sits in the upper \SI{500}{m}} (Figures~\ref{fig:profiles} and~\ref{fig:examples}). In
-        interpolation it is 0.014--\SI{0.055}{K} there and 0.003--\SI{0.016}{K} below \SI{1000}{m}. At the
-        centre of the $7\times7$ block, the predicted anomaly (relative to the training mean) has correlation
-        0.98 with the true one and amplitude 1.07.
+  \item \textbf{The margin over the GP on $s$ depends on the selection rule} (Table~\ref{tab:paired}, right).
+        \begin{itemize}
+          \item The minimum CV RMSE picks a weaker regularisation. That network is still lower than the GP on $s$
+                on 7 of the 8 evaluations.
+          \item It ties on the $7\times7$ block ($+0.0010$\,K, $p = 0.75$) and on outer 75 ($-0.0032$\,K,
+                $p = 0.59$).
+          \item After the Holm correction only leave-one-out remains significant; band and outer 51 come closest
+                ($p = 0.068$ and 0.066).
+          \item Its error stays below the GP on $z$, the RBF and the nearest run on every evaluation.
+          \item The one-standard-error rule is the more stable choice. With other cross-validation partitions it
+                keeps its configuration on all eight splits, while the minimum changes on four
+                (Table~\ref{tab:sens}).
+          \item But the rule was adopted after the first review had seen test errors of other configurations
+                (Section~\ref{sec:method}), so the margins under it are not a blind test.
+        \end{itemize}
+  \item \textbf{Initialisation matters little, the configuration more} (Tables~\ref{tab:main}
+        and~\ref{tab:sens}).
+        \begin{itemize}
+          \item Four initialisation sets move a split's mean by 0.0004--\SI{0.0010}{K}, and by \SI{0.0028}{K} on
+                the top row.
+          \item Five or six configurations per split are within one standard error of the best CV score. Their test
+                errors span up to \SI{0.03}{K} (outer 75: 0.114--\SI{0.144}{K}).
+          \item On scattered, band and the top row, all of them beat the GP on $s$. On the $5\times5$ block,
+                outer 51 and outer 75, 3 of them do; on the $7\times7$ block, 1 of 6.
+          \item The rule's choice has the lowest test error of the set on five of the seven splits. It ranks third
+                of 5 on scattered and fourth of 6 on band.
+        \end{itemize}
+  \item \textbf{The error sits in the upper \SI{500}{m}} (Figures~\ref{fig:profiles} and~\ref{fig:examples}).
+        \begin{itemize}
+          \item In interpolation it is 0.014--\SI{0.055}{K} there and 0.003--\SI{0.016}{K} below \SI{1000}{m}.
+          \item At the centre of the $7\times7$ block, the predicted anomaly (relative to the training mean) has
+                correlation 0.98 with the true one and amplitude 1.05.
+          \item This and the other example values are those of Figure~\ref{fig:examples}, which shows the first
+                initialisation set.
+        \end{itemize}
   \item \textbf{The warm corner} ($c_k = 0.8$, $c_\epsilon = 0.0875$) is the hardest state
         (Figure~\ref{fig:examples}).
         \begin{itemize}
           \item One row from the training set (top row), the network reproduces its warming: correlation 0.99,
-                amplitude 0.99, \SI{0.16}{K}.
+                amplitude 0.99, \SI{0.157}{K}.
           \item Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.62) with a third
-                of the amplitude: a cold bias of \SI{-0.68}{K} and \SI{1.06}{K} RMSE.
-          \item Every method is between 1.06 and \SI{1.45}{K} there.
+                of the amplitude (0.33): a cold bias of \SI{-0.68}{K} and \SI{1.052}{K} RMSE.
+          \item Averaged over the four initialisation sets, the network's error there is \SI{1.06}{K}. Every
+                method is between 1.06 and \SI{1.45}{K}.
         \end{itemize}
   \item \textbf{Part of the extrapolation error is the basis.} Projecting the held-out truth on the training
         principal directions already leaves 0.010--\SI{0.017}{K} in interpolation and 0.031--\SI{0.079}{K} in
         extrapolation. The outer-75 value (\SI{0.079}{K} of the network's \SI{0.114}{K}) is mostly the corner
         run, where the floor is \SI{0.85}{K}.
   \item \textbf{The spread over initialisations is not an uncertainty.} It is 0.003--\SI{0.009}{K} in
-        interpolation and 0.008--\SI{0.010}{K} in extrapolation, while the error grows from 0.017 to
+        interpolation and 0.008--\SI{0.011}{K} in extrapolation, while the error grows from 0.017 to
         \SI{0.114}{K}.
   \item The comparison is between a 5-member ensemble and single baselines, and only the network's
         hyper-parameters are tuned by cross-validation.
@@ -235,12 +277,17 @@ the best (first initialisation set), and how many of them beat the GP on $s$.}
 \begin{itemize}
   \item Training on $c_k \in \{0.0198, 0.504\} \times c_\epsilon \in \{0.139, 3.53\}$ leaves 96 runs to predict,
         with $K = 3$ principal directions (2 inside the cross-validation folds).
-  \item Cross-validation cannot choose here. Its standard error (\SI{0.15}{K}) covers six configurations, and
-        the rule picks $\alpha = 1$.
+  \item Cross-validation cannot choose here.
+        \begin{itemize}
+          \item With four runs the 5-fold split is leave-one-out, so the three repeats are identical.
+          \item The standard error (\SI{0.15}{K}) covers six configurations.
+          \item Both rules pick ReLU with $\alpha = 1$, which also has the minimum CV RMSE.
+        \end{itemize}
   \item With that choice the network gets \SI{0.147}{K} (0.134--0.169 over the initialisation sets). The GP on
         $s$ gets \SI{0.120}{K}, the RBF \SI{0.146}{K}, the nearest run \SI{0.181}{K}.
-  \item Over the ten configurations the network ranges from 0.10 to \SI{0.19}{K}: the outcome is set by a choice
-        that four runs cannot inform.
+  \item Over the ten configurations the network ranges from 0.10 to \SI{0.19}{K} (Table~\ref{tab:sens}). Among
+        the six within one standard error, the choice ranks fifth. The outcome is set by a choice that four runs
+        cannot inform.
   \item Regimes:
         \begin{itemize}
           \item where the state saturates ($s < -2$, 46 runs), the medians are 0.040 (nearest run), 0.058
@@ -248,11 +295,14 @@ the best (first initialisation set), and how many of them beat the GP on $s$.}
           \item on the warm side (50 runs) they are 0.197 (network), 0.172 (GP on $s$) and \SI{0.223}{K}
                 (nearest run).
         \end{itemize}
-  \item With $\alpha = 1$ the network is too flat (Figure~\ref{fig:examples}, rows 2 and 5).
+  \item With $\alpha = 1$ the network is too flat (Figure~\ref{fig:examples}, rows 2 and 5; first
+        initialisation set).
         \begin{itemize}
           \item At the centre run its anomaly has the right pattern (correlation 0.98) with 45\,\% of the
-                amplitude: \SI{0.12}{K}, against \SI{0.036}{K} for the GP on $s$.
-          \item At the corner: correlation 0.86, amplitude 0.40, \SI{0.80}{K}.
+                amplitude: \SI{0.114}{K} (\SI{0.124}{K} over the four sets), against \SI{0.036}{K} for the GP on
+                $s$.
+          \item At the corner: correlation 0.86, amplitude 0.40, \SI{0.801}{K} (\SI{0.831}{K} over the four
+                sets).
         \end{itemize}
 \end{itemize}
 
@@ -265,7 +315,9 @@ the best (first initialisation set), and how many of them beat the GP on $s$.}
   \item An uncertainty from resampling the training runs rather than the initialisations.
   \item Tune the baselines by cross-validation as well (RBF smoothing, GP noise and mean function), for an even
         comparison.
-  \item A choice of regularisation that works with very few runs, e.g. fixed in advance from the larger splits.
+  \item Fix the selection rule, or $\alpha$ itself, in advance, and test it on new runs or new splits. Here the
+        rule was revised after test errors had been seen, and with very few runs cross-validation cannot choose
+        at all.
 \end{itemize}
 
 \begin{figure}[!htb]

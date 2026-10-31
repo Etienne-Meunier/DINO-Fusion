@@ -3,10 +3,17 @@
 Every method maps z, the standardised log-parameters (log c_k, log c_eps), to the vector y of last-year
 temperatures on the water cells (K): ``fit(Z, Y)``, then ``predict(Z)``. The emulator is ``MLP``: a small network
 from z to the leading PCA coefficients of the training states, decoded with the fixed PCA basis.
+
+Importing this module limits BLAS and OpenMP to one thread in the process (joblib workers import it too). L-BFGS
+turns the last-bit differences between thread counts into ~1e-3 K differences in the fitted network, so one
+thread everywhere makes a fit identical in the main process and in any worker.
 """
 from __future__ import annotations
 
 import numpy as np
+from threadpoolctl import threadpool_limits
+
+threadpool_limits(1)
 
 
 class PCA:
@@ -122,15 +129,18 @@ class GP:
         return self.pca.field(np.stack([g.predict(X) for g in self.gps], axis=1))
 
 
-def select(make, grid, Z, Y, folds=5, repeats=3, n_jobs=-1):
+def select(make, grid, Z, Y, folds=5, repeats=3, seed=0, n_jobs=-1):
     """Hyper-parameters by repeated k-fold cross-validation on (Z, Y), the training runs of a split, and the
     one-standard-error rule: among the grid points whose CV RMSE (mean over runs) is within one standard error of
-    the best, the most regularised one (largest alpha; ties by lower CV RMSE). The standard error is that of the
-    best point's per-run CV RMSE. Returns the chosen point, the CV RMSE of every point and the standard error."""
+    the best, the most regularised one (largest alpha; ties by lower CV RMSE). The standard error is over runs, not
+    folds: the std over the runs of the best point's per-run CV RMSE (averaged over the repeats), divided by
+    sqrt(runs). With fewer runs than folds, the k-fold is leave-one-out and the repeats are identical. Returns the
+    chosen point, the CV RMSE of every point and the standard error; the caller can also take the minimum. The
+    partitions of the repeats are seeded seed, seed + 1, ..."""
     from joblib import Parallel, delayed
     from sklearn.model_selection import KFold
 
-    parts = [p for rep in range(repeats) for p in KFold(min(folds, len(Z)), shuffle=True, random_state=rep).split(Z)]
+    parts = [p for rep in range(repeats) for p in KFold(min(folds, len(Z)), shuffle=True, random_state=seed + rep).split(Z)]
 
     def score(params, tr, va):
         P = make(**params).fit(Z[tr], Y[tr]).predict(Z[va])
