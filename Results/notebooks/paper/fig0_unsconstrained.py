@@ -1,8 +1,9 @@
 """Figure 0: one data state against one unconstrained state, as panel A of the "No constraint" tab of
 `machine/density_viewer.html`, drawn in the style of the paper maps (`Results/a_priori/spatial_structure.py`).
 
-Top row: T at the level nearest to 5 m and S at the level nearest to 136 m, data then unconstrained. Bottom row: the
-level k-means clusters of the same states at the same levels, offset (basin mean of the level) removed."""
+Four figures in the `fig0_unconstrained` subfolder of FIGURES, each a pair of maps, data then unconstrained: T at the
+level nearest to 5 m, S at the level nearest to 136 m, and the level k-means clusters of the same states at each of these
+levels, offset (basin mean of the level) removed."""
 from common import *
 
 sys.path.append(f'{PRP}/Results/notebooks/machine/')
@@ -61,35 +62,37 @@ def setup_map(ax, left_labels):
 
 
 proj = ccrs.Orthographic(central_longitude=-30, central_latitude=0)
-ncols = len(PANELS) * len(SOURCES)
-fig, axs = plt.subplots(2, ncols, figsize=(1.75 * ncols, 5), subplot_kw={'projection': proj},
-                        gridspec_kw={'hspace': 0.5, 'wspace': 0.05})
 cluster_cmap = ListedColormap(LEVEL_COLORS[:level_clusters.k])
 cluster_norm = BoundaryNorm(np.arange(0.5, level_clusters.k + 1), level_clusters.k)
+OUT = f'{FIGURES}/fig0_unconstrained'
+os.makedirs(OUT, exist_ok=True)
+
+
+def pair_figure():
+    """Figure with one map per source of SOURCES side by side, and its axes."""
+    fig, axs = plt.subplots(1, len(SOURCES), figsize=(1.75 * len(SOURCES), 2.6), subplot_kw={'projection': proj},
+                            gridspec_kw={'wspace': 0.05})
+    for s, ax in enumerate(axs):
+        setup_map(ax, s == 0)
+    return fig, axs
+
+
 for p, (f, _) in enumerate(PANELS):
     kz = levels[p]
-    for s, source in enumerate(SOURCES):
-        c = p * len(SOURCES) + s
+    fig, axs = pair_figure()
+    for ax, source in zip(axs, SOURCES):
         field = np.where(tmask[kz], fields[source][f][MEMBERS[source], kz], np.nan)
-        cf = axs[0, c].contourf(lon, lat, field, levels=STYLE[f]['levels'], cmap=STYLE[f]['cmap'], extend='both',
-                                transform=ccrs.PlateCarree())
-        axs[0, c].set_title(f'{chr(ord("a") + c)}) {NAMES[source]}\n{f[0].upper()} at {depth[kz]:.0f} m')
-        setup_map(axs[0, c], c == 0)
-
-        lab = np.where(labels[source][p] > 0, labels[source][p], np.nan)
-        cl = axs[1, c].pcolormesh(lon, lat, lab, cmap=cluster_cmap, norm=cluster_norm, shading='nearest', rasterized=True,
-                                  transform=ccrs.PlateCarree())
-        axs[1, c].set_title(f'{chr(ord("a") + ncols + c)}) {NAMES[source]}\nclusters at {depth[kz]:.0f} m')
-        setup_map(axs[1, c], c == 0)
-    cbar = fig.colorbar(cf, ax=axs[0, p * len(SOURCES):(p + 1) * len(SOURCES)], orientation='horizontal',
-                        fraction=0.04, pad=0.02, aspect=30)
-    cbar.set_label(STYLE[f]['label'])
+        cf = ax.contourf(lon, lat, field, levels=STYLE[f]['levels'], cmap=STYLE[f]['cmap'], extend='both',
+                         transform=ccrs.PlateCarree())
+    cbar = fig.colorbar(cf, ax=axs, orientation='horizontal', fraction=0.05, pad=0.04, aspect=30)
+    cbar.set_label(f'{STYLE[f]["label"]} at {depth[kz]:.0f} m')
     cbar.set_ticks(STYLE[f]['levels'][::len(STYLE[f]['levels']) // 5])
+    save(fig, f'{OUT}/{f[0].upper()}_{depth[kz]:.0f}m.pdf', bbox_inches='tight')
 
-cbar = fig.colorbar(cl, ax=axs[1, :], orientation='horizontal', fraction=0.04, pad=0.02, aspect=60,
-                    ticks=np.arange(1, level_clusters.k + 1))
-cbar.set_label(r'(T, S) cluster of the level, offset removed, by increasing $\sigma_0$ of its centre')
-
-os.makedirs(FIGURES, exist_ok=True)
-fig.savefig(f'{FIGURES}/fig0_unconstrained.pdf', bbox_inches='tight')
+    fig, axs = pair_figure()
+    for ax, source in zip(axs, SOURCES):
+        lab = np.where(labels[source][p] > 0, labels[source][p], np.nan)
+        ax.pcolormesh(lon, lat, lab, cmap=cluster_cmap, norm=cluster_norm, shading='nearest', rasterized=True,
+                      transform=ccrs.PlateCarree())
+    save(fig, f'{OUT}/clusters_{depth[kz]:.0f}m.pdf', bbox_inches='tight')
 plt.show()

@@ -1,0 +1,28 @@
+{
+  "variant": "c7",
+  "eta": [
+    10.0
+  ],
+  "eps": [
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "centred": true,
+  "centre_grad": false,
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 32,
+  "seed": 0,
+  "steps": 1000,
+  "name": "centred_c7010_b32",
+  "minutes": 25.656763835748038
+}

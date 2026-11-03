@@ -1,0 +1,17 @@
+{
+  "variant": "profile",
+  "eta": [
+    100.0
+  ],
+  "eps": [
+    0.0
+  ],
+  "lbd0": [
+    1.0
+  ],
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "profile_eta100",
+  "minutes": 7.9780069510142
+}

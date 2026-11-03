@@ -1,4 +1,6 @@
-"""Table 1: mean ± std over the batch of the box metrics and of the density error, one row per source, ordered and named as in NAMES."""
+"""Table 1: mean over the batch of the box metrics and of the density error, one row per source, ordered and named as in NAMES.
+The LaTeX table rounds mean and std to one decimal, a vanishing std written as 0.0, and gives the box metrics of the
+generated sources as their bias to the data mean."""
 from common import *
 
 from functools import partial
@@ -45,14 +47,20 @@ means, stds = grouped.mean(), grouped.std()
 table = pd.DataFrame({
     f'{metric} {field}': [format_mean_std(means[(s, metric, field)], stds[(s, metric, field)], 1 if metric == 'density_errors' else 2) for s in sources]
     for metric, field in columns}, index=list(sources))
-ORDER = ['data', 'none', 'none_border0', 'negative_grad_density_huber_border0', 'mean_density_border0', 'zero_mean_border0']
+ORDER = CONFIGS['table']
 table = table.loc[[s for s in ORDER if s in table.index]]
 print(table.to_string())
 
-latex = table.rename(index=NAMES, columns={f'{m} {f}': LABELS[(m, f)] for m, f in columns})
-latex = latex.map(lambda s: s.replace('±', r'$\pm$'))
+
+def latex_cell(s, m, f):
+    """`mean ± std` of source `s`, the box metrics of a generated source as their bias to the data mean."""
+    value = means[(s, m, f)] - (means[('data', m, f)] if m != 'density_errors' and s != 'data' else 0)
+    return rf'{round(value, 1) + 0.0:.1f} $\pm$ {stds[(s, m, f)]:.1f}'  # + 0.0 turns -0.0 into 0.0
+
+
+latex = pd.DataFrame({LABELS[(m, f)]: [latex_cell(s, m, f) for s in table.index] for m, f in columns},
+                     index=[NAMES[s] for s in table.index])
 latex = latex.to_latex(column_format='l' + 'c' * len(columns))
 print(latex)
 os.makedirs(FIGURES, exist_ok=True)
-with open(f'{FIGURES}/table1_score_table.tex', 'w') as f:
-    f.write(latex)
+save_tex(latex, f'{FIGURES}/table1_score_table.tex')

@@ -16,6 +16,8 @@ and with BorderZero). Figures :
     level_clusters : k-means of the (T, S) of the ocean cells at MAP_DEPTHS, one per level, fit on the data with the basin
                      mean of each member removed, labels of the stored map members, raw (data level mean removed) and
                      anomaly (own level mean removed), gzip compressed, with the agreement with the most frequent data label
+The data statistics and each run are cached (viewer_cache) until the training archive, the run or the code (this module
+and build_density_viewer) change.
 """
 import base64
 import gzip
@@ -31,11 +33,15 @@ import xarray as xr
 
 from sklearn.cluster import KMeans
 
+import build_density_viewer
+
 from build_density_viewer import (PRP, INFERENCE, BASELINES, N_CLUSTERS, TS_T_EDGES, TS_S_EDGES, TrainingConfig, Observer,
                                   TransformationPipeline, get_infos, get_dataloader, DATA_SEED, get_density_at_surface,
                                   ProfileClusters, acc_mask, b64, compute_density, ts_histograms, zonal_sections)
+from viewer_cache import cached, code_hash, file_id
 
 OUT = Path(__file__).parent / 'density_viewer_noconstraint.js'
+MESH = f'{PRP}/Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc'
 N_DATA = 32  # data states for the statistics, the first 8 are the states of the other tabs (same seed and shuffle)
 N_DATA_MAPS = 8  # data states stored as maps
 N_DATA_FIT = 8  # data states the k-means is fit on, as in build_density_viewer.py
@@ -211,7 +217,7 @@ def describe(fields, tmask, data_means, data_ref, clusters, file_mask_LR, volume
 
 
 if __name__ == '__main__':
-    file_mask_LR = xr.open_dataset(f'{PRP}/Results/analysis_scripts/data/DINO_1deg_mesh_mask_david_renamed.nc').sel(time_counter=0)
+    file_mask_LR = xr.open_dataset(MESH).sel(time_counter=0)
     file_mask_LR = file_mask_LR.rename({'nav_lev': 'depth', 'y': 'nav_lat', 'x': 'nav_lon'})
     config = TrainingConfig()
     observer = Observer('data', config, device='cpu')
@@ -222,51 +228,63 @@ if __name__ == '__main__':
     nz = tmask.shape[0] - 1
     levels = [int(np.abs(depth - d).argmin()) for d in MAP_DEPTHS]
 
-    random.seed(0); np.random.seed(0); torch.manual_seed(0)
-    transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device='cpu')
-    batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True, seed=DATA_SEED)))
-    with torch.no_grad():
-        data = {k: v.cpu().numpy() for k, v in observer.unnormalized(batch).items()}
-    clusters = ProfileClusters({f: data[f][:N_DATA_FIT] for f in FIELDS}, tmask)
-    data_means = {f: m.mean(axis=0) for f, m in level_means(data, tmask).items()}
-    data_anom = anomalies(data, tmask, level_means(data, tmask))
-    level_clusters = LevelClusters(data_anom, tmask, levels, data_means)
-    data_labels = {'raw': level_clusters.labels({f: data[f][:, levels] - data_means[f][levels][None, :, None, None] for f in FIELDS}),
-                   'anom': level_clusters.labels({f: data_anom[f][:, levels] for f in FIELDS})}
-    data_counts = {kind: level_clusters.counts(v) for kind, v in data_labels.items()}
-    data_mode = {kind: level_clusters.mode(c) for kind, c in data_counts.items()}
-    data_ref = {f: a.mean(axis=0) for f, a in anomalies(data, tmask, level_means(data, tmask)).items()}
+    def data_part():
+        """Statistics of the N_DATA data states and the fits the runs are described against (clusters, level clusters)."""
+        random.seed(0); np.random.seed(0); torch.manual_seed(0)
+        transform = TransformationPipeline(get_infos(config.data_file), config.fields, config.normalisation, device='cpu')
+        batch = next(iter(get_dataloader(config.data_file, transform, batch_size=N_DATA, shuffle=True, seed=DATA_SEED)))
+        with torch.no_grad():
+            data = {k: v.cpu().numpy() for k, v in observer.unnormalized(batch).items()}
+        clusters = ProfileClusters({f: data[f][:N_DATA_FIT] for f in FIELDS}, tmask)
+        data_means = {f: m.mean(axis=0) for f, m in level_means(data, tmask).items()}
+        data_anom = anomalies(data, tmask, level_means(data, tmask))
+        level_clusters = LevelClusters(data_anom, tmask, levels, data_means)
+        data_labels = {'raw': level_clusters.labels({f: data[f][:, levels] - data_means[f][levels][None, :, None, None] for f in FIELDS}),
+                       'anom': level_clusters.labels({f: data_anom[f][:, levels] for f in FIELDS})}
+        data_counts = {kind: level_clusters.counts(v) for kind, v in data_labels.items()}
+        data_mode = {kind: level_clusters.mode(c) for kind, c in data_counts.items()}
+        data_ref = {f: a.mean(axis=0) for f, a in anomalies(data, tmask, level_means(data, tmask)).items()}
 
-    out = {'data': describe(data, tmask, data_means, data_ref, clusters, file_mask_LR, volume, acc, nz, levels, N_DATA_MAPS, level_clusters),
-           'runs': {}}
-    # Data labels against the most frequent label of the other states (leave one out)
-    for kind, labels in data_labels.items():
-        one_hot = np.stack([labels == c + 1 for c in range(level_clusters.k)], axis=1)
-        out['data']['level_clusters'][kind]['agree'] = np.mean(
-            [level_clusters.agreement(labels[i:i + 1], level_clusters.mode(data_counts[kind] - one_hot[i])) for i in range(N_DATA)], axis=0).tolist()
-    # The data members are compared with the mean of the others (leave one out), not with a mean that holds them
-    anom = anomalies(data, tmask, level_means(data, tmask))
-    loo = {f: [] for f in FIELDS}
-    for i in range(N_DATA):
-        ref = {f: (anom[f].sum(axis=0) - anom[f][i]) / (N_DATA - 1) for f in FIELDS}
-        c = correlations({f: anom[f][i:i + 1] for f in FIELDS}, ref, tmask, nz)
-        for f in FIELDS:
-            loo[f].append({kind: v[0] for kind, v in c[f].items()})
-    out['data']['corr'] = {f: {kind: np.stack([l[kind] for l in loo[f]]).tolist() for kind in ['full', 'asym']} for f in FIELDS}
-    # Latitude-only reference : the zonal mean of the data mean anomaly, broadcast over longitude
-    lat_only = {f: np.broadcast_to(np.nanmean(data_ref[f], axis=-1, keepdims=True), data_ref[f].shape) for f in FIELDS}
-    out['lat_only'] = {f: [float(corr(lat_only[f][k][tmask[k]][None], data_ref[f][k][tmask[k]])[0]) for k in range(nz)]
-                       for f in FIELDS}
+        out = {'data': describe(data, tmask, data_means, data_ref, clusters, file_mask_LR, volume, acc, nz, levels, N_DATA_MAPS, level_clusters),
+               'runs': {}}
+        # Data labels against the most frequent label of the other states (leave one out)
+        for kind, labels in data_labels.items():
+            one_hot = np.stack([labels == c + 1 for c in range(level_clusters.k)], axis=1)
+            out['data']['level_clusters'][kind]['agree'] = np.mean(
+                [level_clusters.agreement(labels[i:i + 1], level_clusters.mode(data_counts[kind] - one_hot[i])) for i in range(N_DATA)], axis=0).tolist()
+        # The data members are compared with the mean of the others (leave one out), not with a mean that holds them
+        anom = anomalies(data, tmask, level_means(data, tmask))
+        loo = {f: [] for f in FIELDS}
+        for i in range(N_DATA):
+            ref = {f: (anom[f].sum(axis=0) - anom[f][i]) / (N_DATA - 1) for f in FIELDS}
+            c = correlations({f: anom[f][i:i + 1] for f in FIELDS}, ref, tmask, nz)
+            for f in FIELDS:
+                loo[f].append({kind: v[0] for kind, v in c[f].items()})
+        out['data']['corr'] = {f: {kind: np.stack([l[kind] for l in loo[f]]).tolist() for kind in ['full', 'asym']} for f in FIELDS}
+        # Latitude-only reference : the zonal mean of the data mean anomaly, broadcast over longitude
+        lat_field = {f: np.broadcast_to(np.nanmean(data_ref[f], axis=-1, keepdims=True), data_ref[f].shape) for f in FIELDS}
+        lat_only = {f: [float(corr(lat_field[f][k][tmask[k]][None], data_ref[f][k][tmask[k]])[0]) for k in range(nz)]
+                    for f in FIELDS}
+        return {'data': data, 'clusters': clusters, 'data_means': data_means, 'data_ref': data_ref, 'level_clusters': level_clusters,
+                'data_mode': data_mode, 'out': out, 'lat_only': lat_only}
+
+    code = [code_hash(__file__, build_density_viewer.__file__), file_id(MESH), file_id(config.data_file), N_DATA, DATA_SEED]
+    d = cached('noconstraint', [*code, 'data'], data_part)
+    data, clusters, data_means, data_ref, level_clusters, data_mode, out = (
+        d[k] for k in ['data', 'clusters', 'data_means', 'data_ref', 'level_clusters', 'data_mode', 'out'])
+    out['lat_only'] = d['lat_only']
 
     for name in BASELINES:
         run_dir = sorted(glob(f'{INFERENCE}/default_eps/{name}/*/'))[-1]
         with open(f'{run_dir}/args.json') as f:
             projection = json.load(f).get('projection', 'none')
-        x = torch.from_numpy(np.load(f'{run_dir}/generated.npy'))
-        with torch.no_grad():
-            fields = {k: v.cpu().numpy() for k, v in observer.unnormalized(x).items()}
-        out['runs'][name] = describe(fields, tmask, data_means, data_ref, clusters, file_mask_LR, volume, acc, nz, levels, 10 ** 6,
-                                     level_clusters, data_mode)
+
+        def describe_run():
+            with torch.no_grad():
+                fields = {k: v.cpu().numpy() for k, v in observer.unnormalized(torch.from_numpy(np.load(f'{run_dir}/generated.npy'))).items()}
+            return describe(fields, tmask, data_means, data_ref, clusters, file_mask_LR, volume, acc, nz, levels, 10 ** 6,
+                            level_clusters, data_mode)
+        out['runs'][name] = cached('noconstraint', [*code, file_id(f'{run_dir}/generated.npy')], describe_run)
         out['runs'][name]['projection'] = projection
         out['runs'][name]['dir'] = run_dir.replace(INFERENCE, '')
         print(f'{name} : {run_dir}')

@@ -8,6 +8,8 @@ Left, one row per method of METHODS:
     section interpolated onto its latitudes, both grids share their levels).
 Right, over time: a) zonal transport through the meridional line of U points of column ACC_COLUMN [Sv], b) RMSE of the
 zonal sigma_0 section to the reference density (grey band: RMSE of each data state to it, min-max), c) empty.
+Also saved in the `aposteriori` subfolder of FIGURES: density_2m, the zonal sigma_0 after 2 months of each method of
+ROW_METHODS side by side, as fig1.
 Dashed: the 1/4° spin-up restart. A method whose run is not collected yet is skipped.
 """
 from common import *
@@ -16,14 +18,15 @@ sys.path.append(f'{PRP}/Results/notebooks/a_posteriori/')
 
 import cmocean.cm as cm
 from nemo_cookbook import NEMODataTree
-from settings import COLLECT, EXP, REFERENCES_REL, RESTART_1_4DEG, aposteriori_dirs, experiment_paths
+from settings import COLLECT, EXP, REFERENCES_REL, aposteriori_dirs, experiment_paths
 plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7,
                      'ytick.labelsize': 7, 'legend.fontsize': 7})
 
 EXPERIMENT = 'daily_2m'
+DENSITY = DENSITY_RUN
 METHODS = {'data': 'Data',
            'none': 'No constraint',
-           'negative_grad_density_huber_border0': r'Increasing density, $\eta = 10$',
+           DENSITY: 'Increasing density',
            'zero_mean_border0': 'T,S mean constraint'}
 COLORS = ['k', 'C0', 'C1', 'C2']
 REFERENCE = f'{os.environ["OCEANDATA"]}/{REFERENCES_REL}/restart25_arch'
@@ -32,6 +35,7 @@ ACC_COLUMN = 1  # first interior column
 BAND = (-65, -45)
 LEVELS = np.arange(22., 28.51, 0.5)
 PROFILE_RANGE = (25., 28.5)
+ROW_METHODS = ['none', DENSITY, 'zero_mean_border0']
 DIFF_PERCENTILE = 99  # half range of each difference colour scale: this percentile of |difference| over all the runs
 DEPTH_POWER, DEPTH_MAX = 0.625, 3500
 DEPTH_TICKS = [0, 100, 250, 500, 1000, 2000, 3000]
@@ -67,12 +71,14 @@ def transport(nemo):
     return nemo['gridU/uoce_e3u'].integral(dims=['j']).data.isel(i=ACC_COLUMN).sum('k').values / 1e6
 
 
+@memo
 def restart(path):
     """Zonal sigma_0 section (k, j) and transport of a NEMO restart."""
     nemo = restart_tree(path)
     return zonal_sigma(nemo)[0], float(transport(nemo)[0])
 
 
+@memo
 def run(folder):
     """Days from the start, zonal sigma_0 sections (frames, z, y) and transports of the EXPERIMENT run in `folder`.
 
@@ -81,7 +87,7 @@ def run(folder):
     nemo = output_tree(f'{folder}/{experiment_paths(EXPERIMENT)["results"]}')
     grid = nemo['gridT']
     days = (grid['time_centered'].values - grid['time_counter_bounds'].values[0, 0]) / 86400
-    section0, transport0 = restart(f'{folder}/{RESTART_1_4DEG}')
+    section0, transport0 = restart(f'{folder}/{experiment_paths(EXPERIMENT)["restart_1_4deg"]}')
     return np.r_[0., days], np.concatenate([section0[None], zonal_sigma(nemo)]), np.r_[transport0, transport(nemo)]
 
 
@@ -141,7 +147,7 @@ lat, depth = spinup['gridT']['gphit'].isel(i=ACC_COLUMN + 1).values, spinup['gri
 nz = reference.shape[0]
 depth_1 = depth[:nz]
 rmse_to_reference = lambda section: float(rmse(to_lat(section[:nz], lat, lat_1)[None], reference)[0])
-spinup_section, spinup_transport = zonal_sigma(spinup)[0], float(transport(spinup)[0])
+spinup_section, spinup_transport = restart(spinup_path)
 spinup_rmse = rmse_to_reference(spinup_section)
 print(f'spin-up {spinup_path} : transport {spinup_transport:.1f} Sv, RMSE {spinup_rmse:.3f}')
 
@@ -213,5 +219,21 @@ series_axes[0].legend(frameon=False, loc='lower right')
 series_axes[2].axis('off')
 
 os.makedirs(FIGURES, exist_ok=True)
-fig.savefig(f'{FIGURES}/fig5_aposteriori.pdf', bbox_inches='tight')
+save(fig, f'{FIGURES}/fig5_aposteriori.pdf', sources=[DOMAIN, spinup_path, *(folders[m] for m in runs)],
+     bbox_inches='tight')
+
+row = [m for m in ROW_METHODS if m in runs]
+fig, axs = plt.subplots(1, len(row), figsize=(3.4 * len(row), 1.9), sharey=True, squeeze=False,
+                        gridspec_kw={'wspace': 0.05})
+for j, method in enumerate(row):
+    ax = axs[0, j]
+    cf = plot_section(ax, runs[method]['sections'][-1], lat, depth, f'{chr(ord("a") + j)}) {METHODS[method]}')
+    ax.set_ylim(stretch(DEPTH_MAX), 0)
+    ax.set_yticks(stretch(DEPTH_TICKS))
+    ax.set_yticklabels([str(d) for d in DEPTH_TICKS])
+    ax.set_xlabel('latitude [°N]')
+axs[0, 0].set_ylabel('depth [m]')
+cbar = fig.colorbar(cf, ax=axs, label=r'$\sigma_0$ [kg m$^{-3}$ - 1000]', fraction=0.03, pad=0.02)
+cbar.ax.invert_yaxis()
+save(fig, f'{FIGURES}/aposteriori/density_2m.pdf', sources=[DOMAIN, *(folders[m] for m in row)], bbox_inches='tight')
 plt.show()

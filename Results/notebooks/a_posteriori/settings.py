@@ -61,16 +61,38 @@ STALE_LINKS = ['diffusion_states']         # committed link to a purged /lustre/
 
 NSTEPS = 432000                            # 10 years at rn_Dt = 720 s (~170 min with the layout of jobs/launch.sh)
 
-# NEMO experiments run from the same restart. Each has its own run directory, launch record and results folder in
+# Restart protocols of Results/a_posteriori/restart_initialisation.md: their files in aposteriori/ and the namelist_cfg
+# values their runs need. Step 2 writes only 'minimal'; the 'template' files (spun-up 1/4° restart with the generated
+# fields replaced) are those of the 10y and daily_2m runs. Both use the calendar of the 1/4° reference restart (date
+# 0249/12/01 at the first step) unless selection.json has a start_day (minimal only). The DINO forcing phase follows kt
+# only, (kt / 120) mod 360 days, so the reference kt = 10800000 starts the forcing on day 0 (1 January).
+PROTOCOLS = {
+    'template': dict(restart_1deg=RESTART_1DEG, restart_1_4deg=RESTART_1_4DEG, conversion=CONVERSION, namelist={}),
+    # NEMO reads tb, ub, sshb and the *_b forcing fields unless ln_1st_euler. Without sshb, NEMO 4.2 forces it with a
+    # warning (domain.F90): set explicitly so the run does not rely on that fallback.
+    'minimal': dict(restart_1deg='restart_1deg_minimal.nc', restart_1_4deg='restart_1_4deg_minimal.nc',
+                    conversion='conversion_minimal.json', namelist={'ln_1st_euler': '.true.'}),
+}
+
+# NEMO experiments. Each has its restart protocol, its own run directory, launch record and results folder in
 # aposteriori/ (`experiment_paths`), its length, the XIOS output template of Dinonline restart0 copied onto FILE_DEF
 # (None keeps FILE_DEF) and sbatch options added to those of jobs/launch.sh.
 EXPERIMENTS = {
-    '10y': dict(suffix='', nsteps=NSTEPS, file_def=None, sbatch=[]),
+    '10y': dict(protocol='template', suffix='', nsteps=NSTEPS, file_def=None, sbatch=[]),
     # 2 months (60 days of 120 steps), daily means of the 3D fields, ~12 GB of outputs per run
-    'daily_2m': dict(suffix='_daily_2m', nsteps=7200, file_def='file_def_nemo-oce_daily.xml',
+    'daily_2m': dict(protocol='template', suffix='_daily_2m', nsteps=7200, file_def='file_def_nemo-oce_daily.xml',
                      sbatch=['--qos=qos_cpu-dev', '--time=01:00:00']),
+    '10y_minimal': dict(protocol='minimal', suffix='_minimal', nsteps=NSTEPS, file_def=None, sbatch=[]),
+    'daily_2m_minimal': dict(protocol='minimal', suffix='_daily_2m_minimal', nsteps=7200,
+                             file_def='file_def_nemo-oce_daily.xml', sbatch=['--qos=qos_cpu-dev', '--time=01:00:00']),
+    # 2 weeks (14 days of 120 steps); a 2-month daily run took 3.5 min
+    'daily_2w_minimal': dict(protocol='minimal', suffix='_daily_2w_minimal', nsteps=1680,
+                             file_def='file_def_nemo-oce_daily.xml', sbatch=['--qos=qos_cpu-dev', '--time=00:30:00']),
+    # 2 years (720 days of 120 steps), 7-day means of the 3D fields and daily means of the 2D fields, ~25 GB per run
+    'weekly_2y_minimal': dict(protocol='minimal', suffix='_weekly_2y_minimal', nsteps=86400,
+                              file_def='file_def_nemo-oce_weekly.xml', sbatch=['--qos=qos_cpu-dev', '--time=02:00:00']),
 }
-DEFAULT_EXPERIMENT = '10y'
+DEFAULT_EXPERIMENT = '10y_minimal'
 
 EXP = 'DINO'                               # cn_exp of namelist_cfg, prefix of the NEMO files
 REBUILD = 'rebuild_nemo.exe'               # in NEMO_DIR, reads its arguments from the namelist file `nam_rebuild` of the cwd
@@ -105,9 +127,13 @@ def aposteriori_dirs(inference=INFERENCE, prefix=PREFIX, required=SELECTION, con
 
 
 def experiment_paths(experiment):
-    """Names, inside aposteriori/, of the run directory, launch record and results folder of `experiment` (EXPERIMENTS key)."""
-    suffix = EXPERIMENTS[experiment]['suffix']
-    return dict(nemo_run=f'{NEMO_RUN}{suffix}', launch=f'{os.path.splitext(LAUNCH)[0]}{suffix}.json', results=f'{RESULTS}{suffix}')
+    """Names, inside aposteriori/, of the run directory, launch record and results folder of `experiment` (EXPERIMENTS key),
+    and of the 1/4° restart and conversion record of its restart protocol."""
+    setup = EXPERIMENTS[experiment]
+    protocol = PROTOCOLS[setup['protocol']]
+    return dict(nemo_run=f'{NEMO_RUN}{setup["suffix"]}', launch=f'{os.path.splitext(LAUNCH)[0]}{setup["suffix"]}.json',
+                results=f'{RESULTS}{setup["suffix"]}', restart_1_4deg=protocol['restart_1_4deg'],
+                conversion=protocol['conversion'])
 
 
 def read_json(path):

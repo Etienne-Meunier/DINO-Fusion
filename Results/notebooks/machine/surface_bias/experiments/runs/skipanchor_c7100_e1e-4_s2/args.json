@@ -1,0 +1,30 @@
+{
+  "variant": "c7skip_anchor",
+  "eta": [
+    100.0,
+    0.0001
+  ],
+  "eps": [
+    8.6e-08,
+    1.0
+  ],
+  "lbd0": [
+    1.0,
+    0.0
+  ],
+  "mode": [
+    "raw",
+    "sqrt"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 2,
+  "steps": 1000,
+  "name": "skipanchor_c7100_e1e-4_s2",
+  "minutes": 12.249884267648062
+}

@@ -4,8 +4,8 @@
 Rsync the aposteriori/ folders of the sweep between the local $OCEANDATA and its Jean-Zay mirror JZ_OCEANDATA.
 
     push : local -> JZ, the outputs of step 1 ({toce,soce,ssh}.npy, selection.json), --all to add those of a local step 2
-           (.nc restarts, conversion.json), --references to also send the reference runs REFERENCES_REL used by step 2
-    pull : JZ -> local, conversion.json and the launch records of steps 2 and 3 (--all to also pull the .nc restarts),
+           (.nc restarts, conversion*.json), --references to also send the reference runs REFERENCES_REL used by step 2
+    pull : JZ -> local, conversion*.json and the launch records of steps 2 and 3 (--all to also pull the .nc restarts),
            --results to also pull the results folder of step 4 of the experiment --experiment (merged restart, XIOS
            outputs, logs, collect.json)
 Only these files of the `<constraint>/<timestamp>/aposteriori/` sub-trees are transferred (never nemo_run/ nor macOS `._*`),
@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description='Rsync the aposteriori folders with
 parser.add_argument('direction', choices=['push', 'pull'])
 parser.add_argument('--prefix', default=PREFIX, help='sweep folder in the inference folder')
 parser.add_argument('--constraints', nargs='*', default=['*'], help='constraints to transfer, default all')
-parser.add_argument('--all', action='store_true', help='also the .nc restarts (push: and conversion.json, for a local step 2)')
+parser.add_argument('--all', action='store_true', help='also the .nc restarts (push: and conversion*.json, for a local step 2)')
 parser.add_argument('--references', action='store_true', help='push: also the reference runs of step 2')
 parser.add_argument('--results', action='store_true', help='pull: also the results folder of step 4 (~25 GB per 10y run)')
 parser.add_argument('--experiment', default=DEFAULT_EXPERIMENT, choices=list(EXPERIMENTS), help='pull --results: experiment')
@@ -35,6 +35,7 @@ args = parser.parse_args()
 
 local_root, remote_root = os.environ['OCEANDATA'].rstrip('/'), f'{JZ_HOST}:{JZ_OCEANDATA.rstrip("/")}'
 rsync = ['rsync', '-av', '--update', '--prune-empty-dirs', *(['--dry-run'] if args.dry_run else [])]
+CONVERSIONS = f'{os.path.splitext(CONVERSION)[0]}*.json'
 
 
 def parents(rel):
@@ -44,9 +45,9 @@ def parents(rel):
 
 
 if args.direction == 'push':
-    files = ['*.npy', SELECTION] + (['*.nc', CONVERSION] if args.all else [])
+    files = ['*.npy', SELECTION] + (['*.nc', CONVERSIONS] if args.all else [])
 else:
-    files = [CONVERSION, f'{os.path.splitext(LAUNCH)[0]}*.json'] + (['*.nc'] if args.all else [])
+    files = [CONVERSIONS, f'{os.path.splitext(LAUNCH)[0]}*.json'] + (['*.nc'] if args.all else [])
 # Transfers are root to root with anchored filters, so the receiving side needs no pre-existing parent directory.
 sweep = f'{MODEL_REL}/inference/{args.prefix}'
 filters = ['--exclude=._*', *parents(sweep)]

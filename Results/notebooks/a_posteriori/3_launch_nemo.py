@@ -4,18 +4,19 @@
 Step 3 (Jean-Zay) : create and submit one NEMO DINO 1/4° run of an experiment of EXPERIMENTS (--experiment, default
 DEFAULT_EXPERIMENT) per converted generation.
 
-For every <generation folder>/aposteriori/ holding a conversion.json (step 2) :
+For every <generation folder>/aposteriori/ holding the conversion record of the experiment's restart protocol (step 2,
+PROTOCOLS: conversion_minimal.json, or conversion.json for the runs of the template protocol) :
     1. `nnemo.sh aposteriori/<nemo_run> diffusion` copies the Dinonline run structure (XIOS outputs, climatology link and
        slurm options come from the branch), the run directory is <nemo_run>/restart0 ; the XIOS template of the
        experiment, if any, is copied onto FILE_DEF. If NNEMO_MIRROR exists, git clones it instead of GitHub
-    2. RESTART_LINK -> the 1/4° restart in restart0, STALE_LINKS removed
+    2. RESTART_LINK -> the 1/4° restart of the protocol in restart0, STALE_LINKS removed
     3. restart.config gets `cn_ocerst_in=RESTART_LINK`, namelist_cfg nn_it000 = time_counter + 1, nn_itend = nn_it000 + nsteps - 1 (nsteps of
-       the experiment)
-       (one restart, at nn_itend)
+       the experiment) (one restart, at nn_itend) and the namelist values of the protocol (minimal: ln_1st_euler = .true.,
+       added to &namrun if absent)
     4. checks that the restart, the REQUIRED_LINKS targets and the executables of jobs/mpmd.conf exist, then sbatch
        jobs/launch.sh from restart0 with a per-constraint job name and log and the sbatch options of the experiment;
-       job id, namelist and XIOS output groups in aposteriori/<launch>
-<nemo_run> and <launch> are named by `experiment_paths` (nemo_run and launch.json for 10y).
+       job id, protocol, namelist and XIOS output groups in aposteriori/<launch>
+<nemo_run> and <launch> are named by `experiment_paths` (nemo_run_minimal and launch_minimal.json for 10y_minimal).
 
 Dry run by default (prints the actions), --submit to execute them.
 """
@@ -28,20 +29,24 @@ import subprocess
 import sys
 import time
 from xml.etree import ElementTree
-from settings import (CONVERSION, DEFAULT_EXPERIMENT, EXPERIMENTS, FILE_DEF, INFERENCE, JOB_SCRIPT, MPMD, NAMELIST, NEMO_DIR,
-                      NNEMO, NNEMO_BRANCH, NNEMO_MIRROR, NNEMO_REPO, PREFIX, REQUIRED_LINKS, RESTART_1_4DEG, RESTART_CONFIG, RESTART_LINK, STALE_LINKS,
+from settings import (DEFAULT_EXPERIMENT, EXPERIMENTS, FILE_DEF, INFERENCE, JOB_SCRIPT, MPMD, NAMELIST, NEMO_DIR, NNEMO, NNEMO_BRANCH,
+                      NNEMO_MIRROR, NNEMO_REPO, PREFIX, PROTOCOLS, REQUIRED_LINKS, RESTART_CONFIG, RESTART_LINK, STALE_LINKS,
                       aposteriori_dirs, experiment_paths, read_json, write_json)
 
 
-def set_namelist(path, values):
+def set_namelist(path, values, block='namrun'):
     """Set the uncommented `key = value` entries of the namelist `path` to `values` {key: value}, as launch.sh does with sed.
 
-    Raises if a key is not exactly once in the file.
+    A key without uncommented entry is added at the end of the namelist block `&<block>`. Raises if a key is found more
+    than once, or is absent and the block is not found.
     """
     with open(path) as f:
         text = f.read()
     for key, value in values.items():
         text, n = re.subn(rf'^( *{re.escape(key)} *= *).*$', rf'\g<1>{value}', text, flags=re.MULTILINE)
+        if n == 0:
+            text, n = re.subn(rf'^(&{re.escape(block)}\b(?:.*\n)*?)/', rf'\g<1>   {key} = {value}\n/', text, count=1,
+                              flags=re.MULTILINE)
         if n != 1:
             raise ValueError(f'{key} found {n} times in {path}')
     with open(path, 'w') as f:
@@ -95,14 +100,14 @@ def launch(constraint, folder, experiment, nsteps, submit):
     setup, paths = EXPERIMENTS[experiment], experiment_paths(experiment)
     dest = f'{folder}/{paths["nemo_run"]}'
     run_dir = f'{dest}/{NEMO_DIR}'
-    conversion = read_json(f'{folder}/{CONVERSION}')
-    restart = os.path.abspath(f'{folder}/{RESTART_1_4DEG}')
+    conversion = read_json(f'{folder}/{paths["conversion"]}')
+    restart = os.path.abspath(f'{folder}/{paths["restart_1_4deg"]}')
     nn_it000 = round(float(conversion['time_counter'])) + 1
-    namelist = {'nn_it000': nn_it000, 'nn_itend': nn_it000 + nsteps - 1}
+    namelist = {'nn_it000': nn_it000, 'nn_itend': nn_it000 + nsteps - 1, **PROTOCOLS[setup['protocol']]['namelist']}
     name = f'aposteriori_{constraint}{setup["suffix"]}'
     sbatch = ['sbatch', f'--job-name={name}', f'--output={name}.out', *setup['sbatch'], JOB_SCRIPT]
 
-    print(f'{constraint} ({experiment}) : {run_dir}\n'
+    print(f'{constraint} ({experiment}, {setup["protocol"]} restart) : {run_dir}\n'
           f'  bash {NNEMO} {dest} {NNEMO_BRANCH}' + (f' (from {NNEMO_MIRROR})' if mirror_env() else '') + '\n'
           + (f'  copy {setup["file_def"]} onto {FILE_DEF}\n' if setup['file_def'] else '') +
           f'  link {RESTART_LINK} -> {restart}, remove {STALE_LINKS}\n'
@@ -130,7 +135,7 @@ def launch(constraint, folder, experiment, nsteps, submit):
     # shell, where it is defined, even when this script runs from a non-interactive ssh command.
     out = run(['bash', '-lc', shlex.join(sbatch)], cwd=run_dir)
     job = re.search(r'Submitted batch job (\d+)', out)
-    write_json(f'{folder}/{paths["launch"]}', dict(experiment=experiment, run_dir=run_dir, job_name=name, job_id=job and job.group(1), namelist=namelist, outputs=outputs,
+    write_json(f'{folder}/{paths["launch"]}', dict(experiment=experiment, protocol=setup['protocol'], run_dir=run_dir, job_name=name, job_id=job and job.group(1), namelist=namelist, outputs=outputs,
                                           nsteps=nsteps, restart=restart, sbatch=' '.join(sbatch),
                                           sbatch_output=out.strip(), created=time.strftime('%Y-%m-%d %H:%M:%S')))
 
@@ -144,11 +149,13 @@ parser.add_argument('--nsteps', type=int, default=None, help='number of time ste
 parser.add_argument('--submit', action='store_true', help='execute, dry run otherwise')
 args = parser.parse_args()
 
-dirs = aposteriori_dirs(args.inference, args.prefix, required=CONVERSION, constraints=args.constraints)
-if not dirs:
-    sys.exit(f'No {args.inference}/{args.prefix}/*/*/aposteriori/{CONVERSION}, run step 2 first')
-
 paths = experiment_paths(args.experiment)
+dirs = aposteriori_dirs(args.inference, args.prefix, required=paths['conversion'], constraints=args.constraints)
+if not dirs:
+    protocol = EXPERIMENTS[args.experiment]['protocol']
+    hint = 'run step 2 first' if protocol == 'minimal' else f'step 2 writes only the minimal restart, not the {protocol} one'
+    sys.exit(f'No {args.inference}/{args.prefix}/*/*/aposteriori/{paths["conversion"]}, {hint}')
+
 nsteps = args.nsteps or EXPERIMENTS[args.experiment]['nsteps']
 for constraint, folder in dirs.items():
     if os.path.exists(f'{folder}/{paths["launch"]}'):

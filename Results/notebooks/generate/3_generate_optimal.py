@@ -24,8 +24,7 @@ inf_steps = 1000
 
 constraints = {
     'C1': dict(loss='mean_density', eta=1e-2, lbd0=1.0, eps='default'),
-    'TS': dict(loss='zero_mean', eta=1e-1, lbd0=1.0, eps='default'),
-}
+    'TS': dict(loss='zero_mean', eta=1e-1, lbd0=1.0, eps='default'),}
 
 device = Accelerator().device
 pipeline = DDPMPipeline_Tensor.from_pretrained(model_path).to(device)

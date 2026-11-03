@@ -8,7 +8,8 @@ default), and of the batch of training states of step 0 (DATA_RUN) if there is o
 Outputs in <generation folder>/aposteriori/ :
     {toce,soce,ssh}.npy  un-normalised median member, shapes (1, 36, 199, 62) and (1, 1, 199, 62)
     selection.json       member index, RMSE, source generation and model
-A generation already converted or launched (conversion.json / launch.json) is skipped, unless --force.
+A generation already converted (conversion record of any protocol) is skipped, unless --force. A generation with a NEMO
+run (launch*.json or nemo_run* of any experiment) is always skipped, so that its runs stay traceable to this selection.
 """
 from __init__ import PRP; import sys
 sys.path.append(f'{PRP}/Diffusion_Model/')
@@ -23,13 +24,13 @@ import numpy as np
 import torch
 from common import RUN, PREFIX, INFERENCE, batch, gens, gens_args, generation_dirs, load_mask, median_member, observer, rmse, zonal_sections
 from post_processing import save_clean
-from settings import APOSTERIORI, CONVERSION, DATA_RUN, DATA_STATES, LAUNCH, MODEL_REL, SELECTION, timestamp, write_json
+from settings import APOSTERIORI, DATA_RUN, DATA_STATES, LAUNCH, MODEL_REL, NEMO_RUN, PROTOCOLS, SELECTION, timestamp, write_json
 
 CRITERION = ('upper median of the unweighted RMSE of the volume-weighted zonal sigma_0 section of each member to the '
              'batch-mean section of a data batch (paper/fig1_density_profile.py)')
 
 parser = argparse.ArgumentParser(description='Export the median member of every generation of the sweep')
-parser.add_argument('--force', action='store_true', help='overwrite the selection of generations already converted or launched')
+parser.add_argument('--force', action='store_true', help='overwrite the selection of generations already converted (refused once launched)')
 parser.add_argument('--constraints', nargs='*', default=None, help='constraints (and DATA_RUN) to select, default all')
 args = parser.parse_args()
 
@@ -48,7 +49,11 @@ for constraint, x in runs.items():
     if args.constraints is not None and constraint not in args.constraints:
         continue
     out = f'{dirs[constraint]}/{APOSTERIORI}'
-    done = [f for f in (CONVERSION, LAUNCH) if os.path.exists(f'{out}/{f}')]
+    launched = glob(f'{out}/{os.path.splitext(LAUNCH)[0]}*.json') + glob(f'{out}/{NEMO_RUN}*')
+    if launched:
+        print(f'{constraint} : {", ".join(map(os.path.basename, launched))} in {out}, the runs come from this selection, skip')
+        continue
+    done = [p['conversion'] for p in PROTOCOLS.values() if os.path.exists(f'{out}/{p["conversion"]}')]
     if done and not args.force:
         print(f'{constraint} : {", ".join(done)} in {out}, skip (--force to overwrite the selection)')
         continue

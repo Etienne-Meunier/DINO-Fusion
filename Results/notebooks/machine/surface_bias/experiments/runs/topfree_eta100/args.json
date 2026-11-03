@@ -1,0 +1,17 @@
+{
+  "variant": "topfree",
+  "eta": [
+    100.0
+  ],
+  "eps": [
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0
+  ],
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "topfree_eta100",
+  "minutes": 8.216382169723511
+}

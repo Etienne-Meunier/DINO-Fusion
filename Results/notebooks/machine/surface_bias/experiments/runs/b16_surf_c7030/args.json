@@ -1,0 +1,30 @@
+{
+  "variant": "c7_surf",
+  "eta": [
+    30.0,
+    0.0001
+  ],
+  "eps": [
+    8.6e-08,
+    9.0
+  ],
+  "lbd0": [
+    1.0,
+    0.0
+  ],
+  "mode": [
+    "raw",
+    "sqrt"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 16,
+  "seed": 0,
+  "steps": 1000,
+  "name": "b16_surf_c7030",
+  "minutes": 17.422615484396616
+}

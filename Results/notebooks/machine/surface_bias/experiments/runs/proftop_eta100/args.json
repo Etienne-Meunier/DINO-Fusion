@@ -1,0 +1,24 @@
+{
+  "variant": "profile_topfree",
+  "eta": [
+    100.0,
+    100.0
+  ],
+  "eps": [
+    0.0,
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0,
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "proftop_eta100",
+  "minutes": 11.278287569681803
+}

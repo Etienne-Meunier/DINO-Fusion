@@ -1,0 +1,34 @@
+{
+  "variant": "proftop_anchor",
+  "eta": [
+    100.0,
+    100.0,
+    0.0001
+  ],
+  "eps": [
+    0.0,
+    8.6e-08,
+    1.0
+  ],
+  "lbd0": [
+    1.0,
+    1.0,
+    0.0
+  ],
+  "mode": [
+    "raw",
+    "raw",
+    "sqrt"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "proftopanchor_e1e-4",
+  "minutes": 14.569910462697347
+}

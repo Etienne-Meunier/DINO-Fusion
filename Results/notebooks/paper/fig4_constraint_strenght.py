@@ -2,7 +2,7 @@
 
 Top: on twin y axes, density error (percent of unstable volume, mean +/- std over the batch) and RMSE of the batch mean
 to the data (RMS over ocean cells of the difference between the batch-average and the data-average sigma_0), of the b8
-eta sweep of `generate/4_generate_huber_sweep.py`. eta 0 is the paired unconstrained run (boundary projection only, same
+eta sweep CONFIGS["fig4_sweep"] (for optimal, of `generate/4_generate_huber_sweep.py`). eta 0 is the paired unconstrained run (boundary projection only, same
 seed and batch). The data references are dotted: its density error, and for the RMSE, computed on b8 batches against the
 full data batch, the mean RMSE of N_SUBSETS random 8-member subsets of the data.
 Bottom: batch-average zonal sigma_0 section, with the profile over the BAND latitudes as inset (as fig1), of the
@@ -16,9 +16,9 @@ from metrics import compute_density_error
 plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7,
                      'ytick.labelsize': 7, 'legend.fontsize': 7})
 
-SWEEP = f'{INFERENCE}/sweep_density_huber/negative_grad_density_huber_border0'
-NONE_B8 = f'{INFERENCE}/sweep_baselines/none_border0_b8/151026-145216'
-ETAS_FRIEZE = [10, 100, 300]
+SWEEP = CONFIGS['fig4_sweep']
+NONE_B8 = sorted(glob(CONFIGS['fig4_none']))[-1]
+ETAS_FRIEZE = CONFIGS['fig4_frieze']
 N_SUBSETS = 200
 BAND = (-65, -45)
 LEVELS = np.arange(22., 28.51, 0.5)
@@ -34,6 +34,7 @@ latitude = file_mask_LR.gphit.isel(nav_lon=10).values
 ocean = file_mask_LR.tmask.values.astype(bool)
 
 
+@memo
 def load_sweep(sweep=SWEEP):
     """Generation of every run of `sweep`, keyed by its eta; for a repeated eta the latest timestamp is kept."""
     runs = {}
@@ -44,12 +45,14 @@ def load_sweep(sweep=SWEEP):
     return dict(sorted(runs.items()))
 
 
+@memo
 def density_errors(x):
     """Percent of unstable ocean volume of each member of a normalized batch x."""
     fields = {k: v.detach().cpu().numpy() for k, v in observer.unnormalized(x).items()}
     return np.asarray(compute_density_error(fields, file_mask_LR), dtype=float)
 
 
+@memo
 def sigma0(x):
     """sigma_0 - 1000 of a normalized batch x on the ocean cells, (batch, n_ocean)."""
     fields = {k: v.detach().cpu().numpy() for k, v in observer.unnormalized(x).items()}
@@ -150,5 +153,5 @@ cbar = fig.colorbar(cf, ax=frieze_axes, label=r'$\sigma_0$ [kg m$^{-3}$ - 1000]'
 cbar.ax.invert_yaxis()
 
 os.makedirs(FIGURES, exist_ok=True)
-fig.savefig(f'{FIGURES}/fig4_constraint_strength.pdf', bbox_inches='tight')
+save(fig, f'{FIGURES}/fig4_constraint_strength.pdf', sources=[SWEEP, NONE_B8], bbox_inches='tight')
 plt.show()

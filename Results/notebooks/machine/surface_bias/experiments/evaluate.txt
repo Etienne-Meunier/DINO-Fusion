@@ -1,0 +1,22 @@
+
+Table of the experimental runs (runs/*) against the data batch of `paper/common.py`, the unconstrained run none_border0_b8
+and the C7 eta sweep, paired member by member with the unconstrained run of the same seed (ref.npy of an anchor run, runs/none_s<seed>, or
+none_border0_b8 for seed 0) :
+    sigma_0 (volume-weighted horizontal mean) of level 0, 5-49 m, 61-299 m, whole ocean, as a paired difference to none
+    and as a bias to the data ; T and S of level 0 ; eval density error E (% volume) ; C7 loss / eps ; RMS distance to
+    none (normalised) ; final lbd.
+    python evaluate.py [run names or glob patterns ...]     default : every run of runs/
+
+d = paired difference to none, b = bias to the data batch (kg/m3, C, psu)
+
+                         d lev0  se d lev0   b lev0  b 5-49m  b 61-299m    d all   T0    d T0   S0     E   c7/eps  dist none          lbd
+run                                                                                                                                      
+data                        NaN        NaN        0        0          0      NaN   20     NaN 35.3 0.363    0.997        NaN             
+none                          0        NaN    0.641    0.341      0.179        0 17.7       0 35.4  9.28 6.88e+04        NaN             
+C7 eta30 (repo)          -0.826     0.0523   -0.185   -0.214     0.0715  -0.0137 20.8    3.05 35.3  1.74 5.44e+03     0.0676          189
+C7 eta100 (repo)          -1.75     0.0517    -1.11     -1.1      -0.51  -0.0657 24.3    6.52 35.4  0.75 2.15e+03      0.116          413
+centred_c7010_b32        -0.353    0.00368   -0.319   -0.428    -0.0653  -0.0112 21.2    1.24 35.3  1.54 6.78e+03     0.0274         44.1
+centred_none_b32              0          0    0.034   -0.244   0.000983        0 19.9       0 35.3  2.47 2.08e+04          0             
+centred_surf_c7030_b32  -0.0363     0.0111 -0.00233  -0.0291     0.0879 0.000167   20  0.0694 35.3  1.26 3.47e+03     0.0497  144 / 0.263
+centred_zm_e1_b32       -0.0184     0.0111   0.0156   0.0193     0.0323  -0.0179 19.8  -0.172 35.2  1.07 2.22e+03     0.0662         1.34
+centred_zm_e1_c7010_b32 -0.0533     0.0111  -0.0193 0.000412      0.041  -0.0182 19.9 -0.0561 35.2 0.902  1.7e+03      0.067  1.58 / 41.4

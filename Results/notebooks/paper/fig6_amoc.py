@@ -23,6 +23,8 @@ YEARS = 1 / 12            # length of the average, taken at the end of each run 
 EXPERIMENT = 'daily_2m'   # EXPERIMENTS key of a_posteriori/settings.py
 DAYS_PER_YEAR = 360       # 360_day calendar of DINO
 NCOLS = 4
+DENSITY = DENSITY_RUN
+ROW_METHODS = ['data', 'none', DENSITY, 'zero_mean_border0']  # aposteriori/amoc.pdf
 PSI_PERCENTILE = 99       # half range of the colour scale: this percentile of |psi| over all the runs
 PSI_STEP = 4.             # contour interval [Sv], zero contour left out (noisy in weak-flow regions)
 DOMAIN = f'{os.environ["OCEANDATA"]}/{REFERENCES_REL}/restart25_arch/domain_cfg_out.nc'
@@ -31,6 +33,7 @@ DEPTH_TICKS = [0, 100, 250, 500, 1000, 2000, 3000, 4000]
 stretch = lambda d: np.asarray(d) ** DEPTH_POWER
 
 
+@memo
 def mean_moc(results, years=YEARS):
     """Stream function [Sv] (k, j) of the V-grid output of `results`, averaged over the last `years` years.
 
@@ -96,5 +99,27 @@ fig.colorbar(pm, ax=axes, orientation='horizontal', fraction=0.04, pad=0.12, asp
              label=rf'$\psi_z$ [Sv], mean of the last {period}')
 
 os.makedirs(FIGURES, exist_ok=True)
-fig.savefig(f'{FIGURES}/fig6_amoc.pdf', bbox_inches='tight')
+save(fig, f'{FIGURES}/fig6_amoc.pdf', sources=[DOMAIN, *(folders[m] for m in mocs)], bbox_inches='tight')
+
+row = [m for m in ROW_METHODS if m in mocs]
+half_range = float(np.nanpercentile(np.abs(np.stack([mocs[m].values for m in row])), PSI_PERCENTILE))
+half_range = PSI_STEP * np.ceil(half_range / PSI_STEP)
+levels = np.arange(-half_range, half_range + PSI_STEP / 2, PSI_STEP)
+levels = levels[np.abs(levels) > PSI_STEP / 2]
+fig, axs = plt.subplots(1, len(row), figsize=(2.75 * len(row), 1.9), sharey=True, squeeze=False,
+                        gridspec_kw={'wspace': 0.05})
+for j, method in enumerate(row):
+    ax, psi = axs[0, j], mocs[method]
+    depth = stretch(psi.depthv.values)
+    pm = ax.pcolormesh(lat, depth, psi.values, cmap=cm.balance, vmin=-half_range, vmax=half_range,
+                       shading='nearest', rasterized=True)
+    ax.contour(lat, depth, psi.values, levels=levels, colors='k', linewidths=0.3)
+    ax.set_title(f'{chr(ord("a") + j)}) {NAMES[method]}', loc='left')
+    ax.set_ylim(stretch(DEPTH_MAX), 0)
+    ax.set_yticks(stretch(DEPTH_TICKS))
+    ax.set_yticklabels([str(d) for d in DEPTH_TICKS])
+    ax.set_xlabel('latitude [°N]')
+axs[0, 0].set_ylabel('depth [m]')
+fig.colorbar(pm, ax=axs, fraction=0.03, pad=0.02, label=rf'$\psi_z$ [Sv], mean of the last {period}')
+save(fig, f'{FIGURES}/aposteriori/amoc.pdf', sources=[DOMAIN, *(folders[m] for m in row)], bbox_inches='tight')
 plt.show()

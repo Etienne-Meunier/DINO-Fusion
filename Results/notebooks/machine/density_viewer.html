@@ -30,6 +30,7 @@
   .member.off { opacity: .4; }
   .stat { font-size: 12px; min-height: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .stat b { font-weight: 600; }
+  body[data-tab=apriori] .stat { white-space: normal; }
   .plot, .amap { width: 100%; height: var(--plot-h, 260px); }
   .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0 0 6px; }
   .tabs button { border: 0; background: var(--card); color: var(--fg); padding: 4px 14px; font: inherit; font-size: 13px; cursor: pointer; }
@@ -37,7 +38,10 @@
   body[data-tab=density] .amap, body[data-tab=apriori] .plot, body[data-tab=density] .panels { display: none; }
   body[data-tab=noconstraint] #grid, body[data-tab=noconstraint] .bar, body[data-tab=noconstraint] #panels,
   body[data-tab=aposteriori] #grid, body[data-tab=aposteriori] .bar, body[data-tab=aposteriori] #panels,
-  body:not([data-tab=noconstraint]) #nc, body:not([data-tab=aposteriori]) #ap { display: none; }
+  body[data-tab=data] #grid, body[data-tab=data] .bar, body[data-tab=data] #panels, body:not([data-tab=data]) #dt,
+  body[data-tab=datadriven] #grid, body[data-tab=datadriven] .bar, body[data-tab=datadriven] #panels, body:not([data-tab=datadriven]) #dd,
+  body:not([data-tab=noconstraint]) #nc, body:not([data-tab=aposteriori]) #ap, body:not([data-tab=apriori]) #ssh-summary, body:not([data-tab=apriori]) #toce-summary { display: none; }
+  #toce-summary { grid-column: 1 / -1; }
   .ap-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 6px; }
   .ap-row.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ap-row.maps { grid-template-columns: repeat(auto-fill, 300px); }
@@ -51,6 +55,15 @@
   @media (max-width: 800px) { .nc-grid { grid-template-columns: 1fr; } }
   .nc-note { color: var(--muted); font-size: 12px; margin: 2px 0 4px; }
   .nc-card[hidden] { display: none; }
+  .dt-h { font-size: 15px; margin: 14px 0 2px; }
+  .dt-g { font-size: 13px; margin: 10px 0 2px; color: var(--muted); }
+  .dt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 6px; }
+  .dt-plot { height: 230px; }
+  .dt-hov { height: 300px; }
+  .dt-table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+  .dt-table th, .dt-table td { padding: 2px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+  .dt-table th:nth-child(-n+3), .dt-table td:nth-child(-n+3) { text-align: left; }
+  .dt-tag { color: #fff; border-radius: 4px; padding: 0 6px; font-size: 11px; }
   .nc-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; }
   .nc-ctl label { display: inline-flex; align-items: center; gap: 5px; }
   .nc-ctl input[type=range] { width: 120px; }
@@ -66,11 +79,25 @@
   .load progress { width: 140px; height: 8px; accent-color: var(--accent); }
   .load progress[hidden] { display: none; }
   .mem { font-variant-numeric: tabular-nums; }
+  .dd-maps { display: grid; gap: 2px 6px; }
+  .dd-map { height: 380px; }
+  .dd-t { font-size: 11px; color: var(--muted); text-align: center; min-height: 15px; }
+  .dd-profiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+  .dd-prof { height: 380px; }
+  .dd-3d { height: 620px; }
+  .dd-tall { height: 420px; }
+  .dual-range { position: relative; display: inline-block; height: 18px; vertical-align: middle; }
+  .dual-range input[type=range] { position: absolute; left: 0; top: 0; width: 100%; margin: 0; pointer-events: none; background: none; }
+  .dual-range input[type=range]::-webkit-slider-thumb { pointer-events: auto; }
+  .dual-range input[type=range]::-moz-range-thumb { pointer-events: auto; }
+  .dd-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .dd-levels3d { font: inherit; font-size: 11px; }
+  .col[hidden] { display: none; }
   .note { grid-column: 1 / -1; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body data-tab="density">
-<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori</button><button data-tab="noconstraint">No constraint</button><button data-tab="aposteriori">A-posteriori</button></div>
+<div class="tabs"><button data-tab="density" class="on">Density</button><button data-tab="apriori">A-priori · physical</button><button data-tab="datadriven">A-priori · data-driven</button><button data-tab="noconstraint">No constraint</button><button data-tab="aposteriori">A-posteriori</button><button data-tab="data">Data</button></div>
 <span class="loading" id="loading"></span>
 <label class="load"><input type="checkbox" id="sigma-continuous"> continuous σ₀ colours</label>
 <span class="load"><button id="load-all">Load all data</button><progress id="load-progress" hidden></progress><span id="load-text"></span><span class="mem" id="mem"></span></span>
@@ -97,6 +124,8 @@
 <div class="grid" id="grid"></div>
 <div id="nc"></div>
 <div id="ap"></div>
+<div id="dt"></div>
+<div id="dd"></div>
 
 <script>
 const D = window.DENSITY_DATA;
@@ -117,19 +146,35 @@ const COLUMNS = [
   { key: 'zero_mean', title: 'TS constraint' },
   { key: 'mean_density', title: 'C1 constraint' },
   { key: 'negative_grad_density_huber', title: 'C7 constraint (Huber)' },
+  { key: 'negative_grad_density_huber+surface_mean', title: 'C7 + surface T,S' },
 ];
+// Sampler variants of the october sweep (C : centred noise, B0 : BorderZero at every step, NL : noisy land), shown
+// instead of the baseline and constrained columns when it is the selected sweep. A column is one run, or the runs whose
+// name matches `series`, with an η slider.
+const OCTOBER = [['none', 'Raw sampler'], ['C', 'C (land from model)'], ['C_B0', 'C + B0'], ['C_NL', 'C + NL'],
+                 ['C_NL_zm0.1', 'C + NL + TS (η 0.1)'], ['C_NL_C7030_sTS', 'C + NL + C7 (η 30) + sTS'],
+                 ['C_NL_C7', 'C + NL + C7', /^C_NL_C7\d+$/], ['NL', 'NL (raw noise)'], ['NL_C7', 'NL + C7', /^NL_C7\d+$/]];
+D.october ??= {};
+for (const [id, title, series] of OCTOBER) {
+  const runs = series ? Object.keys(D.october).filter(k => series.test(k)).sort((a, b) => D.october[a].eta - D.october[b].eta)
+                      : [id].filter(k => k in D.october);
+  if (runs.length) COLUMNS.push({ key: `october:${id}`, runs, title });
+}
 const LABELS = { zero_mean: 'C_TS', mean_density: 'C_C1', negative_grad_density_huber: 'C_C7' };
 const SUBTITLES = {
   density: 'Zonal σ₀ sections: volume-weighted zonal mean of potential density anomaly (kg m⁻³ − 1000). Inset: mean profile over 65°S–45°S (dashed lines). The two unconstrained runs are the latest of default_eps.',
   noconstraint: 'What the unconstrained model has learned: data (32 states) against the unconstrained runs of default_eps. Most of its error is a uniform offset of each level, per member; the figures separate that offset from the spatial structure.',
-  aposteriori: 'A-posteriori: 1/4° NEMO runs started from the median member (RMSE to the data mean) of each generation of the optimal sweep, converted to a NEMO restart, one experiment at a time (10y : 10 years of monthly means, daily_2m : 2 months of daily means). Time series of the runs against the 1/4° spin-up restart, and snapshots.',
-  apriori: 'For the selected state (batch average, median or member): SST, k-means clusters of the (T, S) profiles (fit once on the 8 data states, every run assigned to the nearest centre, batch average = most frequent cluster) and their profiles (dashed: k-means centres, solid: mean over the columns of this state in each cluster), mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
+  aposteriori: 'A-posteriori: 1/4° NEMO runs started from the median member (RMSE to the data mean) of each generation of the optimal sweep, converted to a NEMO restart, one experiment at a time (10y : 10 years of monthly means, daily_2m : 2 months of daily means, weekly_2y : 2 years of weekly means, *_minimal : same from the minimal restart, T, S, SSH only with a first Euler step). Time series of the runs against the 1/4° spin-up restart, and snapshots.',
+  datadriven: 'Data-driven a-priori: the generations of the selected sweep against all the 1800 training states, field by field and level by level, without physical diagnostics : maps, level means, 3D slices, T–S correlation, bias and spread with their noise floor, pattern correlation. Built by build_datadriven_viewer.py (cached per run).',
+  data: 'Training archive: time evolution of the 1800 training states (50 years, 36 states per year) : heat and salt by depth and region, surface, mixing and stratification, ACC geostrophic transport, level means. What has equilibrated and what still drifts, against the 1/4° spin-up restart.',
+  apriori: 'For the selected state (batch average, median or member): SST, SSH, k-means clusters of the (T, S) profiles (fit once on the 8 data states, every run assigned to the nearest centre, batch average = most frequent cluster) and their profiles (dashed: k-means centres, solid: mean over the columns of this state in each cluster), mixed layer depth (σ₀ exceeds its 10 m value by 0.03 kg m⁻³) and the volume-weighted T–S diagram with σ₀ isopycnals, ACC (reentrant channel) in blue and the rest of the basin in red, each normalised by its own volume. var SST / var SSS: per-pixel variance over the batch, scale ending at the data maximum (as graph4).',
 };
 let A = null;  // a-priori data, loaded with the tab
 let tab = 'density';
 // Initial slider values, eps 'default' = eps_data of the loss (the largest eps of the sweep)
 const DEFAULTS = { mean_density: { eta: 1e-2, lbd0: 1, eps: 'default' }, zero_mean: { eta: 1e-1, lbd0: 1, eps: 'default' },
-                   negative_grad_density_huber: { eta: 10, lbd0: 1, eps: 'default' } };
+                   negative_grad_density_huber: { eta: 10, lbd0: 1, eps: 'default' },
+                   'negative_grad_density_huber+surface_mean': { eta: 30, lbd0: 1, eps: 'default' } };
 
 function decode(b64) {
   const bin = atob(b64), buf = new Uint8Array(bin.length);
@@ -249,6 +294,19 @@ const cols = COLUMNS.map((col, ci) => {
     controls.innerHTML = '<div class="note">Reference values on data</div>';
   } else if (col.key in D.baselines) {
     controls.innerHTML = '<div class="note">Unconstrained sampling</div>';
+  } else if (col.runs) {
+    const r = D.october[col.runs[0]];
+    c.sel.eta = 0;
+    controls.innerHTML = `<div class="note">noise ${r.noise} · land ${r.land} · ${col.runs.length > 1 ? 'C7' : r.constraint}</div>`;
+    if (col.runs.length > 1) {
+      const etas = col.runs.map(k => D.october[k].eta);
+      const row = document.createElement('div');
+      row.className = 'ctrl';
+      row.innerHTML = `<label>η</label><input type="range" min="0" max="${etas.length - 1}" step="1" value="0"><output>${etas[0]}</output>`;
+      const input = row.querySelector('input'), out = row.querySelector('output');
+      input.addEventListener('input', () => { c.sel.eta = +input.value; out.textContent = etas[c.sel.eta]; render(c); });
+      controls.appendChild(row);
+    }
   }
   return c;
 });
@@ -258,6 +316,8 @@ sweepSelect.innerHTML = SWEEPS.map(s => `<option value="${s}">${s}</option>`).jo
 // Projections run in the selected sweep, border_zero first
 function setSweep(sweep) {
   state.sweep = sweep;
+  cols.forEach(c => { c.el.hidden = c.key !== 'data' && Boolean(c.runs) !== (sweep === 'october'); });
+  fit();
   const projections = [...new Set(D.runs.filter(r => r.sweep === sweep).map(r => r.projection))]
     .sort((a, b) => (b === 'border_zero') - (a === 'border_zero'));
   projectionSelect.innerHTML = projections.map(p => `<option value="${p}">${p}</option>`).join('');
@@ -266,14 +326,17 @@ function setSweep(sweep) {
 }
 function setProjection(projection) {
   state.projection = projection;
-  cols.filter(c => !(c.key === 'data' || c.key in D.baselines)).forEach(c => { buildControls(c); render(c); });
+  cols.filter(c => !(c.key === 'data' || c.key in D.baselines || c.runs)).forEach(c => { buildControls(c); render(c); });
+  cols.filter(c => c.runs).forEach(render);
 }
 sweepSelect.addEventListener('change', e => setSweep(e.target.value));
 projectionSelect.addEventListener('change', e => setProjection(e.target.value));
 
 function entryOf(c) {
   if (c.key === 'data') return D.data;
+  if (c.el.hidden) return undefined;
   if (c.key in D.baselines) return D.baselines[c.key];
+  if (c.runs) return D.october[c.runs[c.sel.eta]];
   if (!c.opts.runs.length) return undefined;
   const want = { eta: c.opts.eta[c.sel.eta], lbd0: c.opts.lbd0[c.sel.lbd0], eps: c.opts.eps[c.sel.eps] };
   return c.opts.runs.find(r => r.eta === want.eta && r.lbd0 === want.lbd0 && r.eps === want.eps);
@@ -287,6 +350,7 @@ function statText(entry, idx) {
   if (tab === 'apriori' && A) {
     const [vt, vs] = aprioriOf(entry).var_mean;
     parts.push(`<b>var SST</b> ${vt.toFixed(3)}`, `<b>var SSS</b> ${vs.toFixed(4)}`);
+    if (aprioriOf(entry).toce_mean) parts.push(`<b>mean T</b> ${pick(aprioriOf(entry).toce_mean).toFixed(3)} °C`);
   }
   return parts.join(' &nbsp;·&nbsp; ');
 }
@@ -325,34 +389,42 @@ function renderAll() {
   const step = i => { if (token !== renderToken || i >= cols.length) return; render(cols[i]); requestAnimationFrame(() => step(i + 1)); };
   step(0);
 }
+// Member shown for entry : null for the batch average, else the median member or the selected one
+function shownMember(entry) {
+  if (state.view === 'mean') return null;
+  return state.view === 'median' ? medianMember(state.medianBy === 'rmse' ? rmse(entry) : entry.density_error)
+                                 : Math.min(state.member, entry.density_error.length - 1);
+}
 function render(c) {
   const entry = entryOf(c);
   if (!entry) {
     c.el.querySelector('.stat').textContent = '';
     c.el.querySelectorAll('.plot, .amap').forEach(d => Plotly.purge(d));
+    if (tab === 'apriori' && A) scheduleSshSummary();
     return;
   }
   const flat = sections(entry);
   const n = entry.density_error.length;
-  const avg = state.view === 'mean';
-  const m = state.view === 'median' ? medianMember(state.medianBy === 'rmse' ? rmse(entry) : entry.density_error) : Math.min(state.member, n - 1);
+  const m = shownMember(entry), avg = m === null;
   c.el.querySelector('h2').textContent = c.title + (entry.projection === 'border_zero' ? ' · Border 0' : '');
   c.el.querySelector('.row-label').textContent = avg ? `Batch average (n = ${n})`
     : state.view === 'median' ? `Member ${m + 1} / ${n} · median by ${MEDIAN_LABELS[state.medianBy]}`
     : `Member ${m + 1} / ${n}`;
   c.el.querySelector('.stat').innerHTML = statText(entry, avg ? null : m);
   if (tab === 'density') draw(c.el.querySelector('.plot'), avg ? meanGrid(flat, n) : toGrid(flat, m * SIZE), false);
-  else if (A) drawMaps(c.el.querySelector('.amap'), aprioriOf(entry), n, avg ? null : m);
+  else if (A) { drawMaps(c.el.querySelector('.amap'), aprioriOf(entry), n, m); scheduleSshSummary(); }
 }
 
 // ---------- A-priori : SST, mixed layer depth, SST / SSS variance (graph4) and T-S diagram ----------
 const SST_LEVELS = { start: 0, end: 27, size: 1 };
+const SSH_LEVELS = { start: -2.4, end: 2.4, size: 0.2 };
 const MLD_TICKS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 const MLD_LEVELS = { start: 1, end: Math.log10(3000), size: 0.1 };  // log10 of the depth [m]
 const TS_LEVELS = { start: -6, end: -1, size: 0.25 };  // log10 of the volume fraction
 function aprioriOf(entry) {
   if (entry === D.data) return A.data;
   for (const k in D.baselines) if (D.baselines[k] === entry) return A.baselines[k];
+  for (const k in D.october) if (D.october[k] === entry) return A.october[k];
   return A.runs[D.runs.indexOf(entry)];
 }
 function bytes(b64) {
@@ -368,10 +440,14 @@ function decodeOnce(a, key, fn) {
   if (!(k in d)) { d[k] = fn(); decodedBytes += d[k].byteLength; }
   return d[k];
 }
-// Float32 arrays : sst (b, y, x) [°C], mld (b, y, x) [m], ts (b, nT, nS) volume fraction, var (2, y, x)
+// Float32 arrays : sst (b, y, x) [°C], ssh (b, y, x) [m], mld (b, y, x) [m], ts (b, nT, nS) volume fraction, var (2, y, x)
 const sstOf = a => decodeOnce(a, 'sst', () => {
   const [lo, hi] = A.sst_range;
   return Float32Array.from(bytes(a.sst), q => q === 0 ? NaN : lo + (q - 1) / 254 * (hi - lo));
+});
+const sshOf = a => decodeOnce(a, 'ssh', () => {
+  const [lo, hi] = A.ssh_range;
+  return Float32Array.from(bytes(a.ssh), q => q === 0 ? NaN : lo + (q - 1) / 254 * (hi - lo));
 });
 const mldOf = a => decodeOnce(a, 'mld', () => Float32Array.from(new Uint16Array(bytes(a.mld).buffer), q => q === 0 ? NaN : q));
 const tsOf = a => decodeOnce(a, 'ts', () => {
@@ -388,10 +464,11 @@ const clusterProfilesOf = a => decodeOnce(a, 'cluster_profiles', () => new Float
 let tsSigmaT = null;
 const tsSigmaTS = () => tsSigmaT ??= A.ts_s.map((_, j) => A.ts_t.map((_, i) => A.ts_sigma[i][j]));
 
-const PANELS = { sst: 'SST', cluster: 'Clustering', profiles: 'Cluster profiles', profiles_ts: 'Cluster T–S', mld: 'MLD', var_sst: 'var SST', var_sss: 'var SSS', ts: 'T–S diagram' };
-const shownSet = new Set(['sst', 'cluster', 'profiles', 'profiles_ts', 'ts']);
+const PANELS = { sst: 'SST', ssh: 'SSH', cluster: 'Clustering', profiles: 'Cluster profiles', profiles_ts: 'Cluster T–S', mld: 'MLD', var_sst: 'var SST', var_sss: 'var SSS', ts: 'T–S diagram' };
+const shownSet = new Set(['sst', 'ssh', 'cluster', 'profiles', 'profiles_ts', 'ts']);
 // Shown a-priori panels in the order of PANELS, the clustering ones only if the a-priori file holds them
 const shownPanels = () => Object.keys(PANELS).filter(k => shownSet.has(k) && (k !== 'cluster' || (A && A.clusters))
+                                                     && (k !== 'ssh' || (A && A.ssh_range))
                                                      && (!k.startsWith('profiles') || (A && A.clusters && A.clusters.T)));
 
 function grid2d(flat, ny, nx, members, transform = v => v) {
@@ -442,6 +519,8 @@ function drawMaps(div, a, n, m) {
   const MAPS = {
     sst: () => ({ title: 'SST', z: grid2d(sstOf(a), ny, nx, members), colorscale: A.colorscales.toce, levels: SST_LEVELS,
                   hover: '%{z:.2f} °C' }),
+    ssh: () => ({ title: 'SSH', z: grid2d(sshOf(a), ny, nx, members), colorscale: A.colorscales.ssh, levels: SSH_LEVELS,
+                  hover: '%{z:.2f} m' }),
     cluster: () => ({ title: m === null ? 'Clusters (mode)' : 'Clusters', z: modeGrid(clusterOf(a), ny, nx, members, K),
                       colorscale: clusterColorscale(K), zmin: 0.5, zmax: K + 0.5, hover: 'cluster %{z}' }),
     mld: () => ({ title: 'MLD', z: grid2d(mldOf(a), ny, nx, members, Math.log10), colorscale: A.colorscales.mld, levels: MLD_LEVELS,
@@ -599,11 +678,11 @@ async function loadAll() {
   loadBar.removeAttribute('value');
   loadText.textContent = 'reading a-priori file…';
   await loadApriori().catch(() => {});
-  const entries = [D.data, ...Object.values(D.baselines), ...D.runs];
+  const entries = [D.data, ...Object.values(D.baselines), ...Object.values(D.october), ...D.runs];
   loadBar.max = entries.length;
   for (const [i, entry] of entries.entries()) {
     sections(entry); rmse(entry);
-    if (A) { const a = aprioriOf(entry); sstOf(a); mldOf(a); tsOf(a); varOf(a); if (a.cluster) clusterOf(a); if (a.cluster_profiles) clusterProfilesOf(a); }
+    if (A) { const a = aprioriOf(entry); sstOf(a); if (a.ssh) sshOf(a); mldOf(a); tsOf(a); varOf(a); if (a.cluster) clusterOf(a); if (a.cluster_profiles) clusterProfilesOf(a); }
     loadBar.value = i + 1;
     loadText.textContent = `decoding ${i + 1} / ${entries.length}`;
     await new Promise(resolve => setTimeout(resolve));
@@ -647,6 +726,8 @@ function setTab(name) {
   const go = () => { renderAll(); drawScale(); fit(); };
   if (name === 'noconstraint') window.showNoConstraint();
   else if (name === 'aposteriori') window.showAposteriori();
+  else if (name === 'data') window.showTraining();
+  else if (name === 'datadriven') window.showDataDriven();
   else if (name === 'apriori') loadApriori().then(go, () => {}); else go();
 }
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -679,6 +760,7 @@ function aprioriBars() {
   const K = A.clusters ? A.clusters.n : 0;
   const BARS = {
     sst: y => colorbar(A.colorscales.toce, SST_LEVELS, 'SST, conservative temperature [°C]', y),
+    ssh: y => colorbar(A.colorscales.ssh, SSH_LEVELS, 'SSH, sea surface height [m]', y),
     cluster: y => ({ ...colorbar(clusterColorscale(K), { start: 0.5, end: K + 0.5, size: 1 }, '', y),
       colorbar: { orientation: 'h', x: 0.5, y, yanchor: 'top', len: 0.9, thickness: 9, tickfont: { size: 9 },
                   tickvals: [...Array(K).keys()].map(k => k + 1),
@@ -710,26 +792,158 @@ function drawScale() {
     { displayModeBar: false, responsive: true, staticPlot: true });
 }
 
+// ---------- SSH summary : zonal mean and distribution of the SSH shown in every column ----------
+const COLUMN_COLORS = { data: '#1c1c1a', none: '#a0a0a0', none_border0: '#5a5a5a', zero_mean: '#1b9e77', mean_density: '#d95f02',
+                        negative_grad_density_huber: '#7570b3', 'negative_grad_density_huber+surface_mean': '#e7298a',
+                        'october:none': '#a0a0a0', 'october:C': '#e6ab02',
+                        'october:C_B0': '#5a5a5a', 'october:C_NL': '#1f78b4', 'october:C_NL_zm0.1': '#1b9e77',
+                        'october:C_NL_C7030_sTS': '#e7298a', 'october:C_NL_C7': '#7570b3', 'october:NL': '#a6cee3',
+                        'october:NL_C7': '#cab2d6' };
+const SSH_BINS = { start: -3, end: 3, size: 0.1 };
+const summaryCard = document.createElement('div');
+summaryCard.className = 'col';
+summaryCard.id = 'ssh-summary';
+summaryCard.innerHTML = '<div class="head"><h2>SSH summary</h2><span class="row-label"></span></div><div class="amap"></div>';
+grid.appendChild(summaryCard);
+// Zonal mean (ny,) of each member of an SSH stack (b, y, x), NaN on land ignored, null where a row is all land
+function zonalMeans(ssh, ny, nx, members) {
+  return members.map(b => Array.from({ length: ny }, (_, j) => {
+    let s = 0, c = 0;
+    for (let i = 0; i < nx; i++) { const v = ssh[(b * ny + j) * nx + i]; if (!Number.isNaN(v)) { s += v; c++; } }
+    return c ? s / c : null;
+  }));
+}
+let cellArea = null;  // relative area of a cell of each row, cos(lat) times the latitude spacing of the row
+function sshSummaryData(entry, members) {
+  const a = aprioriOf(entry), ssh = sshOf(a), ny = A.lat.length, nx = A.lon.length;
+  cellArea ??= A.lat.map((lat, j) => Math.cos(lat * Math.PI / 180)
+                                     * (A.lat[Math.min(j + 1, ny - 1)] - A.lat[Math.max(j - 1, 0)]) / (j > 0 && j < ny - 1 ? 2 : 1));
+  const rows = zonalMeans(ssh, ny, nx, members);
+  const zonal = A.lat.map((_, j) => { const v = rows.map(r => r[j]).filter(x => x !== null); return v.length ? mean(v) : null; });
+  // Area-weighted density of the ocean cells of the members pooled, per SSH_BINS bin [m⁻¹]
+  const { start, end, size } = SSH_BINS, nb = Math.round((end - start) / size), hist = new Float64Array(nb);
+  let total = 0;
+  for (const b of members) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const v = ssh[(b * ny + j) * nx + i];
+    if (Number.isNaN(v)) continue;
+    hist[Math.min(nb - 1, Math.max(0, Math.floor((v - start) / size)))] += cellArea[j];
+    total += cellArea[j];
+  }
+  return { zonal, centres: Array.from({ length: nb }, (_, k) => start + (k + 0.5) * size), density: Array.from(hist, h => h / total / size) };
+}
+let summaryTimer;
+function scheduleSshSummary() { clearTimeout(summaryTimer); summaryTimer = setTimeout(() => { drawSshSummary(); drawToceSummary(); }, 30); }
+function drawSshSummary() {
+  const div = summaryCard.querySelector('.amap');
+  if (tab !== 'apriori' || !A || !A.ssh_range) { Plotly.purge(div); return; }
+  summaryCard.querySelector('.row-label').textContent = state.view === 'mean' ? 'Batch averages' : state.view === 'median'
+    ? `Median members by ${MEDIAN_LABELS[state.medianBy]}` : `Member ${state.member + 1}`;
+  const ny = A.lat.length, nx = A.lon.length, traces = [];
+  // Spread of the data : min-max over its members of the zonal mean
+  const dataRows = zonalMeans(sshOf(A.data), ny, nx, [...Array(D.data.density_error.length).keys()]);
+  const lo = A.lat.map((_, j) => Math.min(...dataRows.map(r => r[j] ?? Infinity))),
+        hi = A.lat.map((_, j) => Math.max(...dataRows.map(r => r[j] ?? -Infinity)));
+  const finite = v => Number.isFinite(v) ? v : null;
+  traces.push({ type: 'scatter', x: A.lat, y: hi.map(finite), mode: 'lines', line: { width: 0 }, hoverinfo: 'skip', showlegend: false },
+              { type: 'scatter', x: A.lat, y: lo.map(finite), mode: 'lines', line: { width: 0 }, fill: 'tonexty',
+                fillcolor: 'rgba(0,0,0,0.12)', name: 'data min–max', hoverinfo: 'skip' });
+  for (const c of cols) {
+    const entry = entryOf(c);
+    if (!entry) continue;
+    const m = shownMember(entry), n = entry.density_error.length;
+    const { zonal, centres, density } = sshSummaryData(entry, m === null ? [...Array(n).keys()] : [m]);
+    const name = c.el.querySelector('h2').textContent, color = COLUMN_COLORS[c.key], width = c.key === 'data' ? 2.5 : 1.6;
+    traces.push({ type: 'scatter', mode: 'lines', x: A.lat, y: zonal, name, legendgroup: c.key, line: { color, width },
+                  hovertemplate: `${name}<br>lat %{x:.1f}°<br>SSH %{y:.2f} m<extra></extra>` },
+                { type: 'scatter', mode: 'lines', x: centres, y: density, name, legendgroup: c.key, showlegend: false,
+                  xaxis: 'x2', yaxis: 'y2', line: { color, width, shape: 'hvh' },
+                  hovertemplate: `${name}<br>SSH %{x:.2f} m<br>%{y:.2f} m⁻¹<extra></extra>` });
+  }
+  const acc = A.acc_lat.map(lat => ({ type: 'line', xref: 'x', yref: 'y domain', x0: lat, x1: lat, y0: 0, y1: 1,
+                                      line: { color: 'gray', dash: 'dash', width: 1 } }));
+  const axisFont = { size: 9 }, title = text => ({ text, font: { size: 10 }, standoff: 2 });
+  Plotly.react(div, traces, {
+    margin: { l: 40, r: 6, t: 18, b: 64 }, paper_bgcolor: 'rgba(0,0,0,0)', shapes: acc,
+    legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.2, yanchor: 'top', font: { size: 9 } },
+    xaxis: { domain: [0, 0.55], title: title('latitude [°N]'), tickfont: axisFont, zeroline: false },
+    yaxis: { title: title('zonal mean SSH [m]'), tickfont: axisFont, zeroline: true, zerolinecolor: '#ccc' },
+    xaxis2: { domain: [0.64, 1], anchor: 'y2', title: title('SSH [m]'), tickfont: axisFont, range: [-2.5, 2.5], zeroline: false },
+    yaxis2: { anchor: 'x2', title: title('density [m⁻¹]'), tickfont: axisFont, rangemode: 'tozero' },
+    annotations: [['Zonal mean (dashed : ACC)', 0.275], ['Distribution, area-weighted', 0.82]].map(([text, x]) => (
+      { text, x, y: 1, xref: 'paper', yref: 'paper', yanchor: 'bottom', showarrow: false, font: { size: 10 } })),
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ---------- Volume mean T : one point per member of every column, swarm layout ----------
+const toceCard = document.createElement('div');
+toceCard.className = 'col';
+toceCard.id = 'toce-summary';
+toceCard.innerHTML = '<div class="head"><h2>Volume mean T</h2><span class="row-label"></span></div><div class="amap"></div>';
+grid.appendChild(toceCard);
+// Horizontal offsets of a swarm of values : points closer than `h` stack side by side, alternating around the centre
+function swarmOffsets(values, h, step) {
+  const order = values.map((_, i) => i).sort((a, b) => values[a] - values[b]), out = new Array(values.length).fill(0);
+  let start = 0;
+  for (let k = 1; k <= order.length; k++) {
+    if (k < order.length && values[order[k]] - values[order[start]] < h) continue;
+    order.slice(start, k).forEach((i, r) => { out[i] = (r % 2 ? 1 : -1) * Math.ceil(r / 2) * step; });
+    start = k;
+  }
+  return out;
+}
+function drawToceSummary() {
+  const div = toceCard.querySelector('.amap');
+  if (tab !== 'apriori' || !A || !A.data.toce_mean) { Plotly.purge(div); return; }
+  toceCard.querySelector('.row-label').textContent = state.view === 'mean' ? 'every member · bar : batch mean'
+    : 'every member · bar : batch mean · ringed : shown member';
+  const shown = cols.map(c => [c, entryOf(c)]).filter(([, e]) => e);
+  const all = shown.flatMap(([, e]) => aprioriOf(e).toce_mean), h = (Math.max(...all) - Math.min(...all)) / 60;
+  const data = A.data.toce_mean, dataMean = mean(data), traces = [], names = [];
+  shown.forEach(([c, entry], i) => {
+    const v = aprioriOf(entry).toce_mean, m = shownMember(entry), off = swarmOffsets(v, h, 0.035);
+    const name = c.el.querySelector('h2').textContent, color = COLUMN_COLORS[c.key];
+    names.push(name);
+    traces.push({ type: 'scatter', mode: 'markers', x: off.map(o => i + o), y: v, name, showlegend: false, customdata: v.map((_, b) => b + 1),
+                  marker: { color, size: v.map((_, b) => b === m ? 10 : 6), opacity: 0.85,
+                            line: { color: '#000', width: v.map((_, b) => b === m ? 1.5 : 0) } },
+                  hovertemplate: `${name}<br>member %{customdata}<br>%{y:.3f} °C<extra></extra>` },
+                { type: 'scatter', mode: 'lines', x: [i - 0.3, i + 0.3], y: [mean(v), mean(v)], showlegend: false, hoverinfo: 'skip',
+                  line: { color, width: 2.5 } });
+  });
+  Plotly.react(div, traces, {
+    margin: { l: 46, r: 10, t: 8, b: 60 }, paper_bgcolor: 'rgba(0,0,0,0)',
+    xaxis: { tickvals: names.map((_, i) => i), ticktext: names, tickfont: { size: 9 }, range: [-0.6, names.length - 0.4], zeroline: false, showgrid: false },
+    yaxis: { title: { text: 'volume mean T [°C]', font: { size: 10 }, standoff: 2 }, tickfont: { size: 9 }, zeroline: false },
+    shapes: [{ type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: Math.min(...data), y1: Math.max(...data), fillcolor: 'rgba(0,0,0,0.12)', line: { width: 0 }, layer: 'below' },
+             { type: 'line', xref: 'paper', x0: 0, x1: 1, y0: dataMean, y1: dataMean, line: { color: '#333', dash: 'dash', width: 1 } }],
+    annotations: [{ text: `data mean ${dataMean.toFixed(3)} °C (band : min–max)`, xref: 'paper', x: 1, xanchor: 'right', y: dataMean, yanchor: 'bottom',
+                    showarrow: false, font: { size: 9, color: '#333' } }],
+  }, { displayModeBar: false, responsive: true });
+}
+
 function fit() {
-  if (tab === 'noconstraint' || tab === 'aposteriori') return;
+  if (tab === 'noconstraint' || tab === 'aposteriori' || tab === 'data' || tab === 'datadriven') return;
   // three rows of panels in the window : plot height = what is left after the header and the panel chrome
   const grid = document.getElementById('grid'), card = cols[0].el, plot = card.querySelector(tab === 'density' ? '.plot' : '.amap');
   const chrome = card.offsetHeight - plot.offsetHeight;
-  const rows = Math.ceil(cols.length / (getComputedStyle(grid).gridTemplateColumns.split(' ').length));
+  const rows = Math.ceil(cols.filter(c => !c.el.hidden).length / (getComputedStyle(grid).gridTemplateColumns.split(' ').length));
   const h = Math.max(200, Math.floor((window.innerHeight - grid.offsetTop - 12 - 8 * (rows - 1)) / rows - chrome));
   document.documentElement.style.setProperty('--plot-h', `${h}px`);
-  [...cols.map(c => c.el), scaleCard].forEach(el => el.querySelectorAll('.plot, .amap, .scale').forEach(d => d.data && d.offsetParent && Plotly.Plots.resize(d)));
+  [...cols.map(c => c.el), scaleCard, summaryCard, toceCard].forEach(el => el.querySelectorAll('.plot, .amap, .scale').forEach(d => d.data && d.offsetParent && Plotly.Plots.resize(d)));
 }
 let fitTimer;
 window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fit, 100); });
 document.getElementById('median-by').addEventListener('change', e => { state.medianBy = e.target.value; renderAll(); });
 memberInput.max = Math.max(D.data.density_error.length, ...D.runs.map(r => r.density_error.length),
-                           ...Object.values(D.baselines).map(b => b.density_error.length)) - 1;
+                           ...Object.values(D.baselines).map(b => b.density_error.length),
+                           ...Object.values(D.october).map(b => b.density_error.length)) - 1;
 sweepSelect.value = DEFAULT_SWEEP;
 setSweep(DEFAULT_SWEEP);
 setTab('density');
 </script>
 <script src="density_viewer_noconstraint_tab.js"></script>
 <script src="density_viewer_aposteriori_tab.js"></script>
+<script src="density_viewer_training_tab.js"></script>
+<script src="density_viewer_datadriven_tab.js"></script>
 </body>
 </html>

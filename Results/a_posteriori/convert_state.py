@@ -27,6 +27,26 @@ if not hasattr(grid_manipulation, 'Regridder'):
 # %%
 BASE_REFERENCES = f'{os.environ["OCEANDATA"]}/Dino-Fusion-Data/Restart-format/'
 REFERENCES = {'1deg' : '1deg_restart', '1_4deg' : 'restart25_arch'}
+MINIMAL_CALENDAR = ['kt', 'ndastp', 'adatrj', 'ntime']
+STEPS_PER_DAY = 120                        # rn_Dt = 720 s of the 1/4° runs
+YEAR_DAYS, MONTH_DAYS = 360, 30
+
+
+def start_calendar(kt_template, start_day):
+    """Calendar of a restart whose run starts on forcing day of year `start_day` (1 to YEAR_DAYS - 1), in the forcing
+    year of the template time step `kt_template`.
+
+    The DINO seasonal forcing (usrdef_sbc.F90, compute_day_of_year) takes its phase from the time step only,
+    (kt / STEPS_PER_DAY) mod YEAR_DAYS, so the date ndastp alone does not move it. Returns {kt, time_counter, adatrj,
+    ndastp}: kt = time_counter = start of the template's forcing year + STEPS_PER_DAY * start_day, adatrj = kt /
+    STEPS_PER_DAY days, ndastp = YYYYMMDD (3-digit year kt // year steps) of day `start_day` in 30-day months.
+    """
+    if not 1 <= start_day < YEAR_DAYS:
+        raise ValueError(f'start_day {start_day} not in [1, {YEAR_DAYS})')
+    year_steps = YEAR_DAYS * STEPS_PER_DAY
+    kt = int(kt_template) // year_steps * year_steps + STEPS_PER_DAY * start_day
+    month, day = (start_day - 1) // MONTH_DAYS + 1, (start_day - 1) % MONTH_DAYS + 1
+    return dict(kt=kt, time_counter=kt, adatrj=kt / STEPS_PER_DAY, ndastp=kt // year_steps * 10000 + month * 100 + day)
 
 
 def load_member(generation_path, idx_batch=0):
@@ -47,28 +67,16 @@ def open_references(base_references=BASE_REFERENCES, references=REFERENCES):
     return exp_1deg, exp_1_4deg
 
 
-def potential_density(toce, soce, z, nml):
-    """Potential density (kg/m3) of `toce`, `soce` (z, y, x) at depths `z` with the NEMO EOS coefficients of namelist block `nml` (nameos)."""
-    return (
-        - nml['rn_a0'] * (1. + 0.5 * nml['rn_lambda1'] * (toce - 10.) + nml['rn_mu1'] * z) * (toce - 10.)
-        + nml['rn_b0'] * (1. - 0.5 * nml['rn_lambda2'] * (soce - 35.) - nml['rn_mu2'] * z) * (soce - 35.)
-        - nml['rn_nu'] * (toce - 10.) * (soce - 35.)
-    ) + 1026
-
-
 def write_restart_1deg(toce, soce, ssh, exp_1deg, path_save):
-    """Write `toce`, `soce` (z, y, x), `ssh` (1, y, x) and their rhop in a copy of the restart of `exp_1deg`, saved at `path_save`.
+    """Write `toce`, `soce` (z, y, x) and `ssh` (1, y, x) as tn, sn, sshn in a copy of the restart of `exp_1deg`, saved at `path_save`.
 
-    Returns the restart dataset.
+    The other variables keep the values of the reference run: the file only carries the generated state to the regridding
+    (`write_restart_1_4deg`), which does not write them. Returns the restart dataset.
     """
     restart = exp_1deg.open_restart().load()
-    rhop = potential_density(toce, soce, exp_1deg.mask.gdept_0.data, exp_1deg.namelist['nameos'])
-
-    for fields, value in [(('tb', 'tn'), toce), (('sb', 'sn'), soce), (('rhop',), rhop)]:
-        for field in fields:
-            restart[field] = (('time_counter', 'nav_lev', 'y', 'x'), np.expand_dims(value, axis=0))
-    for field in ['sshb', 'sshn']:
-        restart[field] = (('time_counter', 'y', 'x'), ssh)
+    restart['tn'] = (('time_counter', 'nav_lev', 'y', 'x'), np.expand_dims(toce, axis=0))
+    restart['sn'] = (('time_counter', 'nav_lev', 'y', 'x'), np.expand_dims(soce, axis=0))
+    restart['sshn'] = (('time_counter', 'y', 'x'), ssh)
 
     restart.attrs['file_name'] = Path(path_save).name
     restart.attrs['TimeStamp'] = datetime.now().astimezone().strftime('%d/%m/%Y %H:%M:%S %z')
@@ -78,18 +86,28 @@ def write_restart_1deg(toce, soce, ssh, exp_1deg, path_save):
     return restart
 
 
-def write_restart_1_4deg(path_1deg, exp_1deg, exp_1_4deg, path_save):
-    """Regrid the 1° restart `path_1deg` to the grid of `exp_1_4deg` and write it in a copy of its restart, saved at `path_save`.
+def write_restart_1_4deg(path_1deg, exp_1deg, exp_1_4deg, path_save, start_day=None):
+    """Regrid tn, sn, sshn of the 1° restart `path_1deg` to the grid of `exp_1_4deg` and write the minimal restart `path_save`.
 
-    Velocities are set to zero by the regridding. Returns the restart dataset, its `time_counter` is `nn_it000 - 1` of the run.
+    The restart holds only tn, sn, sshn (regridded), un, vn (zero), the calendar MINIMAL_CALENDAR and the coordinates of the
+    restart of `exp_1_4deg`, with its dtypes: NEMO initialises everything else, which requires ln_1st_euler = .true.
+    (see restart_initialisation.md). `start_day`, when given, replaces kt, time_counter, adatrj and ndastp of the
+    template by `start_calendar` (dtypes kept, ntime unchanged), so that the run starts on that forcing day of year.
+    Returns the restart dataset, its `time_counter` is `nn_it000 - 1` of the run.
     """
     restart_interpolated = GridManipulation(exp_1deg).regrid_restart(exp_1_4deg, restart_path=path_1deg)
 
-    restart = exp_1_4deg.open_restart().load().copy()
-    for field in ['tn', 'tb', 'sn', 'sb', 'un', 'ub', 'vn', 'vb', 'rhop']:
-        restart[field] = (('time_counter', 'nav_lev', 'y', 'x'), restart_interpolated[field].data.astype(restart[field].dtype))
-    for field in ['sshn', 'sshb']:
-        restart[field] = (('time_counter', 'y', 'x'), restart_interpolated[field].data.astype(restart[field].dtype))
+    template = exp_1_4deg.open_restart().load()
+    restart = template.drop_vars(set(template.data_vars) - set(MINIMAL_CALENDAR))
+    for field in ['tn', 'sn', 'un', 'vn']:
+        restart[field] = (('time_counter', 'nav_lev', 'y', 'x'), restart_interpolated[field].data.astype(template[field].dtype))
+    restart['sshn'] = (('time_counter', 'y', 'x'), restart_interpolated['sshn'].data.astype(template['sshn'].dtype))
+    if start_day is not None:
+        calendar = start_calendar(template['kt'].values.squeeze(), start_day)
+        for k in ['kt', 'adatrj', 'ndastp']:
+            restart[k] = restart[k].copy(data=np.asarray(calendar[k], dtype=template[k].dtype))
+        restart = restart.assign_coords(time_counter=restart.time_counter.copy(
+            data=np.full(restart.sizes['time_counter'], calendar['time_counter'], dtype=template.time_counter.dtype)))
 
     restart = restart.fillna(0.)
     restart = restart.chunk({'time_counter': 1, 'y': 797, 'x': 242, 'nav_lev': 36}).compute()
@@ -98,24 +116,28 @@ def write_restart_1_4deg(path_1deg, exp_1deg, exp_1_4deg, path_save):
     restart.attrs['TimeStamp'] = datetime.now().astimezone().strftime('%d/%m/%Y %H:%M:%S %z')
     Path(path_save).unlink(missing_ok=True)
     restart.to_netcdf(path_save, unlimited_dims='time_counter')
-    print(f'Saved {path_save} \n     Time counter (nn_it000 - 1) : {restart.time_counter.data[0]}')
+    print(f'Saved {path_save} \n     Time counter (nn_it000 - 1) : {restart.time_counter.data[0]}, kt : {restart.kt.values}, '
+          f'adatrj : {restart.adatrj.values}, ndastp : {restart.ndastp.values}')
     return restart
 
 
-def convert(generation_path, path_1deg, path_1_4deg, idx_batch=0, base_references=BASE_REFERENCES, references=REFERENCES):
+def convert(generation_path, path_1deg, path_1_4deg, idx_batch=0, base_references=BASE_REFERENCES, references=REFERENCES,
+            start_day=None):
     """Member `idx_batch` of the npy in `generation_path` -> 1° restart `path_1deg` -> 1/4° restart `path_1_4deg`.
 
+    `start_day`, when given, sets the calendar of the 1/4° restart to that forcing day of year (`start_calendar`), the
+    template's otherwise.
     Returns the 1/4° restart dataset, its `time_counter` is `nn_it000 - 1` of the run.
     """
     toce, soce, ssh = load_member(generation_path, idx_batch)
     print(f'{soce.shape=} {toce.shape=} {ssh.shape=}')
     exp_1deg, exp_1_4deg = open_references(base_references, references)
     write_restart_1deg(toce, soce, ssh, exp_1deg, path_1deg)
-    return write_restart_1_4deg(path_1deg, exp_1deg, exp_1_4deg, path_1_4deg)
+    return write_restart_1_4deg(path_1deg, exp_1deg, exp_1_4deg, path_1_4deg, start_day=start_day)
 
 
 if __name__ == '__main__':
-    base_path_generated = "/lustre/fsn1/projects/rech/omr/romr004/data/diffusion_states/"
+    base_path_generated = "/lustre/fswork/projects/rech/omr/romr004/etienne/diffusion_states/"
     generation_name = 'C2'
     idx_batch = 4 # which generated field to run the simulation on
 
@@ -125,4 +147,4 @@ if __name__ == '__main__':
 
     _, exp_1_4deg = open_references()
     generated = exp_1_4deg.open_restart(restart_path=path_1_4deg)
-    generated.rhop.isel(nav_lev=0).plot(vmin=1022, vmax=1028)
+    generated.tn.isel(nav_lev=0).plot()

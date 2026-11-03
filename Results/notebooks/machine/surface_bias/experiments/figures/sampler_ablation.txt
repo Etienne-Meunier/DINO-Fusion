@@ -1,0 +1,8 @@
+                                                                sampler           E            T0  bias0         BW T         DW T
+data                                                         data batch   0.4 ± 0.0  20.00 ± 0.13  +0.00  3.42 ± 0.01  5.64 ± 0.01
+raw                     land from the model, raw noise (= optimal/none)  23.4 ± 7.7  19.45 ± 4.21  +0.15  3.36 ± 0.21  6.09 ± 0.49
+raw_call                             land from the model, centred noise   9.3 ± 5.4  20.70 ± 1.95  -0.00  3.35 ± 0.15  6.14 ± 0.39
+border0       BorderZero every step, raw noise (= optimal/none_border0)   9.3 ± 4.8  17.74 ± 1.19  +0.64  3.30 ± 0.06  5.68 ± 0.14
+border0_call                       BorderZero every step, centred noise   5.9 ± 0.4  17.54 ± 0.16  +0.68  3.28 ± 0.01  5.62 ± 0.01
+bnoise                                            noisy land, raw noise   5.5 ± 2.9  20.21 ± 1.53  -0.02  3.40 ± 0.08  5.90 ± 0.22
+bnoise_call                 noisy land, centred noise (centred sampler)   2.4 ± 0.2  20.11 ± 0.13  -0.01  3.36 ± 0.01  5.76 ± 0.03

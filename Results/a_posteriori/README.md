@@ -27,9 +27,9 @@ idx_batch = 4 # which generated state of the batch to use
 
 The script :
 
-1. writes the generated state in a 1° restart -> `generated_restart_<generation_name>_1deg.nc`
+1. writes the generated T, S, SSH as `tn`, `sn`, `sshn` in a copy of the 1° reference restart -> `generated_restart_<generation_name>_1deg.nc` (input of the regridding only)
 2. upsamples it to the 1/4° grid
-3. writes the 1/4° restart -> `generated_restart_<generation_name>_1_4deg.nc` and prints its `time_counter`, the run starts at `nn_it000 = time_counter + 1`
+3. writes the minimal 1/4° restart -> `generated_restart_<generation_name>_1_4deg.nc` and prints its `time_counter`, the run starts at `nn_it000 = time_counter + 1`. It holds only `tn`, `sn`, `sshn`, the zero velocities `un`, `vn`, the calendar of the 1/4° reference restart (with `convert(..., start_day=...)`, `kt`, `time_counter`, `adatrj` and `ndastp` are set so that the run starts on that forcing day of year: the DINO forcing phase follows `kt`, not the date, see [restart_initialisation.md](restart_initialisation.md#start-date)) and the coordinates; NEMO initialises the rest (see [restart_initialisation.md](restart_initialisation.md))
 
 **Important :** all `.npy` and `.nc` files are stored in `base_path_generated`. `BASE_REFERENCES` contains "real" simulations that we use only for the grid and the restart templates : `$OCEANDATA/Dino-Fusion-Data/Restart-format/{1deg_restart,restart25_arch}/`, each with its restart (`DINO_<nn_itend>_restart.nc`), `namelist_cfg`, `domain_cfg_out.nc` and `mesh_mask.nc` directly in the folder. Remove the macOS `._*` files there if the volume is not HFS/APFS : `NemoExperiment.open_restart` would pick `._DINO_*_restart.nc`.
 
@@ -47,7 +47,7 @@ curl -O https://raw.githubusercontent.com/Etienne-Meunier/nnemo/main/nnemo.sh; c
 ./nnemo.sh /lustre/fswork/projects/rech/omr/romr004/etienne/runs/Constraint_test diffusion
 ```
 
-2. Modify `restart.config` to include the path of the restart to use (`jobs/launch.sh` copies it into `cn_ocerst_in` of `namelist_cfg`). `nn_it000` in `namelist_cfg` must be the `time_counter` printed by `convert_state.py` (Step 2) + 1, and `nn_itend` = `nn_it000` + number of steps - 1 (43200 steps = 1 year at `rn_Dt = 720`)
+2. Modify `restart.config` to include the path of the restart to use (`jobs/launch.sh` copies it into `cn_ocerst_in` of `namelist_cfg`). `nn_it000` in `namelist_cfg` must be the `time_counter` printed by `convert_state.py` (Step 2) + 1, and `nn_itend` = `nn_it000` + number of steps - 1 (43200 steps = 1 year at `rn_Dt = 720`). Add `ln_1st_euler = .true.` to `&namrun`: NEMO then starts with an Euler step and does not read the before fields, which the restart does not have (without the line, NEMO forces it with a warning)
 
 ```yaml
 cn_ocerst_in=/lustre/fswork/projects/rech/omr/romr004/etienne/diffusion_states/generated_restart_C2_1_4deg.nc

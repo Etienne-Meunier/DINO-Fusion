@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surface Bias Profiles</title>
+<script src="../../plotly.min.js"></script>
+<style>
+  :root { --bg: #fafaf8; --fg: #1c1c1a; --muted: #6b6b66; --line: #ddddd6; --card: #ffffff; --accent: #2b6f8f;
+          --hl: #eaf3f7; --grid: #e6e6e0; --zero: #b5b5ae; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+          --bg: #161614; --fg: #e8e8e2; --muted: #9a9a93; --line: #34342f; --card: #1f1f1c; --accent: #6fb3d2;
+          --hl: #23323a; --grid: #2c2c28; --zero: #5a5a54; } }
+  :root[data-theme="dark"] { --bg: #161614; --fg: #e8e8e2; --muted: #9a9a93; --line: #34342f; --card: #1f1f1c; --accent: #6fb3d2;
+          --hl: #23323a; --grid: #2c2c28; --zero: #5a5a54; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding-block: 12px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px));
+         padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--bg); color: var(--fg);
+         font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 10px; font-size: 12px; max-width: 1100px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 0 0 10px; font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; background: var(--card); color: var(--fg); padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: var(--bg); }
+  .bar label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; }
+  .main { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .list { max-height: 640px; overflow-y: auto; font-size: 12.5px; }
+  .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 8px 0 2px; }
+  .grp:first-child { margin-top: 0; }
+  .item { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; }
+  .sw { width: 14px; height: 3px; border-radius: 2px; flex: none; }
+  .item input { margin: 0; }
+  .grp a { color: var(--accent); cursor: pointer; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  #plot { width: 100%; height: 640px; }
+  .tablewrap { overflow-x: auto; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 4px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; color: var(--muted); font-size: 11.5px; }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--hl); }
+  tbody tr.off { color: var(--muted); }
+  .tabs { margin: 0 0 10px; }
+  .secrow { border-bottom: 1px solid var(--line); padding: 4px 0 6px; }
+  .secrow:last-child { border-bottom: 0; }
+  .secrow h2 { font-size: 13.5px; margin: 0 0 2px; display: flex; align-items: center; gap: 6px; }
+  .secrow .stat { font-size: 11.5px; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 1000px) { .pair { grid-template-columns: 1fr; } }
+  .cap { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .splot { width: 100%; height: 250px; }
+  #secs { max-height: 1000px; overflow-y: auto; }
+  .hidden { display: none !important; }
+  .note { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>Surface bias of C7: density profiles of the variants</h1>
+<p class="sub"><b>Profiles</b> : volume-weighted horizontal-mean profiles, ensemble mean over the members (8 or the data batch), band = ± 1 member std. All generated runs: batch 8, BorderZero, 1000 steps, seed 0 unless the label says otherwise. <i>Surface data</i>: C7 + level-0 mean T and S held at the data mean. <i>Anchor</i>: C7 + level-0 mean T and S held at those of the unconstrained sample of the same seed (no surface data). <b>Sections</b> : as <code>paper/fig1_density_profile.py</code>, volume-weighted zonal σ₀ section of the median member (by RMSE to the data batch-average section) and of the batch average, inset = profile over 45°S–65°S (solid : panel, dashed : data batch average). The run list selects what is shown in both views. Built by <code>build_board.py</code>.</p>
+<div class="bar tabs">
+  <span class="seg" id="tab"><button data-v="prof" class="on">Profiles</button><button data-v="sec">Sections (fig 1)</button></span>
+</div>
+
+<div class="bar" id="profbar">
+  <span class="seg" id="var"><button data-v="sig" class="on">σ₀</button><button data-v="T">T</button><button data-v="S">S</button></span>
+  <span class="seg" id="mode"><button data-v="abs">absolute</button><button data-v="data" class="on">minus data</button><button data-v="none">minus unconstrained</button></span>
+  <span class="seg" id="zr"><button data-v="300">0–300 m</button><button data-v="1000" class="on">0–1000 m</button><button data-v="full">full depth</button></span>
+  <label><input type="checkbox" id="band" checked> std band</label>
+  <label><input type="checkbox" id="mem"> members</label>
+</div>
+<div class="bar hidden" id="secbar">
+  <span class="seg" id="smode"><button data-v="abs" class="on">σ₀</button><button data-v="diff">minus data batch average</button></span>
+</div>
+
+<div class="main">
+  <div class="card list" id="list"></div>
+  <div class="card" id="plotcard"><div id="plot"></div></div>
+  <div class="card hidden" id="secs"></div>
+</div>
+
+<div class="card tablewrap">
+  <table><thead><tr><th>run</th><th>bias lev 0</th><th>bias 5–49 m</th><th>bias 61–299 m</th><th>T0 (°C)</th><th>S0</th><th>E (% vol)</th><th>C7 loss / eps</th><th>final λ</th></tr></thead>
+  <tbody id="tbody"></tbody></table>
+  <div class="note">Bias = run minus data batch, σ₀ in kg m⁻³. E = eval density error (% of the ocean volume in inversion). λ: one value per constraint (C7 / second constraint). Click a row to show or hide the run.</div>
+</div>
+
+<script>
+/*DATA*/
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const CAT = ['#2b8a8f', '#d1495b', '#e8a33d', '#7a5cb8', '#3c9d4e', '#c2577f', '#4a7fc1', '#8c6d3f', '#d97a2b', '#5b8c7a', '#a64ca6', '#6b8e23', '#b55d3a'];
+const sweep = D.runs.filter(r => r.group === 'C7 sweep');
+let ci = 0;
+D.runs.forEach(r => {
+  if (r.name === 'data') r.color = 'REF';
+  else if (r.name === 'none') r.color = '#8a8a84';
+  else if (r.group === 'C7 sweep') { const i = sweep.indexOf(r), f = sweep.length > 1 ? i / (sweep.length - 1) : 0;
+    r.color = `hsl(210, 55%, ${72 - 45 * f}%)`; }
+  else if (!r.color) r.color = CAT[ci++ % CAT.length];
+});
+const colorOf = r => r.color === 'REF' ? css('--fg') : r.color;
+const st = { v: 'sig', mode: 'data', zr: '1000', band: true, mem: false, tab: 'prof', smode: 'abs' };
+const P = 0.625;
+const UNITS = { sig: 'σ₀ (kg m⁻³ − 1000)', T: 'T (°C)', S: 'S (psu)' };
+const ref = name => D.runs.find(r => r.name === name);
+
+function seg(id, key) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); st[key] = b.dataset.v; draw(); });
+}
+seg('var', 'v'); seg('mode', 'mode'); seg('zr', 'zr'); seg('tab', 'tab'); seg('smode', 'smode');
+document.getElementById('band').onchange = e => { st.band = e.target.checked; draw(); };
+document.getElementById('mem').onchange = e => { st.mem = e.target.checked; draw(); };
+
+function buildList() {
+  const el = document.getElementById('list'); el.innerHTML = '';
+  const groups = [...new Set(D.runs.map(r => r.group))];
+  groups.forEach(g => {
+    const h = document.createElement('div'); h.className = 'grp'; h.textContent = g;
+    const all = document.createElement('a'); all.textContent = 'all';
+    all.onclick = () => { const rs = D.runs.filter(r => r.group === g), on = !rs.every(r => r.on); rs.forEach(r => r.on = on); refresh(); };
+    h.appendChild(all); el.appendChild(h);
+    D.runs.filter(r => r.group === g).forEach(r => {
+      const it = document.createElement('label'); it.className = 'item';
+      it.innerHTML = `<input type="checkbox" ${r.on ? 'checked' : ''}><span class="sw" style="background:${colorOf(r)}"></span><span>${r.label}</span>`;
+      it.querySelector('input').onchange = e => { r.on = e.target.checked; refresh(); };
+      el.appendChild(it);
+    });
+  });
+}
+
+function fmt(v, d = 2) { if (v === null || v === undefined || Number.isNaN(v)) return '–';
+  if (typeof v === 'string') return v; const a = Math.abs(v);
+  return a >= 1e4 ? v.toExponential(2) : v.toFixed(d); }
+function sgn(v) { if (v === null || v === undefined) return '–'; const t = fmt(v);
+  return /^-0\.0+$/.test(t) ? t.slice(1) : (v > 0 && !/^0\.0+$/.test(t) ? '+' : '') + t; }
+
+function buildTable() {
+  const tb = document.getElementById('tbody'); tb.innerHTML = '';
+  D.runs.forEach(r => {
+    const m = r.metrics, tr = document.createElement('tr');
+    tr.className = r.on ? '' : 'off';
+    tr.innerHTML = `<td><span class="sw" style="display:inline-block;vertical-align:middle;margin-right:6px;background:${colorOf(r)}"></span>${r.label}</td>` +
+      `<td>${sgn(m['b lev0'])}</td><td>${sgn(m['b 5-49m'])}</td><td>${sgn(m['b 61-299m'])}</td><td>${fmt(m.T0)}</td>` +
+      `<td>${fmt(m.S0, 3)}</td><td>${fmt(m.E)}</td><td>${fmt(m['c7/eps'], 0)}</td><td>${m.lbd ? m.lbd : '–'}</td>`;
+    tr.onclick = () => { r.on = !r.on; refresh(); };
+    tb.appendChild(tr);
+  });
+}
+
+function draw() {
+  const sec = st.tab === 'sec';
+  ['secbar', 'secs'].forEach(id => document.getElementById(id).classList.toggle('hidden', !sec));
+  ['profbar', 'plotcard'].forEach(id => document.getElementById(id).classList.toggle('hidden', sec));
+  if (sec) return drawSections();
+  const zmax = st.zr === 'full' ? Infinity : +st.zr;
+  const idx = D.depth.map((d, i) => d <= zmax ? i : -1).filter(i => i >= 0);
+  const yt = d => st.zr === 'full' ? Math.pow(d, P) : d;
+  const y = idx.map(i => yt(D.depth[i]));
+  const base = st.mode === 'abs' ? null : ref(st.mode)[st.v].mean;
+  const traces = [];
+  D.runs.filter(r => r.on).forEach(r => {
+    const c = colorOf(r), m = r[st.v].mean, s = r[st.v].std;
+    const x = idx.map(i => base ? m[i] - base[i] : m[i]);
+    if (st.band && r.name !== 'data' || st.band && st.mode !== 'data') {
+      const lo = idx.map((i, k) => x[k] - s[i]), hi = idx.map((i, k) => x[k] + s[i]);
+      traces.push({ x: lo.concat(hi.slice().reverse()), y: y.concat(y.slice().reverse()), fill: 'toself', mode: 'lines',
+        line: { width: 0 }, fillcolor: c, opacity: 0.13, hoverinfo: 'skip', showlegend: false });
+    }
+    if (st.mem) r[st.v].members.forEach(mm => traces.push({ x: idx.map(i => base ? mm[i] - base[i] : mm[i]), y,
+      mode: 'lines', line: { color: c, width: 0.6 }, opacity: 0.45, hoverinfo: 'skip', showlegend: false }));
+    traces.push({ x, y, mode: 'lines+markers', name: r.label, marker: { size: 4, color: c },
+      line: { color: c, width: r.group === 'Reference' ? 2.6 : 2, dash: r.name === 'none' ? 'dash' : 'solid' },
+      customdata: idx.map(i => [D.depth[i], s[i]]),
+      hovertemplate: `<b>${r.label}</b><br>%{customdata[0]:.0f} m : %{x:.3f} ± %{customdata[1]:.3f}<extra></extra>` });
+  });
+  const ticks = [0, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000].filter(t => t <= Math.min(zmax, 4500));
+  const fg = css('--fg'), muted = css('--muted'), grid = css('--grid');
+  const xt = st.mode === 'abs' ? UNITS[st.v] : `Δ ${UNITS[st.v]}, run − ${st.mode === 'data' ? 'data' : 'unconstrained'}`;
+  Plotly.react('plot', traces, {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: fg, size: 12 },
+    margin: { l: 60, r: 10, t: 10, b: 50 }, hovermode: 'closest', showlegend: true,
+    legend: { orientation: 'h', y: -0.12, font: { size: 11 } },
+    xaxis: { title: xt, gridcolor: grid, zeroline: st.mode !== 'abs', zerolinecolor: css('--zero'), zerolinewidth: 1.5, color: muted },
+    yaxis: { title: 'depth (m)', autorange: 'reversed', gridcolor: grid, zeroline: false, color: muted,
+      tickvals: ticks.map(yt), ticktext: ticks.map(String) },
+  }, { responsive: true, displaylogo: false });
+}
+
+const S = D.sec;
+const bandProfile = z => z.map(row => { let a = 0, c = 0;
+  row.forEach((v, j) => { if (S.band_mask[j] && v !== null) { a += v; c++; } }); return c ? a / c : null; });
+const dataSec = ref('data').sec.mean;
+const minus = z => z.map((row, i) => row.map((v, j) => v === null || dataSec[i][j] === null ? null : v - dataSec[i][j]));
+const DIV = [[0, '#2166ac'], [0.25, '#67a9cf'], [0.45, '#d1e5f0'], [0.5, '#f7f7f7'], [0.55, '#fddbc7'], [0.75, '#ef8a62'], [1, '#b2182b']];
+
+function secPlot(div, z) {
+  const fg = css('--fg'), muted = css('--muted'), grid = css('--grid'), diff = st.smode === 'diff';
+  const zz = diff ? minus(z) : z, dprof = bandProfile(diff ? minus(dataSec) : dataSec);
+  const [start, end, size] = diff ? [-1.05, 1.05, 0.1] : S.levels;
+  const traces = [
+    { type: 'contour', x: S.lat, y: S.y, z: zz, zmin: diff ? -1 : start, zmax: diff ? 1 : end, colorscale: diff ? DIV : S.colorscale, connectgaps: false,
+      contours: { start, end, size, coloring: 'fill' }, line: { color: diff ? 'rgba(0,0,0,0.25)' : 'black', width: 0.6 },
+      colorbar: { x: 0.94, xanchor: 'left', thickness: 10, len: 0.9, title: { text: diff ? 'Δσ₀' : 'σ₀', side: 'right' }, tickfont: { size: 10, color: muted },
+        ...(diff ? { tickvals: [-1, -0.5, 0, 0.5, 1] } : {}) },
+      customdata: S.depth.map(d => S.lat.map(() => d)),
+      hovertemplate: 'lat %{x:.1f}°, %{customdata:.0f} m<br>' + (diff ? 'Δσ₀' : 'σ₀') + ' %{z:.2f}<extra></extra>' },
+    { type: 'scatter', x: dprof, y: S.y, xaxis: 'x2', yaxis: 'y', mode: 'lines', line: { color: muted, width: 1.5, dash: 'dash' },
+      customdata: S.depth, hovertemplate: 'data %{x:.2f} at %{customdata} m<extra></extra>' },
+    { type: 'scatter', x: bandProfile(zz), y: S.y, xaxis: 'x2', yaxis: 'y', mode: 'lines', line: { color: fg, width: 2 },
+      customdata: S.depth, hovertemplate: '%{x:.2f} at %{customdata} m<extra></extra>' },
+  ];
+  Plotly.react(div, traces, {
+    margin: { l: 44, r: 8, t: 6, b: 30 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+    font: { color: fg, size: 11 },
+    xaxis: { domain: [0, 0.8], title: { text: 'latitude [°N]', font: { size: 11 } }, color: muted, gridcolor: grid, zeroline: false },
+    xaxis2: { domain: [0.82, 0.92], range: diff ? [-1, 1] : S.profile_range, anchor: 'y', tickfont: { size: 9 }, nticks: 3,
+              color: muted, gridcolor: grid, zeroline: diff, zerolinecolor: css('--zero') },
+    yaxis: { range: [S.y_max, 0], tickvals: S.tickvals, ticktext: S.ticks.map(String), title: { text: 'depth [m]', font: { size: 11 } },
+             color: muted, gridcolor: grid, zeroline: false },
+    shapes: [...S.band.map(b => ({ type: 'line', xref: 'x', yref: 'paper', x0: b, x1: b, y0: 0, y1: 1, line: { color: 'gray', width: 1, dash: 'dash' } })),
+             { type: 'rect', xref: 'paper', yref: 'paper', x0: 0.82, x1: 0.92, y0: 0, y1: 1, fillcolor: 'rgba(128,128,128,0.25)', line: { width: 0 }, layer: 'below' }],
+  }, { displayModeBar: false, responsive: true });
+}
+
+let secObs = null;
+function drawSections() {
+  const box = document.getElementById('secs'), runs = D.runs.filter(r => r.on);
+  box.innerHTML = runs.map((r, i) => `<div class="secrow"><h2><span class="sw" style="background:${colorOf(r)}"></span>${r.label}
+      <span class="stat">· n = ${r.n} · E ${fmt(r.metrics.E)} % · bias lev 0 ${sgn(r.metrics['b lev0'])}</span></h2>
+    <div class="pair"><div><div class="cap">median member ${r.sec.m + 1} / ${r.n} · RMSE ${r.sec.rmse.toFixed(3)} · E ${r.sec.E.toFixed(2)} %</div>
+      <div class="splot" id="smed-${i}"></div></div>
+      <div><div class="cap">batch average</div><div class="splot" id="savg-${i}"></div></div></div></div>`).join('')
+    || '<div class="note">No run selected.</div>';
+  if (secObs) secObs.disconnect();
+  secObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) {
+    const i = +e.target.id.split('-')[1]; secPlot(`smed-${i}`, runs[i].sec.median); secPlot(`savg-${i}`, runs[i].sec.mean);
+    secObs.unobserve(e.target); } }), { root: box, rootMargin: '300px' });
+  box.querySelectorAll('[id^=smed-]').forEach(el => secObs.observe(el));
+}
+
+function refresh() { buildList(); buildTable(); draw(); }
+refresh();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refresh);
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "variant": "zero_mean",
+  "eta": [
+    0.1
+  ],
+  "eps": [
+    0.01
+  ],
+  "lbd0": [
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "centred": false,
+  "centre_grad": false,
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "zm_b8",
+  "minutes": 5.586940431594849
+}

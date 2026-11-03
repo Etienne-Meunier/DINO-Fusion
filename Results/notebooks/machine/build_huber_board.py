@@ -4,6 +4,7 @@ over the batch) for the runs of `optimal/` and the eta sweep of the density loss
 every row the zonal sigma_0 section of its median member and of its batch average, with the profile over the BAND
 latitudes, as `paper/fig1_density_profile.py`. The median member is computed both by RMSE to the data batch-average
 section (as fig1) and by density error, the page switches between the two.
+The metrics and sections of each run are cached (viewer_cache) until its samples or the code change.
 """
 from pathlib import Path
 import sys
@@ -14,6 +15,7 @@ from common import *
 from functools import partial
 import cmocean.cm as cm
 from metrics import compute_density_error, get_density_at_surface, temperature_BWbox_metric, temperature_DWbox_metric
+from viewer_cache import array_id, cached, code_hash, source_hash
 
 OUT = HERE / 'huber_board.html'
 SWEEP = f'{INFERENCE}/sweep_density_huber/negative_grad_density_huber_border0'
@@ -73,7 +75,8 @@ labels = {'data' : 'Data', 'none' : 'No constraint', 'none_border0' : 'No constr
           'mean_density_border0' : 'Density constraint (mean_density)', 'zero_mean_border0' : 'TS constraint (zero_mean)',
           'none_b8' : 'No constraint, border 0 (b8, paired)'}
 order = ['data', 'none', 'none_border0', 'mean_density_border0', 'zero_mean_border0', 'negative_grad_density_huber_border0',
-         'negative_grad_density_huber_border0_30', 'negative_grad_density_huber_border0_80']
+         'negative_grad_density_huber_border0_30', 'negative_grad_density_huber_border0_50',
+         'negative_grad_density_huber_border0_80']
 for k in order[5:] :
     if k in gens_args :
         labels[k] = f"Monotonicity C7, eta {gens_args[k]['eta']:g} (b16, optimal)"
@@ -94,7 +97,8 @@ latitude = file_mask_LR.gphit.isel(nav_lon=10).values
 band = (latitude >= BAND[0]) & (latitude < BAND[1])
 
 rows, data_mean = [], None
-for name, x in runs.items() :
+def describe_run(x) :
+    """Box metrics and density error of each member {column : [...]}, density errors (b,) and zonal sections (b, z, y) of x."""
     fields = {k : v.detach().cpu() for k, v in observer.unnormalized(x).items()}
     stats = {c : [] for c in COLUMNS}
     for field in ['toce', 'soce'] :
@@ -105,7 +109,13 @@ for name, x in runs.items() :
                 stats[(key, field)].append(f(sample, file_mask_LR).item())
     errors = np.asarray([float(v) for v in compute_density_error(fields, file_mask_LR)])
     stats[('density_errors', 'density')] = list(errors)
-    sections = zonal_sections({k : v.numpy() for k, v in fields.items()})
+    return stats, errors, zonal_sections({k : v.numpy() for k, v in fields.items()})
+
+
+code = [code_hash(__file__), source_hash(compute_density_error, temperature_BWbox_metric, temperature_DWbox_metric,
+                                         get_density_at_surface, observer.unnormalized)]
+for name, x in runs.items() :
+    stats, errors, sections = cached('huber', [*code, array_id(x)], lambda : describe_run(x))
     mean = np.nanmean(sections, axis=0)
     if data_mean is None :
         data_mean = mean

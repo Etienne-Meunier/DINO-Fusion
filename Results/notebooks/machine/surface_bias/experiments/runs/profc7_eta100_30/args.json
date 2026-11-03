@@ -1,0 +1,24 @@
+{
+  "variant": "profile_c7",
+  "eta": [
+    100.0,
+    30.0
+  ],
+  "eps": [
+    0.0,
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0,
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "profc7_eta100_30",
+  "minutes": 10.885253683725994
+}

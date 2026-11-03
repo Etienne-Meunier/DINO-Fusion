@@ -11,7 +11,7 @@ One row per source, batch average as the default view of the tab. Columns:
         rest of the basin in greys, log10 scale, each normalised by its own volume, sigma_0 isopycnals.
 Both T-S panels have S on the x axis and T on the y axis.
 
-Main figure: sources of CONFIGS_MAIN. Appendix: every source of `sources`."""
+Main figure: sources of CONFIGS_MAIN. Appendix: sources of CONFIGS_APPENDIX, both from CONFIGS of the sweep."""
 from common import *
 
 sys.path.append(f'{PRP}/Results/notebooks/machine/')
@@ -26,9 +26,8 @@ plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, '
                      'ytick.labelsize': 7, 'legend.fontsize': 7})
 from build_density_viewer import N_CLUSTERS, N_DATA, TS_S_EDGES, TS_T_EDGES, ProfileClusters, acc_mask, ts_histograms
 
-CONFIGS_MAIN = ['data', 'zero_mean_border0', 'negative_grad_density_huber_border0']
-CONFIGS_APPENDIX = list(dict.fromkeys(['data', 'none', 'none_border0', 'zero_mean_border0', 'mean_density_border0',
-                                       'negative_grad_density_huber_border0'] + list(sources)))
+CONFIGS_MAIN = CONFIGS['fig2_main']
+CONFIGS_APPENDIX = CONFIGS['fig2_appendix']
 N_FIT = N_DATA
 CHUNK = 25  # members processed at once, the float64 profiles of a whole batch do not fit in memory
 SST_LEVELS = np.linspace(0, 27, 28)
@@ -171,7 +170,7 @@ def plot_grid(configs, name):
             axs[i, j].set_ylabel('T [°C]')
             axs[i, j].tick_params(labelsize=7)
         for j, column in enumerate(COLUMNS):
-            axs[i, j].set_title(f'{chr(ord("a") + i * ncols + j)}) {column}')
+            axs[i, j].set_title(f'{panel_letter(i * ncols + j)}) {column}')
         axs[i, 0].text(-0.45, 0.5, NAMES[s], transform=axs[i, 0].transAxes, rotation=90, ha='center', va='center',
                        fontsize=8)
     for j in range(2, 4):
@@ -186,7 +185,7 @@ def plot_grid(configs, name):
                ['k-means centre (data)', 'mean profile of the cluster'], loc='upper center', fontsize=7, frameon=False,
                bbox_to_anchor=(p.x0 + p.width / 2, p.y0 - 0.3 / height))
     os.makedirs(FIGURES, exist_ok=True)
-    fig.savefig(f'{FIGURES}/{name}.pdf', bbox_inches='tight', dpi=200)
+    save(fig, f'{FIGURES}/{name}.pdf', bbox_inches='tight', dpi=200)
     return fig
 
 

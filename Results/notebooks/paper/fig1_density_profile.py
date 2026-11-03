@@ -1,8 +1,9 @@
 """Figure 1: zonal sigma_0 sections as the Density tab of `machine/density_viewer.html`, with the batch-average profile
 over the BAND latitudes as a black inset.
 
-Main figure: median member by RMSE of each source in CONFIGS_MAIN, one per row. Appendix: every source in
-CONFIGS_APPENDIX, one per row, median member on the left and batch-average section on the right."""
+Main figure, split in two: batch-average section of each source in PAIRS, the two sources of a pair side by side
+(fig1a, fig1b), all saved in the `fig1` subfolder of FIGURES. Appendix: every source in CONFIGS_APPENDIX, one per row, median member on the left and batch-average
+section on the right."""
 from common import *
 
 import cmocean.cm as cm
@@ -11,9 +12,10 @@ plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, '
                      'ytick.labelsize': 7, 'legend.fontsize': 7})
 
 
-CONFIGS_MAIN = ['data', 'none', 'zero_mean_border0', 'negative_grad_density_huber_border0']
-CONFIGS_APPENDIX = ['data', 'none', 'none_border0', 'zero_mean_border0', 'mean_density_border0',
-                    'negative_grad_density_huber_border0']
+CONFIGS_MAIN = CONFIGS['fig1_main']
+PAIRS = {'fig1a': CONFIGS_MAIN[:2], 'fig1b': CONFIGS_MAIN[2:4]}
+OUT = f'{FIGURES}/fig1'
+CONFIGS_APPENDIX = CONFIGS['fig1_appendix']
 BAND = (-65, -45)
 LEVELS = np.arange(22., 28.51, 0.5)
 PROFILE_RANGE = (25., 28.5)
@@ -81,13 +83,28 @@ def plot_grid(rows, name):
         ax.set_xlabel('latitude [°N]')
     cbar = fig.colorbar(cf, ax=axs, label=r'$\sigma_0$ [kg m$^{-3}$ - 1000]', fraction=0.03 / ncols, pad=0.02 / ncols)
     cbar.ax.invert_yaxis()
-    os.makedirs(FIGURES, exist_ok=True)
-    fig.savefig(f'{FIGURES}/{name}.pdf', bbox_inches='tight')
+    save(fig, f'{OUT}/{name}.pdf', bbox_inches='tight')
     return fig
 
 
-plot_grid([(s, [(sections[s][medians[s]], NAMES[s])]) for s in CONFIGS_MAIN], 'fig1_density_profile')
+def plot_row(row, name):
+    """Batch-average section of each source of `row` side by side, one colour bar on the right, save as `name`.pdf."""
+    fig, axs = plt.subplots(1, len(row), figsize=(3.4 * len(row), 1.9), sharey=True, squeeze=False,
+                            gridspec_kw={'wspace': 0.05})
+    for j, s in enumerate(row):
+        section = np.nanmean(sections[s], axis=0)
+        cf = plot_main_and_inset(axs[0, j], section, band_profile(section), f'{chr(ord("a") + j)}) {NAMES[s]}')
+        axs[0, j].set_xlabel('latitude [°N]')
+    axs[0, 0].set_ylabel('depth [m]')
+    cbar = fig.colorbar(cf, ax=axs, label=r'$\sigma_0$ [kg m$^{-3}$ - 1000]', fraction=0.03, pad=0.02)
+    cbar.ax.invert_yaxis()
+    save(fig, f'{OUT}/{name}.pdf', bbox_inches='tight')
+    return fig
+
+
+for name, row in PAIRS.items():
+    plot_row(row, name)
 plot_grid([(s, [(sections[s][medians[s]], f'{NAMES[s]}, median'),
                 (np.nanmean(sections[s], axis=0), f'{NAMES[s]}, batch mean')]) for s in CONFIGS_APPENDIX],
-          'fig1_density_profile_appendix')
+          'fig1_appendix')
 plt.show()

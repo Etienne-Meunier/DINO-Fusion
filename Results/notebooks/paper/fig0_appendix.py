@@ -88,5 +88,5 @@ for ax in axs[[0, 2]]:
     ax.spines[['top', 'right']].set_visible(False)
 
 os.makedirs(FIGURES, exist_ok=True)
-fig.savefig(f'{FIGURES}/fig0_appendix.pdf', bbox_inches='tight')
+save(fig, f'{FIGURES}/fig0_appendix.pdf', bbox_inches='tight')
 plt.show()

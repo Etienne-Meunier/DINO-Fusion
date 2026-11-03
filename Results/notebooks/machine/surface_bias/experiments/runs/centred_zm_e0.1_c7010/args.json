@@ -1,0 +1,31 @@
+{
+  "variant": "zero_mean_c7",
+  "eta": [
+    0.1,
+    10.0
+  ],
+  "eps": [
+    0.01,
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0,
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "centred": true,
+  "centre_grad": false,
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "centred_zm_e0.1_c7010",
+  "minutes": 7.995257186889648
+}

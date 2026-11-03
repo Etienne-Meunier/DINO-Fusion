@@ -1,0 +1,26 @@
+{
+  "variant": "c7",
+  "eta": [
+    200.0
+  ],
+  "eps": [
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "c7_c7200",
+  "minutes": 8.270017449061076
+}

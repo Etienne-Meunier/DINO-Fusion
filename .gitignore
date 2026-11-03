@@ -1,6 +1,8 @@
 *.npy
 *.pth
 *.pyc
+*.js
+*.npz
 __pycache__/
 .ipynb_checkpoints/
 .DS_Store
@@ -8,3 +10,8 @@ Results/a_priori/figures/
 Results/a_posteriori/figures/
 *.bkp
 Results/archived/
+Results/notebooks/machine/.cache/
+
+# paper figure session kernel
+Results/notebooks/paper/.kernel.json
+Results/notebooks/paper/.kernel.log

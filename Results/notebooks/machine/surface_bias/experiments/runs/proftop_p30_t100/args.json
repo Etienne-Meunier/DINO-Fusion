@@ -1,0 +1,29 @@
+{
+  "variant": "profile_topfree",
+  "eta": [
+    30.0,
+    100.0
+  ],
+  "eps": [
+    0.0,
+    8.6e-08
+  ],
+  "lbd0": [
+    1.0,
+    1.0
+  ],
+  "mode": [
+    "raw"
+  ],
+  "t_on": null,
+  "anchor": "parallel",
+  "dT": 0.1,
+  "dS": 0.01,
+  "drho": 0.1,
+  "K": 12,
+  "batch": 8,
+  "seed": 0,
+  "steps": 1000,
+  "name": "proftop_p30_t100",
+  "minutes": 10.735188619295757
+}
