@@ -15,3 +15,5 @@ Results/notebooks/machine/.cache/
 # paper figure session kernel
 Results/notebooks/paper/.kernel.json
 Results/notebooks/paper/.kernel.log
+Results/notebooks/paper-clean/.kernel.json
+Results/notebooks/paper-clean/.kernel.log

@@ -1,0 +1,31 @@
+% Subject: Table 1: mean over the batch of the box metrics and of the density error, one row per source, ordered and named as in
+% NAMES.
+% 
+% Box metrics: volume mean (e1t e2t e3t_0 of GRID) of T and S over the Bottom Water box (below DEPTH_BOX or poleward of
+% 30°) and the Deep Water box (between 500 m and DEPTH_BOX, within 30° of the equator), the depth of a cell being its
+% gdept_0. Density error: `common.density_error`. The LaTeX table rounds mean and std to one decimal and gives the box
+% metrics of the generated sources as their bias to the data mean.
+% Creator: /Users/emeunier/Desktop/Projets/DINO-Fusion/Results/notebooks/paper-clean/table1_score_table.py @ bc89fb0-dirty
+% Keywords: run tav0h83b, sweep optimal
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/data/201026-183649
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/reference_density/reference_density.npy
+% /Volumes/LoCe/oceandata//Dino-Fusion-Data/Restart-format/1deg_restart
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/mean_density_border0/171026-012335
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0/181026-172751
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_30/211026-144626
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_50/231026-113017
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_80/211026-124352
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/none/151026-221621
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/none_border0/151026-150424
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/zero_mean_border0/171026-014033
+\begin{tabular}{lccccc}
+\toprule
+ & BW T [$^\circ$C] & BW S [g kg$^{-1}$] & DW T [$^\circ$C] & DW S [g kg$^{-1}$] & Density error [\%] \\
+\midrule
+Data & 3.4 $\pm$ 0.0 & 35.2 $\pm$ 0.0 & 5.6 $\pm$ 0.0 & 35.2 $\pm$ 0.0 & 0.4 $\pm$ 0.1 \\
+No constraint & -0.1 $\pm$ 0.3 & 0.1 $\pm$ 0.0 & 0.3 $\pm$ 0.7 & 0.0 $\pm$ 0.1 & 24.1 $\pm$ 6.6 \\
+Boundary projection & -0.1 $\pm$ 0.1 & 0.0 $\pm$ 0.0 & 0.0 $\pm$ 0.2 & 0.0 $\pm$ 0.0 & 8.4 $\pm$ 3.7 \\
+Increasing density constraint, eta = 30 & -0.1 $\pm$ 0.1 & 0.0 $\pm$ 0.0 & 0.0 $\pm$ 0.2 & 0.0 $\pm$ 0.0 & 1.8 $\pm$ 0.4 \\
+T,S mean constraint & -0.1 $\pm$ 0.0 & 0.0 $\pm$ 0.0 & -0.1 $\pm$ 0.0 & 0.0 $\pm$ 0.0 & 1.3 $\pm$ 0.1 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,37 @@
+% Subject: Table 2: first two moments of each generation against the whole training set, per field (T, S, SSH).
+% 
+% For a source of n states, at every ocean cell, the batch mean mu and the batch variance var (ddof = 1) are compared to
+% those of all the training states (mu_D, var_D):
+% 
+%     bias   = sqrt(sum w (mu - mu_D)^2 / sum w)          [field units]
+%     spread = sqrt(sum w var / sum w var_D)              [1 = same variance, < 1 under-dispersive]
+% 
+% with w the ocean cell volume e1t e2t e3t_0 of GRID (area e1t e2t of the surface ocean cells for SSH). The noise floor is
+% the same scores for N_FLOOR disjoint random groups of n training states (mean ± std over the groups), the data row the
+% first n states of `batch`, the data states of the a posteriori data run, drawn from the start of the time-ordered
+% training set.
+% Creator: /Users/emeunier/Desktop/Projets/DINO-Fusion/Results/notebooks/paper-clean/table2_moments.py @ bc89fb0-dirty
+% Keywords: run tav0h83b, sweep optimal
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/data/201026-183649
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/reference_density/reference_density.npy
+% /Volumes/LoCe/oceandata//Dino-Fusion-Data/Restart-format/1deg_restart
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/mean_density_border0/171026-012335
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0/181026-172751
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_30/211026-144626
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_50/231026-113017
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/negative_grad_density_huber_border0_80/211026-124352
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/none/151026-221621
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/none_border0/151026-150424
+% /Volumes/LoCe/oceandata//models/dino-fusion/tav0h83b/inference/optimal/zero_mean_border0/171026-014033
+\begin{tabular}{lcccccc}
+\toprule
+ & T [$^\circ$C] bias & T [$^\circ$C] spread & S [g kg$^{-1}$] bias & S [g kg$^{-1}$] spread & SSH [m] bias & SSH [m] spread \\
+\midrule
+Data, 16 random states (32 groups) & 0.049 $\pm$ 0.003 & 1.00 $\pm$ 0.01 & 0.0066 $\pm$ 0.0007 & 1.00 $\pm$ 0.02 & 0.021 $\pm$ 0.001 & 1.00 $\pm$ 0.01 \\
+Data, 16 states of the data run & 0.097 & 0.92 & 0.0153 & 0.83 & 0.023 & 0.99 \\
+No constraint & 1.343 & 8.33 & 0.1203 & 7.64 & 0.140 & 8.56 \\
+Boundary projection & 0.436 & 2.70 & 0.0567 & 2.55 & 0.217 & 2.05 \\
+Increasing density constraint, eta = 30 & 0.365 & 2.46 & 0.0628 & 2.21 & 0.115 & 1.79 \\
+T,S mean constraint & 0.284 & 1.53 & 0.0349 & 1.54 & 0.091 & 1.33 \\
+\bottomrule
+\end{tabular}
