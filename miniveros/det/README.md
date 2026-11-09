@@ -6,7 +6,8 @@ the TKE vertical-mixing closure (`settings.c_k`, `settings.c_eps`; setup default
 
 ## Setup
 
-- Veros ACC setup (`setups/acc/acc.py`): 2° cells, 30 x 42 x 15, about 42S to 42N, 2080 m, flat bottom. A 4°
+- Model: mini_veros, a JAX port of Veros by E. Meunier, ACC setup `acc/full` (the settings of Veros's
+  `setups/acc/acc.py`): 2° cells, 30 x 42 x 15, about 42S to 42N, 2080 m, flat bottom. A 4°
   meridional wall runs from 20S to the northern boundary; south of 20S the domain is a re-entrant channel.
 - Steady forcing: zonal wind over the channel (up to 0.1 N/m2) and north of 10N (up to 0.2 N/m2); surface
   temperature restored over 30 days. Initial T linear in depth from 15 C; salinity 35; nonlinear equation of state
@@ -15,7 +16,8 @@ the TKE vertical-mixing closure (`settings.c_k`, `settings.c_eps`; setup default
   and the dissipation are unchanged under (c_k, c_eps, e) -> (lambda c_k, lambda c_eps, e/lambda), so the state
   depends mainly on c_k/c_eps. The EKE closure that sets K_gm is held at its setup values (0.4, 0.5).
 - Check on the raw runs (last output, median over levels 3-11): along c_k/c_eps = 1/7, tke falls about 45-fold
-  while c_k * tke stays at 1.7-1.9e-7 m2/s2, and eke stays at 7.5e-4 m2/s2. The run script is not in the repository.
+  while c_k * tke stays at 1.7-1.9e-7 m2/s2, and eke stays at 7.5e-4 m2/s2. The sweep's own records (MiniVeros-Diffusion repository) also describe c_k and
+  c_eps as the TKE closure's constants.
 
 ## Data
 

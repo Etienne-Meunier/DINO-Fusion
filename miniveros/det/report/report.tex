@@ -76,7 +76,8 @@ reproduced in \texttt{det/} (Section~\ref{sec:next}).}
 \section{Setup}
 \label{sec:setup}
 \begin{itemize}
-  \item Model: Veros \cite{hafner2018,hafner2021}, ACC setup (\texttt{setups/acc/acc.py}). Spherical grid of
+  \item Model: mini\_veros, a JAX port of Veros \cite{hafner2018,hafner2021} by E.~Meunier, with its ACC setup
+        (\texttt{acc/full}), which uses the settings of Veros's \texttt{setups/acc/acc.py}. Spherical grid of
         $2^\circ$ cells, 30 in longitude and 42 in latitude (about \ang{42}S to \ang{42}N), 15 levels down to
         \SI{2080}{m}, flat bottom.
   \item Geometry: a meridional wall, $4^\circ$ wide, from \ang{20}S to the northern boundary. South of
@@ -106,7 +107,8 @@ reproduced in \texttt{det/} (Section~\ref{sec:next}).}
   \item Check on the raw runs (last output, median over the water cells of levels 3--11). Along the diagonal
         $c_k/c_\epsilon = 1/7$, from $c_k = 0.0125$ to 0.504, $e$ falls about 45-fold while $c_k e$ stays at
         1.7--\SI{1.9e-7}{m^2 s^{-2}}, and the EKE stays at \SI{7.5e-4}{m^2 s^{-2}}. So the varied constants are the
-        TKE ones. The run script itself is not in the repository.
+        TKE ones. The sweep's own records (MiniVeros-Diffusion repository) also describe $c_k$ and $c_\epsilon$ as
+        the TKE closure's constants.
 \end{itemize}
 
 \section{Data}

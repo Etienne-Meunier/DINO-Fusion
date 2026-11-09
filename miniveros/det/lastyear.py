@@ -5,7 +5,8 @@
 Reads only the last year of ``temp`` from each raw run (by seeking inside the zip, as extract_data.py does) and
 writes one small npz: ``temp`` (R, Z, Y, X) float32, the mean of the 30-day outputs of the last model year
 (12 outputs, 360 days; land = 0); ``run_ck``, ``run_eps``, ``run_names``; ``mask_land`` (Z, Y, X); ``zt``; ``n_snap``.
-Salinity is exactly 35 in every water cell of every run, so it is not carried.
+Salinity is 35 in every water cell of every run's last year, to within 2e-8 psu (exactly 35 in float32), so it is
+not carried.
 """
 from __future__ import annotations
 

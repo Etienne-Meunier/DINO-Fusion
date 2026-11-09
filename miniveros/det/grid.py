@@ -49,9 +49,10 @@ def main(argv=None):
     logp = np.c_[np.log(run_ck), np.log(run_eps)]
     Z = (logp - logp.mean(0)) / logp.std(0)                       # as det.run
     R = len(Y)
-    selected = {r["split"]: r for r in csv.DictReader(open(Path(a.results) / "selected.csv"))}
-    reference = {(r["split"], r["method"], r["seed"], r["run"]): float(r["rmse_K"])
-                 for r in csv.DictReader(open(Path(a.results) / "metrics.csv"))}
+    with open(Path(a.results) / "selected.csv", newline="") as f:
+        selected = {r["split"]: r for r in csv.DictReader(f)}
+    with open(Path(a.results) / "metrics.csv", newline="") as f:
+        reference = {(r["split"], r["method"], r["seed"], r["run"]): float(r["rmse_K"]) for r in csv.DictReader(f)}
 
     for name in a.splits.split(","):
         t0 = clock.time()
