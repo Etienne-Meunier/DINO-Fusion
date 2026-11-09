@@ -94,11 +94,11 @@ def table_sensitivity(sens, mean):
             a, b = (next(r for r in sub if r[c] == "1") for c in (new, old))
             return "same" if a is b else cfg(a["activation"], a["alpha"])
 
-        if s == "four":
+        if s == "four":                                               # KFold(4) is leave-one-out: nothing to compare
             tex.append(r"\midrule")
         tex.append(f"{LABEL[s]} & {len(eq)} & {eq[0]:.3f}--{eq[-1]:.3f} & {sum(x < mean(s, 'gp_s') for x in eq)} & "
-                   f"{eq.index(pick) + 1} & {min(allten):.3f}--{max(allten):.3f} & {other('chosen_alt', 'chosen')} & "
-                   f"{other('chosen_min_alt', 'chosen_min')}" + r" \\")
+                   f"{eq.index(pick) + 1} & {min(allten):.3f}--{max(allten):.3f} & {other('chosen_alt', 'chosen') if s != 'four' else '--'} & "
+                   f"{other('chosen_min_alt', 'chosen_min') if s != 'four' else '--'}" + r" \\")
     return tex + [r"\bottomrule", r"\end{tabular}"]
 
 

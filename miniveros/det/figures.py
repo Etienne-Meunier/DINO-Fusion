@@ -85,16 +85,19 @@ def fig_data(data, out):
     axs[0].set_xticks(range(0, len(epss), 3), [f"{e:.3g}" for e in epss[::3]])
     axs[0].set_yticks(range(0, len(cks), 3), [f"{c:.3g}" for c in cks[::3]])
     axs[0].set_xlabel("c_eps"); axs[0].set_ylabel("c_k"); axs[0].tick_params(length=0)
-    axs[0].set_title("mean last-year T over water cells (K)")
+    axs[0].set_title("mean last-year T over water cells (°C)")
     cb = fig.colorbar(im, ax=axs[0], shrink=0.85, pad=0.02); cb.outline.set_visible(False)
+    ick0, ieps0 = (np.interp(np.log(v), np.log(a), np.arange(len(a))) for v, a in ((0.1, cks), (0.7, epss)))
+    axs[0].scatter(ieps0, ick0, s=70, marker="*", color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.5, zorder=3)
+    axs[0].annotate("ACC default\n(0.1, 0.7)", (ieps0, ick0), (6, 6), textcoords="offset points", fontsize=7.5)
     axs[1].scatter(s, tm, s=22, color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.6, zorder=3)
-    axs[1].set_xlabel(f"s = log c_k − {b:.2f} log c_eps"); axs[1].set_ylabel("mean last-year T (K)")
+    axs[1].set_xlabel(f"s = log c_k − {b:.2f} log c_eps"); axs[1].set_ylabel("mean last-year T (°C)")
     axs[1].set_title("the two parameters act through s"); axs[1].grid(alpha=1); axs[1].set_axisbelow(True)
     axs[1].tick_params(length=0)
     for sp in ("top", "right"):
         axs[1].spines[sp].set_visible(False)
     fig.tight_layout(); fig.savefig(out / "data.png", dpi=150); plt.close(fig)
-    print(f"data.png: s = log c_k - {b:.3f} log c_eps; domain-mean T {tm.min():.3f} to {tm.max():.3f} K")
+    print(f"data.png: s = log c_k - {b:.3f} log c_eps; domain-mean T {tm.min():.3f} to {tm.max():.3f} C")
 
 
 def fig_splits(rmse, seed_means, out):
@@ -190,8 +193,11 @@ def fig_examples(data, rmse, results, out):
             ax.set_yticks(levels, [f"{-zt[k]:.0f}" for k in levels] if ax is a[1] else [])
         a[1].set_ylabel("depth (m)")
         cb = fig.colorbar(im, ax=list(a[1:]), shrink=0.9, pad=0.012); cb.set_label("K"); cb.outline.set_visible(False)
+    lat = -41 + 2 * np.arange(water.shape[1])                                     # ACC grid: 2° cells, 42°S to 42°N
+    for ax in axs[:, 1:].ravel():
+        ax.set_xticks(np.searchsorted(lat, [-39, -21, 1, 21, 41]), ["40S", "20S", "0", "20N", "40N"] if ax in axs[-1] else [])
     for ax in axs[-1, 1:]:
-        ax.set_xlabel("y index (south → north)")
+        ax.set_xlabel("latitude")
     fig.savefig(out / "examples.png", dpi=150, bbox_inches="tight"); plt.close(fig)
 
 

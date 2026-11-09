@@ -1,7 +1,7 @@
 # miniveros
 
-Conditional diffusion emulator of Veros ACC ocean states. Given the two coefficients of the
-EKE eddy closure, `c_k` and `c_eps`, generate the temperature and salinity fields of the
+Conditional diffusion emulator of Veros ACC ocean states. Given the two constants of the
+TKE vertical-mixing closure, `c_k` and `c_eps`, generate the temperature and salinity fields of the
 post-spin-up state directly, skipping the spin-up integration.
 
 This package is a fork of the `Diffusion_Model` package of DINO-Fusion (NEMO/DINO), adapted to:
@@ -25,7 +25,7 @@ of every run on the interior grid, and writes one npz (the analogue of DINO's `x
 | `temp`, `salt` | `(N, 15, 42, 30)` float32 | `(sample, z, y, x)`; z index 0 is the bottom |
 | `ck`, `eps`, `run_id`, `time_s`, `year` | `(N,)` | per-sample parameters and time |
 | `run_names`, `run_ck`, `run_eps` | `(100,)` | per-run |
-| `mask_land` | `(15, 42, 30)` bool | fixed ridge, 930 cells |
+| `mask_land` | `(15, 42, 30)` bool | fixed meridional wall, 930 cells |
 | `holdout_runs`, `train_runs` | | optional stored split (normally empty; the split is chosen in the config) |
 | `lvl_mean/std` `(2, 15)` | | per-level normalisation statistics over water cells, all runs |
 | `cond_keys`, `cond_mean`, `cond_std` | | standardisation of `log ck`, `log eps` |
