@@ -159,7 +159,11 @@ python -m det.run                                         # results/metrics.csv,
 python -m det.sensitivity                                 # results/sensitivity.csv (every configuration and seed set, other CV partitions; 28 min)
 python -m det.tables                                      # results/table_*.tex for the report, and the table above
 python -m det.figures                                     # results/*.png
+python -m det.grid                                        # data/det_grid/<split>.npz: predictions at every grid point (30 s)
 ```
+
+`det.grid` feeds the evaluation reports of the MiniVeros-Diffusion repository (branch `deterministic-evaluation`,
+`deterministic_evaluation/`): the network and the GP on s fitted on each split, predicting all 100 runs.
 
 Needs numpy, scipy, scikit-learn, joblib, threadpoolctl and matplotlib (all in the conda base environment); no
 torch.
