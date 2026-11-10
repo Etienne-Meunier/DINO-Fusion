@@ -84,15 +84,15 @@ def fig_data(data, out):
     im = axs[0].imshow(g, origin="lower", cmap=BLUES)
     axs[0].set_xticks(range(0, len(epss), 3), [f"{e:.3g}" for e in epss[::3]])
     axs[0].set_yticks(range(0, len(cks), 3), [f"{c:.3g}" for c in cks[::3]])
-    axs[0].set_xlabel("c_eps"); axs[0].set_ylabel("c_k"); axs[0].tick_params(length=0)
+    axs[0].set_xlabel(r"$c_\epsilon$"); axs[0].set_ylabel(r"$c_k$"); axs[0].tick_params(length=0)
     axs[0].set_title("mean last-year T over water cells (°C)")
     cb = fig.colorbar(im, ax=axs[0], shrink=0.85, pad=0.02); cb.outline.set_visible(False)
     ick0, ieps0 = (np.interp(np.log(v), np.log(a), np.arange(len(a))) for v, a in ((0.1, cks), (0.7, epss)))
     axs[0].scatter(ieps0, ick0, s=70, marker="*", color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.5, zorder=3)
-    axs[0].annotate("ACC default\n(0.1, 0.7)", (ieps0, ick0), (6, 6), textcoords="offset points", fontsize=7.5)
+    axs[0].annotate("default\n(0.1, 0.7)", (ieps0, ick0), (6, 6), textcoords="offset points", fontsize=7.5)
     axs[1].scatter(s, tm, s=22, color=STYLE["mlp"][1], edgecolor=SURFACE, linewidth=0.6, zorder=3)
-    axs[1].set_xlabel(f"s = log c_k − {b:.2f} log c_eps"); axs[1].set_ylabel("mean last-year T (°C)")
-    axs[1].set_title("the two parameters act through s"); axs[1].grid(alpha=1); axs[1].set_axisbelow(True)
+    axs[1].set_xlabel(rf"$s = \log c_k - {b:.2f}\,\log c_\epsilon$"); axs[1].set_ylabel("mean last-year T (°C)")
+    axs[1].set_title("collapse onto one combination"); axs[1].grid(alpha=1); axs[1].set_axisbelow(True)
     axs[1].tick_params(length=0)
     for sp in ("top", "right"):
         axs[1].spines[sp].set_visible(False)
@@ -138,8 +138,52 @@ def fig_profiles(levels, out):
     legend_on_top(fig); fig.tight_layout(rect=(0, 0, 1, 0.95)); fig.savefig(out / "profiles.png", dpi=150); plt.close(fig)
 
 
-EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("four", "ck0.126_eps0.8819"),     # the centre run and the warm
-                ("top", "ck0.8_eps0.0875"), ("outer75", "ck0.8_eps0.0875"), ("four", "ck0.8_eps0.0875")]   # corner
+def collapse(data):
+    """(b, s): the exponent of the collapse and s = log c_k - b log c_eps of every run, from a linear fit of the
+    first PCA coefficient of the states on (log c_k, log c_eps)."""
+    from det.methods import PCA
+    Y = data["temp"][:, ~data["mask_land"]].astype(np.float64)
+    logp = np.c_[np.log(data["run_ck"]), np.log(data["run_eps"])]
+    a1 = PCA(1).fit(Y).coefficients(Y)[:, 0]
+    w = np.linalg.lstsq(np.c_[logp, np.ones(len(Y))], a1, rcond=None)[0][:2]
+    b = -w[1] / w[0]
+    return b, logp[:, 0] - b * logp[:, 1]
+
+
+def fig_runs(data, rmse, out, splits=("loo", "outer75")):
+    """RMSE of every held-out run against s, for the network, the GP on s and the nearest run; one panel per split,
+    with the range of s of the training runs shaded where the split has one."""
+    _, s = collapse(data)
+    names = [str(n) for n in data["run_names"]]
+    series = [("nearest", 16), ("gp_s", 20), ("mlp", 20)]                         # drawn in this order, the network on top
+    splits = [sp for sp in splits if (sp, "mlp") in rmse]
+    fig, axs = plt.subplots(1, len(splits), figsize=(4.6 * len(splits), 3.6), sharey=True, squeeze=False)
+    for ax, sp in zip(axs[0], splits):
+        held = sorted(rmse[(sp, "mlp")], key=names.index)
+        x = s[[names.index(n) for n in held]]
+        if len(held) < len(names):
+            train = s[[i for i, n in enumerate(names) if n not in held]]
+            ax.axvspan(train.min(), train.max(), color=GRIDLINE, alpha=0.55, lw=0, zorder=0)
+            ax.text(0.5 * (train.min() + train.max()), 0.97, r"training range of $s$", transform=ax.get_xaxis_transform(),
+                    ha="center", va="top", fontsize=8, color=INK2)
+        for m, size in series:
+            _, c, mk, _ = STYLE[m]
+            ax.scatter(x, [rmse[(sp, m)][n] for n in held], s=size, color=c, marker=mk, edgecolor=SURFACE, linewidth=0.5,
+                       zorder=3)
+        ax.set_yscale("log"); ax.set_title(f"{LABEL[sp]} ({len(held)} runs)")
+        ax.set_yticks([0.003, 0.01, 0.03, 0.1, 0.3, 1], ["0.003", "0.01", "0.03", "0.1", "0.3", "1"]); ax.minorticks_off()
+        ax.grid(alpha=1); ax.set_axisbelow(True); ax.tick_params(length=0)
+        ax.set_xlabel(r"$s$ of the held-out run")
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+    axs[0, 0].set_ylabel("RMSE of the run (K)")
+    order = ["mlp", "gp_s", "nearest"]
+    fig.legend([plt.Line2D([], [], color=STYLE[m][1], marker=STYLE[m][2], ls="", ms=6) for m in order],
+               [STYLE[m][0] for m in order], loc="upper center", ncol=len(order), bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(rect=(0, 0, 1, 0.93)); fig.savefig(out / "runs.png", dpi=150); plt.close(fig)
+
+
+EXAMPLE_ROWS = [("centre7", "ck0.126_eps0.8819"), ("top", "ck0.8_eps0.0875"), ("outer75", "ck0.8_eps0.0875")]
 
 
 def fig_examples(data, rmse, results, out):
@@ -182,7 +226,7 @@ def fig_examples(data, rmse, results, out):
         a[0].set_aspect("equal"); a[0].set_xlim(-0.8, len(epss) - 0.2); a[0].set_ylim(-0.8, len(cks) - 0.2)
         a[0].set_xticks([0, 3, 6, 9], [f"{x:.3g}" for x in epss[[0, 3, 6, 9]]], fontsize=7)
         a[0].set_yticks([0, 3, 6, 9], [f"{x:.3g}" for x in cks[[0, 3, 6, 9]]], fontsize=7)
-        a[0].set_xlabel("c_eps", fontsize=8); a[0].set_ylabel("c_k", fontsize=8); a[0].tick_params(length=0)
+        a[0].set_xlabel(r"$c_\epsilon$", fontsize=8); a[0].set_ylabel(r"$c_k$", fontsize=8); a[0].tick_params(length=0)
         a[0].set_title(f"split: {LABEL[s]}\n{len(tr)} training runs (grey)", fontsize=8.5)
         norm = TwoSlopeNorm(0.0, -lim[r], lim[r])
         titles = ("true anomaly\n(zonal mean)", f"network\ncorrelation {corr:.2f}, amplitude {amp:.2f}",
@@ -211,6 +255,7 @@ def main(argv=None):
     rmse, seed_means, levels = load(results)
     fig_data(data, results)
     fig_splits(rmse, seed_means, results)
+    fig_runs(data, rmse, results)
     fig_profiles(levels, results)
     fig_examples(data, rmse, results, results)
     print(f"figures in {results}")

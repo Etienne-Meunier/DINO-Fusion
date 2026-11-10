@@ -1,5 +1,5 @@
 \documentclass[11pt,a4paper]{article}
-\usepackage[margin=2cm]{geometry}
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
@@ -8,463 +8,305 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
 \usepackage{float}
-\usepackage{enumitem}
-\captionsetup{font=small}
-\setlist[itemize]{nosep, leftmargin=1.2em}
-\setlength{\parskip}{3pt}
+\usepackage[section]{placeins}
+\captionsetup{font=small, labelfont=bf}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
 
-\title{A deterministic emulator of the Veros ACC last-year state}
+\title{Emulating the year-100 state of an idealised ocean model\\from two vertical-mixing constants}
 \author{}
-\date{31 October 2026}
+\date{10 November 2026}
 
 \begin{document}
 \maketitle
 
-\section*{Summary}
-\begin{itemize}
-  \item Goal: predict the temperature of the last year of 100-year Veros ACC runs directly from the two constants
-        $(c_k, c_\epsilon)$ of the TKE vertical-mixing closure, without running the model. The target is the
-        state at year 100 of this protocol, not an equilibrium (Section~\ref{sec:setup}).
-  \item Method: a small deterministic network maps $z = (\log c_k, \log c_\epsilon)$, standardised, to the leading
-        PCA coefficients of the training states; it is an ensemble of 5 initialisations. Hyper-parameters come from
-        repeated cross-validation with the one-standard-error rule. A fit takes seconds on a CPU.
-  \item The two constants act mainly through $s \approx \log c_k - 1.08\log c_\epsilon$, close to their ratio,
-        as the closure's scaling invariance implies (Section~\ref{sec:setup}). The emulators that use $s$ are the
-        strong ones.
-  \item Interpolation (scattered points, a band of three rows, the $5\times5$ and $7\times7$ centre blocks,
-        leave-one-out): RMSE 0.017--\SI{0.038}{K}.
-        \begin{itemize}
-          \item A Gaussian process on $s$, the best GP tested, gives 0.019--\SI{0.045}{K}. The network's mean is
-                lower on all five evaluations, by 0.0025--\SI{0.0075}{K} (13--17\,\%).
-          \item This margin is consistent but not statistically established. Per-run tests give Holm
-                $p \le 0.044$ on four of the five, but runs on one $c_k/c_\epsilon$ diagonal are near-replicates,
-                so those tests are optimistic. With diagonals as units no evaluation is significant\textsuperscript{\dag}.
-          \item Not compared here: linear interpolation of the fields along $s$ and a GP on $(s, s_\perp)$. Linear
-                interpolation along $s$ appears to match the network in interpolation\textsuperscript{\dag}.
-          \item The nearest run in $z$ gives 0.038--\SI{0.118}{K}; its value depends on how equidistant neighbours
-                are ordered.
-        \end{itemize}
-  \item Extrapolation (top row, outer 51, outer 75): 0.049 / 0.067 / \SI{0.114}{K}.
-        \begin{itemize}
-          \item The GP on $s$ gives 0.079 / 0.074 / \SI{0.125}{K}. Per-run tests favour the network on outer 51
-                and outer 75 (Holm $p = 0.013$ and 0.004; on outer 75 only with the one-standard-error choice).
-                With diagonals as units neither is significant\textsuperscript{\dag}.
-          \item The cause differs by split\textsuperscript{\dag}. On outer 75 nearly all of the margin comes from
-                runs beyond the warm end of the training range in $s$, where the network continues the steep
-                warm-end slope and the GP flattens. On outer 51 and the top row it comes mostly from the second
-                direction $s_\perp$.
-          \item The error is largest along the warm edge (large $c_k$, small $c_\epsilon$). At the warm corner
-                it is \SI{0.16}{K} one row from the training set and \SI{1.06}{K} three cells away.
-          \item Extrapolated fields toward the warm corner contain temperature inversions of up to several kelvin,
-                against at most \SI{0.17}{K} in the truth, for every method\textsuperscript{\dag}. With this
-                equation of state they are density inversions. They come from the 20-mode decoder, so such fields
-                are not usable model states as they stand.
-        \end{itemize}
-  \item The margin over the GP on $s$ also depends on the selection rule. With the minimum CV error instead, the
-        network ties on the $7\times7$ block and on outer 75. The one-standard-error rule was adopted after a first
-        review had seen test errors, so its margins are not a blind test. On the eight main evaluations the
-        network is below the GP on $z$, the RBF and the nearest run under both rules.
-  \item Robustness: four initialisation sets move a split's mean by 0.0004--\SI{0.0010}{K}, and by
-        \SI{0.0028}{K} on the top row. Among the configurations that cross-validation cannot tell apart, the test
-        error spans up to \SI{0.03}{K}. With one BLAS thread a refit reproduces every number bit for bit.
-  \item With four training runs cross-validation cannot choose the hyper-parameters. Depending on them, the
-        network gets 0.10--\SI{0.19}{K}, against \SI{0.120}{K} for the GP on $s$ (Section~\ref{sec:four}).
-\end{itemize}
-{\small \textsuperscript{\dag}Found in an independent review with scripts outside this repository; not yet
-reproduced in \texttt{det/} (Section~\ref{sec:next}).}
+\begin{abstract}
+\noindent We test whether the temperature field that an idealised ocean model reaches after 100 years can be
+predicted directly from the two constants $(c_k, c_\epsilon)$ of its turbulent-kinetic-energy mixing closure. From
+100 runs on a $10\times10$ logarithmic grid, a small neural network that maps the constants to 20 principal
+components of the state predicts held-out states with a root-mean-square error of 0.017--\SI{0.038}{K} in
+interpolation and 0.049--\SI{0.114}{K} in extrapolation, against 0.16--\SI{0.48}{K} for the mean state. The
+response collapses onto one combination, $s \approx \log c_k - 1.08\log c_\epsilon$, as the scaling invariance of
+the closure predicts. The network improves on a Gaussian process on $s$ by 13--17\,\% in interpolation, a
+margin that is not statistically established. Every method fails at the warm edge of the design, where the states leave
+the span of the training set. Restarted from an emulated state, the model keeps most of the error of that state for
+ten years. Away from the warm edge the state is worth 92--99 of the 100 years of spin-up.
+\end{abstract}
 
-\section{Setup}
+\section{Introduction}
+
+Calibrating the parameters of an ocean model requires its response to them after a long spin-up, and each
+evaluation costs a full integration. An emulator that maps the parameters to the spun-up state would replace
+that integration, for calibration or as an initial condition. Emulators of high-dimensional model output are
+usually built on a principal-component basis with one Gaussian process per coefficient \cite{higdon2008}. Here we
+evaluate that construction with a neural network in place of the Gaussian processes, on a deliberately small
+problem: two constants of the vertical-mixing closure of an idealised channel-and-basin configuration, whose
+constants have been tuned in the global model by Bayesian optimisation \cite{mrozowska2025}. We ask three questions. How
+accurately is a held-out state predicted, inside and outside the sampled range? Does the network improve on
+simpler emulators? Is a predicted state a useful initial condition?
+
+\section{Model and data}
 \label{sec:setup}
-\begin{itemize}
-  \item Model: mini\_veros, a JAX port of Veros \cite{hafner2018,hafner2021} by E.~Meunier, with its ACC setup
-        (\texttt{acc/full}), which uses the settings of Veros's \texttt{setups/acc/acc.py}. Spherical grid of
-        $2^\circ$ cells, 30 in longitude and 42 in latitude (about \ang{42}S to \ang{42}N), 15 levels down to
-        \SI{2080}{m}, flat bottom.
-  \item Geometry: a meridional wall, $4^\circ$ wide, from \ang{20}S to the northern boundary. South of
-        \ang{20}S the domain is a re-entrant channel; north of it, a closed basin.
-  \item Forcing, steady: a zonal wind stress of up to \SI{0.1}{N\,m^{-2}} over the channel and a second band, of up to
-        \SI{0.2}{N\,m^{-2}}, north of \ang{10}N; surface temperature restored with a 30-day time scale to a profile that is \SI{15}{\celsius}
-        between \ang{20}S and \ang{20}N and falls to \SI{0}{\celsius} at both ends.
-  \item Initial state: $T$ decreasing linearly with depth from \SI{15}{\celsius}; salinity 35 everywhere. The
-        equation of state is Veros type 3, nonlinear, with density decreasing with $T$ over the whole range of
-        the data.
-  \item Closures, as in the setup: TKE vertical mixing \cite{gaspar1990} with the mixing length limited by
-        $\sqrt{2e}/N$ \cite{blanke1993}, minimum diffusivities $\kappa_{H} = \SI{2e-5}{m^2 s^{-1}}$ and
-        $\kappa_{M} = \SI{2e-4}{m^2 s^{-1}}$; neutral diffusion and GM thickness diffusion
-        \cite{gent1990} with $K_{gm}$ from the EKE closure \cite{eden2008}, held at its setup values
-        ($0.4, 0.5$); no IDEMIX.
-  \item Varied: the TKE constants. With mixing length $l$ and turbulent kinetic energy $e$,
-        \begin{equation}
-          K_M = c_k\, l\sqrt{e}, \qquad \epsilon = c_\epsilon\, e^{3/2}/l, \qquad l = \sqrt{2e}/N .
-        \end{equation}
-        The setup default is $(0.1, 0.7)$, the geometric centre of the design (Figure~\ref{fig:data}).
-  \item Why one combination: with $l = \sqrt{2e}/N$, both $K_M = \sqrt2\, c_k e/N$ and
-        $\epsilon = c_\epsilon N e/\sqrt2$ are unchanged under $(c_k, c_\epsilon, e) \to (\lambda c_k,
-        \lambda c_\epsilon, e/\lambda)$. A steady state then depends on $c_k/c_\epsilon$ only, apart from what
-        breaks the invariance in the closure's equations: the vertical diffusion of $e$ (proportional to
-        $K_M e$), and the limits on $l$ (the distance to the boundaries and a minimum), where $l$ no longer
-        follows $\sqrt{e}$. The runs are also not steady. The sources of $e$ and the bounds on $K_M$ and
-        $\kappa_H$ (minimum, maximum, depth profile) keep it, since they act on invariant quantities; the minimum
-        diffusivities may set the flat response at small $c_k/c_\epsilon$ (not tested). The ratio is proportional
-        to a critical Richardson number, and it dominates the global mixed-layer depth in Veros
-        \cite{mrozowska2025}.
-  \item Check on the raw runs (last output, median over the water cells of levels 3--11). Along the diagonal
-        $c_k/c_\epsilon = 1/7$, from $c_k = 0.0125$ to 0.504, $e$ falls about 45-fold while $c_k e$ stays at
-        1.7--\SI{1.9e-7}{m^2 s^{-2}}, and the EKE stays at \SI{7.5e-4}{m^2 s^{-2}}. So the varied constants are the
-        TKE ones. The sweep's own records (MiniVeros-Diffusion repository) also describe $c_k$ and $c_\epsilon$ as
-        the TKE closure's constants.
-\end{itemize}
 
-\section{Data}
-\begin{itemize}
-  \item 100 Veros ACC runs on a $10\times10$ log-spaced grid, $c_k\in[0.0125,\,0.8]$,
-        $c_\epsilon\in[0.0875,\,5.6]$ (ratio $2^{2/3}$); 100 years, a snapshot every 30 days; interior grid
-        $30\times42\times15$ (x, y, z) with the 930 cells of the wall.
-  \item Target: $y_r \in \mathbb{R}^{17970}$, the mean temperature of the last 12 snapshots (360 days) of run $r$
-        on the water cells. $S = \SI{35}{psu}$ everywhere, so it is dropped.
-  \item The runs still drift, so the averaging window matters. Over the last 20 years, the RMS change from the
-        first to the last year is \SI{0.16}{K}, and the last-year mean differs from the 20-year mean by
-        \SI{0.08}{K}. The target is therefore defined by this protocol (100 years from the setup's initial
-        state), and every method is scored on the same definition.
-  \item The two parameters act mainly through one combination, $s = \log c_k - 1.08\,\log c_\epsilon$
-        (Figure~\ref{fig:data}). The exponent is empirical, from a linear fit of the first PCA coefficient; it
-        is close to the value 1 of the closure's invariance (Section~\ref{sec:setup}).
-  \item Below $s \approx -2$ (48 runs) the state is nearly flat in $s$: the domain-mean $T$ stays within
-        \SI{0.09}{K}. Above, it rises by \SI{1.1}{K}. Split means therefore mix a flat and a warm regime.
-\end{itemize}
+\paragraph{Model.} The runs use mini\_veros, a JAX port of Veros \cite{hafner2018,hafner2021} by E.~Meunier, in
+its ACC configuration: a spherical grid of $2^\circ$ cells ($30\times42$, about \ang{42}S to \ang{42}N), 15 levels
+over \SI{2080}{m}, and a meridional wall from \ang{20}S to the northern boundary, which leaves a re-entrant channel
+to the south and a closed basin to the north. The forcing is steady: a zonal wind stress of up to
+\SI{0.1}{N\,m^{-2}} over the channel and \SI{0.2}{N\,m^{-2}} north of \ang{10}N, and a restoring of surface
+temperature over 30 days to a profile that falls from \SI{15}{\celsius} in the tropics to \SI{0}{\celsius} at
+both ends. Salinity is uniform, so at a given depth density depends on temperature only. Mesoscale eddies are parameterised by
+isoneutral and thickness diffusion \cite{gent1990} with an eddy-energy closure \cite{eden2008} held at its default
+constants.
 
-\begin{figure}[!htb]
+\paragraph{Varied parameters.} Vertical mixing follows the TKE closure of \cite{gaspar1990}. With $e$ the
+turbulent kinetic energy and $l$ the mixing length,
+\begin{equation}
+  K_M = c_k\, l\sqrt{e}, \qquad \epsilon = c_\epsilon\, e^{3/2}/l, \qquad l = \sqrt{2e}/N ,
+  \label{eq:tke}
+\end{equation}
+where $K_M$ is the vertical viscosity, $\epsilon$ the dissipation and $N$ the buoyancy frequency
+\cite{blanke1993}. Substituting $l$ gives $K_M = \sqrt2\,c_k e/N$ and $\epsilon = c_\epsilon N e/\sqrt2$, which
+are unchanged under $(c_k, c_\epsilon, e) \to (\lambda c_k, \lambda c_\epsilon, e/\lambda)$. A steady state
+therefore depends on the ratio $c_k/c_\epsilon$ alone, except through the two terms that break this invariance:
+the vertical diffusion of $e$ and the geometric bounds on $l$. The stored runs agree: along the line
+$c_k/c_\epsilon = 1/7$, $e$ falls 45-fold as $c_k$ rises from 0.0125 to 0.504 while $c_k e$ stays within
+1.7--\SI{1.9e-7}{m^2 s^{-2}}.
+
+\paragraph{Ensemble and target.} The ensemble has 100 runs on a $10\times10$ grid, logarithmic in both constants,
+with $c_k \in [0.0125, 0.8]$ and $c_\epsilon \in [0.0875, 5.6]$, centred on the default $(0.1, 0.7)$. Each run
+starts from the same stratified state at rest and lasts 100 years. The target $y$ is the mean temperature of its
+last 12 monthly snapshots on the 17\,970 water cells. The runs are not equilibrated: at year 100 the state still
+changes by about \SI{0.01}{K} per year, so the target is the state of this protocol, not an equilibrium.
+
+\paragraph{Structure of the response.} The first principal component of the 100 states is linear in
+$s = \log c_k - 1.08\log c_\epsilon$, close to the logarithm of the invariant ratio (Figure~\ref{fig:data}). The
+response has two regimes. For $s < -2$ (48 runs) the domain-mean temperature varies by \SI{0.09}{K}; above, it
+rises by \SI{1.1}{K} towards the corner of large $c_k$ and small $c_\epsilon$, hereafter the warm corner.
+
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.9\textwidth]{../results/data.png}
-\caption{Mean last-year $T$ (\si{\celsius}) over the water cells: over the parameter grid (left; star: the
-setup default) and against $s$ (right), the direction along which the first PCA coefficient of the states varies
-linearly.}
+\includegraphics[width=0.88\textwidth]{../results/data.png}
+\caption{Domain-mean temperature of the target over the parameter grid (left; star: default constants) and
+against $s = \log c_k - 1.08\log c_\epsilon$ (right).}
 \label{fig:data}
 \end{figure}
 
-\section{Method}
+\section{Emulator and baselines}
 \label{sec:method}
-\begin{itemize}
-  \item Input $z$: $(\log c_k, \log c_\epsilon)$ standardised over the design.
-  \item Output: a field in the span of the training states,
-        \begin{equation}
-          \hat y(z) = \mu + \sum_{k=1}^{K} a_k(z)\, v_k, \qquad K = \min(20,\, n - 1),
-        \end{equation}
-        where $\mu$ and $v_k$ are the mean and the leading principal directions of the $n$ training states.
-        So $K = 20$ on every split except the four-run one ($K = 3$).
-  \item This is the standard construction of a PCA-basis emulator \cite{higdon2008}, with a network in
-        place of the usual GPs.
-  \item Network $a(z)$: a multilayer perceptron $2 \to 64 \to 64 \to K$ (scikit-learn \cite{pedregosa2011},
-        L-BFGS). Its targets are
-        $a_k(z_r) = v_k^\top(y_r - \mu)$ divided by $\operatorname{std}(a_1)$, so with orthonormal $v_k$ the data
-        term is the physical MSE of the projected field up to a constant. In scikit-learn's normalisation:
-        \begin{equation}
-          \mathcal{L} = \frac{1}{2nK}\sum_{r=1}^{n} \frac{\lVert a(z_r) - V^\top(y_r - \mu)\rVert^2}{\operatorname{std}(a_1)^2}
-          + \frac{\alpha}{2n}\lVert W \rVert^2 .
-        \end{equation}
-  \item Ensemble: the prediction is the mean of 5 networks that differ only in their initialisation. The whole
-        evaluation is repeated with 4 such sets, and reported values average them.
-  \item Hyper-parameters: $(\text{activation}, \alpha) \in \{\text{ReLU}, \tanh\} \times
-        \{10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}, 1\}$, chosen on the training runs of each split.
-        \begin{itemize}
-          \item The search is 5-fold cross-validation repeated 3 times. A configuration's CV RMSE is its RMSE
-                per training run, averaged over the repeats and then over the runs.
-          \item The one-standard-error rule \cite{hastie2009} then picks the most regularised configuration
-                whose CV RMSE is within one standard error of the best. That standard error is over runs: the
-                standard deviation of the best configuration's per-run CV RMSE, over $\sqrt{n}$. It is not the
-                usual standard error over folds, and the choice of standard error can change the selection
-                \cite{chen2021}.
-          \item The choice is ReLU with $\alpha = 10^{-2}$ on every split except outer 75 ($\alpha = 10^{-1}$) and
-                four runs ($\alpha = 1$).
-          \item The minimum of the same scores is ReLU with $\alpha = 10^{-3}$ or $10^{-4}$, except on outer 75
-                ($10^{-2}$) and four runs ($1$).
-          \item The rule is not blind to the test sets. It replaced a single 5-fold cross-validation that took the
-                minimum, after an independent review had shown that choice to be decided by fold noise, and that
-                review had already computed test errors of other configurations. Table~\ref{tab:paired} therefore
-                also gives the network chosen by the minimum of the same cross-validation scores.
-          \item For leave-one-out the choice is made once, on all 100 runs. Each held-out run therefore takes part
-                in it: a mild selection leak, with flat scores.
-        \end{itemize}
-  \item Fitting on run means rather than on snapshots changes nothing:
-        $\sum_t \lVert f(z_r) - x_{r,t}\rVert^2 = n_t \lVert f(z_r) - \bar x_r\rVert^2 + \text{const}$.
-  \item Baselines, none tuned by cross-validation (unlike the network):
-        \begin{itemize}
-          \item the training mean;
-          \item the nearest training run in $z$. The grid is equally spaced in both standardised inputs, so an
-                interior held-out run often has two to four equidistant training neighbours; the baseline takes
-                the first in storage order, and its error depends on that order;
-          \item thin-plate RBF interpolation of every cell (exact, no smoothing);
-          \item a GP per PCA coefficient on $z$ (Mat\'ern 5/2, one length scale per input, white noise up to
-                the full variance; hyper-parameters by maximum marginal likelihood \cite{rasmussen2006});
-          \item the same GP on $s = w^\top z$, with $w$ from a linear fit of $a_1$ on $z$ within the training
-                runs: a one-dimensional active subspace \cite{constantine2014}.
-        \end{itemize}
-\end{itemize}
 
-\section{Evaluation}
-\begin{itemize}
-  \item Eight hold-out splits of the grid, plus leave-one-out over the 100 runs:
-        \begin{itemize}
-          \item interpolation: 10 scattered interior runs; the rows $c_k$ = 0.126, 0.2, 0.3175; the centre
-                $5\times5$ and $7\times7$ blocks;
-          \item extrapolation: the top row ($c_k = 0.8$); the 51 or 75 outer runs, training on the centre;
-          \item four training runs, one step in from each corner (Section~\ref{sec:four}).
-        \end{itemize}
-  \item Metric: RMSE over the water cells (each cell weighted equally, not by volume) against the last-year
-        mean, per held-out run, then the mean and median over the runs.
-  \item Paired comparison with the GP on $s$, on the per-run difference (network RMSE averaged over the 4
-        initialisation sets, minus the GP's): its mean, a 95\,\% bootstrap interval, and a Wilcoxon signed-rank
-        $p$-value (exact for up to 50 runs, normal approximation above). The $p$-values are also given with a
-        Holm correction \cite{holm1979} over the eight main evaluations (the four-run split excluded).
-        \begin{itemize}
-          \item These tests treat the held-out runs as independent. They are not: runs on one $c_k/c_\epsilon$
-                diagonal have nearly the same $s$ and nearly the same state, and their errors are correlated.
-                The $p$-values are therefore optimistic and descriptive.
-          \item They are also conditional on one training set per split; another position of the hold-out can
-                change the margin \cite{dietterich1998}.
-        \end{itemize}
-  \item Sensitivity (Table~\ref{tab:sens}): the test RMSE of every configuration on every split, averaged over the
-        4 initialisation sets, and the choice of both rules when the cross-validation uses other partitions.
-        Neither is used for the selection.
-  \item Reproducibility: every fit runs with one BLAS thread.
-        \begin{itemize}
-          \item With the same library versions (scikit-learn 1.7.2, NumPy 2.2.5, OpenBLAS 0.3.30), a refit
-                reproduces every number bit for bit. The sensitivity check refits the chosen configurations in
-                other processes and matches every per-run RMSE exactly.
-          \item With several threads, L-BFGS stops at a slightly different point. Compared with an earlier run on
-                8 threads, a split's mean moved by up to \SI{0.0003}{K}, one initialisation set's mean by up to
-                \SI{0.0013}{K}, and a single run by up to \SI{0.008}{K}. Differences of that size are not
-                meaningful.
-        \end{itemize}
-  \item Cost: a fit takes seconds on one core, and a prediction microseconds. On 8 cores the evaluation takes
-        46 minutes, mostly the repeated cross-validation and the 100 leave-one-out refits; the sensitivity check
-        takes 28 minutes.
-\end{itemize}
+The emulator predicts a state in the span of the $n$ training states,
+\begin{equation}
+  \hat y(z) = \mu + \sum_{k=1}^{K} a_k(z)\, v_k, \qquad K = \min(20,\, n-1),
+\end{equation}
+where $z$ is the standardised pair $(\log c_k, \log c_\epsilon)$, and $\mu$ and $v_k$ are the mean and the leading
+principal directions of the training states. The coefficients $a(z)$ come from a multilayer perceptron
+$2 \to 64 \to 64 \to K$, fitted by L-BFGS on the squared error of the coefficients with an $L_2$ penalty $\alpha$
+on the weights \cite{pedregosa2011}. The prediction is the mean of five networks that differ in their
+initialisation. The activation and $\alpha$ are chosen on the training runs of each split by repeated five-fold
+cross-validation with the one-standard-error rule \cite{hastie2009} (Appendix~\ref{app:selection}). A fit takes
+seconds on one CPU core.
 
-\begin{table}[H]
-\centering\footnotesize\setlength{\tabcolsep}{3pt}
+Five baselines use the same training runs, without tuning: the mean state; the nearest training run in $z$; a
+thin-plate spline interpolating every cell; a Gaussian process (GP) per principal coefficient on $z$, with a
+Mat\'ern-5/2 kernel and one length scale per input \cite{rasmussen2006}; and the same GP on the single input
+$s = w^\top z$, with $w$ fitted on the training runs, a one-dimensional active subspace \cite{constantine2014}.
+
+\paragraph{Evaluation.} Each method is trained on part of the grid and scored on the rest, in eight splits.
+Five test interpolation: ten scattered interior runs, a band of three rows of constant $c_k$, the central
+$5\times5$ and $7\times7$ blocks, and leave-one-out over the 100 runs. Three test extrapolation: the top row
+($c_k = 0.8$), and the 51 or 75 outer runs when only the central block is used for training. The score of a run
+is the root-mean-square error (RMSE) over the water cells, and the score of a split is its mean over the held-out
+runs. For the network it is further averaged over four sets of initialisations.
+
+\section{Results}
+
+\subsection{Accuracy}
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \input{../results/table_main.tex}
-\caption{RMSE (K) of the last-year temperature over the water cells, mean over the held-out runs. Network: mean over
-the 4 initialisation sets; range: how much that mean varies across them; median: over the runs. Bold: lowest mean
-per split. The four-run split is in Section~\ref{sec:four}.}
+\caption{RMSE (K) over the water cells, mean over the held-out runs. Network: mean over four sets of
+initialisations, the range of that mean across the sets, and the median over the runs. Bold: lowest mean.}
 \label{tab:main}
 \end{table}
+
+The network has the lowest mean error on the eight splits (Table~\ref{tab:main}): 0.017--\SI{0.038}{K} in
+interpolation and 0.049--\SI{0.114}{K} in extrapolation, a tenth to a half of the error of the mean state. The GP
+on $s$ follows, ahead of the GP on $z$ and the spline; in interpolation the network is 13--17\,\% below it. The two
+emulators that know $s$ are thus the two best, and the gain of the network over the GP on $s$
+(0.0025--\SI{0.0075}{K}) is small beside the gain of either over the nearest run.
+
+Errors follow the two regimes of the response (Figure~\ref{fig:runs}, left). In leave-one-out the median error of
+the network is \SI{0.012}{K} where the response is flat ($s < -2$) and \SI{0.023}{K} on the warm side, where the
+nearest run degrades to \SI{0.10}{K}. In interpolation the
+error is concentrated in the upper \SI{500}{m} (0.014--\SI{0.055}{K}, against 0.003--\SI{0.016}{K} below
+\SI{1000}{m}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/runs.png}
+\caption{RMSE of each held-out run against its $s$. Left: leave-one-out. Right: the 75 outer runs, predicted from
+the central $5\times5$ block; the band is the range of $s$ of the training runs.}
+\label{fig:runs}
+\end{figure}
+
+\subsection{Extrapolation and the warm edge}
+
+Outside the training range of $s$ the error of every method rises together (Figure~\ref{fig:runs}, right), up to
+\SI{1}{K} at the warm corner. The cause is the basis, not the regression. Projecting a held-out truth on the
+training principal directions already leaves 0.010--\SI{0.017}{K} in interpolation and 0.031--\SI{0.079}{K} in
+extrapolation; at the warm corner, three grid cells from the nearest training run, it leaves \SI{0.85}{K} of the
+network's \SI{1.06}{K}, and every method scores between 1.06 and \SI{1.45}{K}. The limit is shared by all methods
+that predict in the span of the training states \cite{salter2019}.
+
+Figure~\ref{fig:examples} shows the three situations. Inside the sampled range the network reproduces the pattern
+and the amplitude of the anomaly (correlation 0.98, amplitude 1.05). One row beyond it, at the warm corner, it
+still does (0.99, 0.99; \SI{0.16}{K}). Three cells beyond, it keeps a weak version of the pattern with a third of
+the amplitude and a cold bias of \SI{-0.68}{K}.
+
+Extrapolated fields are also less physical. Among the held-out predictions of the outer-51 split, the largest
+density inversion between two vertically adjacent cells is \SI{0.82}{kg\,m^{-3}}, against \SI{0.03}{kg\,m^{-3}} in
+the data.\footnote{Evaluation with the metrics of the companion repository MiniVeros-Diffusion (branch
+\texttt{deterministic-evaluation}, \texttt{Reports/Evaluation}), which also holds the restart experiment of
+Section~\ref{sec:restart}.} On that split the network also has the lowest mean error on three of four integral
+diagnostics (channel density contrast, density spread at \SI{106}{m}, north--south density difference at
+\SI{490}{m}); the GP on $s$ is better on the volume-mean temperature.
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.8\textwidth]{../results/examples.png}
+\caption{Zonal-mean anomaly of one held-out run relative to the mean of the training runs: truth, network and
+their difference. Top: centre of the held-out $7\times7$ block. Middle: warm corner, with the top row held out.
+Bottom: warm corner, with the 75 outer runs held out. Left: the split (grey: training; star: the run shown).
+Amplitude is the regression slope of the predicted on the true anomaly.}
+\label{fig:examples}
+\end{figure}
+
+\subsection{How firm is the ranking?}
+
+The network and the GP on $s$ are ahead of the other baselines on the eight splits, under both rules for choosing
+the hyper-parameters; the four sets of initialisations move a split mean by at most \SI{0.003}{K}. The
+margin between the network and the GP on $s$ is less firm, for three reasons.
+
+First, it depends on the hyper-parameters. Configurations that cross-validation cannot separate differ by up to
+\SI{0.03}{K} in test error. With the configuration of minimum cross-validation error instead of the
+one-standard-error rule, the network ties with the GP on $s$ on the $7\times7$ block and on outer 75
+(Appendix~\ref{app:selection}).
+
+Second, the held-out runs are not independent. A Wilcoxon test on the per-run differences, with a Holm correction
+over the eight splits \cite{holm1979}, favours the network on six of them ($p \le 0.044$). But runs on one
+diagonal of constant $c_k/c_\epsilon$ have nearly the same state, so the test overstates the evidence.
+
+Third, three checks from an independent review, made with scripts that are not part of the repository, remain to
+be reproduced: with diagonals as the units of the test, no split is significant; linear interpolation of the
+fields along $s$ is as accurate as the network in interpolation; and a GP on $s$ and the direction orthogonal to
+it closes much of the remaining gap. Until they are, the supported conclusion is that the collapse onto $s$
+carries most of the skill, and that the network adds a consistent but unproven 13--17\,\%.
+
+Two further limits concern use. The spread of the five networks (0.003--\SI{0.011}{K}) is far below the error and
+is not an uncertainty. With only four training runs cross-validation cannot choose the hyper-parameters, and the
+GP on $s$ is then the safer emulator (Appendix~\ref{app:four}).
+
+\subsection{Restart from an emulated state}
+\label{sec:restart}
+
+To test the emulated states as initial conditions, the model was restarted from them at eight held-out points, the
+corners of the outer-51 and of the $7\times7$ held-out sets, and run for ten years. Each restart starts from the
+predicted temperature with the model at rest, and is compared with the continuation of the true run past year 100.
+Distances are volume-weighted RMSEs of temperature.
+
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=0.84\textwidth]{../results/restart_start_states.png}
+\caption{Start states of the restart experiment at eight held-out points. Left: distance to the true year-100
+state. Right: equivalent spin-up, the year at which the original run first came that close to its year-100 state
+(hollow: 99 years or more).}
+\label{fig:restart}
+\end{figure}
+
+At seven of the eight points the network's state lies 0.006--\SI{0.079}{K} from the true one, as close as the
+original run was after 92--99 of its 100 years (Figure~\ref{fig:restart}). At the warm corner it lies
+\SI{0.70}{K} away and is worth 56 years. The restart does not correct what the state gets wrong: after ten years
+between 0.5 and 1.9 times the initial error remains. Starting at rest has a cost of its own, 0.02--\SI{0.03}{K}
+within a year even from the true temperature, because the flow and the turbulent energies must be rebuilt. Away
+from the warm corner this cost is comparable to the error of the best emulators, so that after ten years the network, the
+GP on $s$ and the nearest run are hard to tell apart: each is closest to the continuation at two or three of the
+eight points. No restart diverged.
+
+\section{Conclusions}
+
+The year-100 temperature of this model is predictable from the two mixing constants to a few hundredths of a
+kelvin inside the sampled range, from 51 to 99 training runs. Most of that skill comes from a one-dimensional structure
+that the closure itself explains: emulators built on $s$ are the best, and the neural network improves on a
+Gaussian process on $s$ by a margin that is consistent but not yet established. Beyond the sampled range every
+method fails together, because the predicted states cannot leave the span of the training states; more runs along
+the warm edge, or a decoder not confined to that span, are the remedies. As an initial condition an emulated state
+replaces most of the spin-up, but its error persists, and a restart from temperature alone adds an error
+comparable to that of the emulator. Predicting the flow and the turbulent energies along with temperature is the
+next step for that use.
+
+\appendix
+
+\section{Hyper-parameters and their effect}
+\label{app:selection}
+
+The search covers two activations (ReLU, $\tanh$) and five penalties ($\alpha = 10^{-4}$ to 1). Each
+configuration is scored by five-fold cross-validation on the training runs, repeated three times. The
+one-standard-error rule takes the most regularised configuration within one standard error of the best; the
+standard error is that of the best configuration's per-run errors. It selects ReLU with $\alpha = 10^{-2}$ on
+every split except outer 75 ($10^{-1}$) and four runs (1, Appendix~\ref{app:four}). The minimum of the same scores selects $\alpha = 10^{-3}$ or $10^{-4}$
+($10^{-2}$ on outer 75). The rule was adopted after a first review had examined test errors, so the margins
+obtained with it are not a blind test; Table~\ref{tab:paired} gives both. For leave-one-out the choice is made
+once on all runs.
+
+Table~\ref{tab:sens} gives the test error of the configurations that cross-validation cannot separate. The choice
+of the rule has the lowest test error among them on five of seven splits, and is unchanged when the
+cross-validation uses other partitions.
 
 \begin{table}[H]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
 \input{../results/table_paired.tex}
-\caption{Network minus GP on $s$, per held-out run (K; negative = network better): the mean difference, its 95\,\%
-bootstrap interval, the Wilcoxon signed-rank $p$ and the Holm-corrected $p$ over the eight comparisons. All are
-per-run and treat runs as independent, so they are optimistic (Section~\ref{sec:findings}). Left: the
-network as reported (one-standard-error rule). Right: the network chosen by the minimum CV RMSE instead (ReLU,
-with the $\alpha$ given), and its mean RMSE.}
+\caption{Network minus GP on $s$, per held-out run (K; negative: network better): mean, 95\,\% bootstrap interval,
+Wilcoxon signed-rank $p$ and Holm-corrected $p$ over the eight splits. Left: the reported network. Right: the
+network chosen by the minimum cross-validation error (its $\alpha$ and mean RMSE). The tests treat runs as
+independent and are therefore optimistic.}
 \label{tab:paired}
 \end{table}
 
 \begin{table}[H]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
 \input{../results/table_sensitivity.tex}
-\caption{Sensitivity to the configuration. Left: the configurations whose CV RMSE is within one standard error of
-the best, the range of their test RMSE (mean over the 4 initialisation sets), how many beat the GP on $s$, and the
-rank of the rule's choice among them (1 = lowest test RMSE). All ten: the range over the whole grid. Right: the
-choice of each rule when the cross-validation repeats use other partitions (``same'': unchanged; four runs:
-5-fold is leave-one-out, so there is no other partition).}
+\caption{Configurations within one standard error of the best cross-validation score: their number, the range of
+their test RMSE (K), how many beat the GP on $s$, and the rank of the rule's choice among them. All ten: range over
+the whole search. Right: the choice of each rule with other cross-validation partitions.}
 \label{tab:sens}
 \end{table}
 
-\section{Findings}
-\label{sec:findings}
-\begin{itemize}
-  \item \textbf{In interpolation the network has the lowest mean error of the methods tested}
-        (Tables~\ref{tab:main} and~\ref{tab:paired}, Figure~\ref{fig:splits}).
-        \begin{itemize}
-          \item Against the GP on $s$ the margin is 0.0025--\SI{0.0075}{K}, 13--17\,\% of the GP's error. It
-                is consistent: lower on all five evaluations.
-          \item Per run, after the Holm correction, it is significant on band, both centre blocks and
-                leave-one-out ($p \le 0.044$), not on the scattered split ($p = 0.074$; 7 of 10 runs better).
-                These tests are optimistic. With diagonals as units, none of the eight main evaluations is
-                significant after the Holm correction\textsuperscript{\dag}.
-          \item Linear interpolation of the fields along $s$, which fits nothing, appears to be as accurate as the
-                network in interpolation and better than the GP on $s$\textsuperscript{\dag}. So in
-                interpolation most of the accuracy comes from the collapse onto $s$, not from the network.
-          \item Its mean error is 0.25--0.44 times the nearest run's. That ratio uses the first of the
-                equidistant neighbours and is larger when they are averaged\textsuperscript{\dag}.
-        \end{itemize}
-  \item \textbf{In extrapolation its mean error is lower on all three splits}.
-        \begin{itemize}
-          \item Per run the margin is significant on outer 51 and outer 75 (Holm $p = 0.013$ and 0.004), not with
-                diagonals as units\textsuperscript{\dag}. On outer 75 it holds only with the one-standard-error
-                choice ($\alpha = 0.1$).
-          \item On outer 75 nearly all of the margin comes from held-out runs above the warm end of the training
-                range in $s$\textsuperscript{\dag}. The response steepens there; the GP flattens beyond its data,
-                while the network continues the local slope, though still too shallow. A response that bends the
-                other way could reverse this.
-          \item On outer 51 and the top row the margin comes mostly from $s_\perp$, which the GP on $s$ cannot
-                use\textsuperscript{\dag}.
-          \item On the top row the gain (0.049 vs \SI{0.079}{K}) is mostly the warm-corner run (0.16 vs
-                \SI{0.37}{K}), and the test is not significant ($p = 0.19$). Without that run, the network gets
-                0.037 vs \SI{0.046}{K} and wins 6 of 9.
-        \end{itemize}
-  \item \textbf{The margin over the GP on $s$ depends on the selection rule} (Table~\ref{tab:paired}, right).
-        \begin{itemize}
-          \item The minimum CV RMSE picks a weaker regularisation. That network is still lower than the GP on $s$
-                on 7 of the 8 evaluations.
-          \item It ties on the $7\times7$ block ($+0.0010$\,K, $p = 0.75$) and on outer 75 ($-0.0032$\,K,
-                $p = 0.59$).
-          \item Per run, after the Holm correction, only leave-one-out remains significant; band and outer 51
-                come closest ($p = 0.068$ and 0.066).
-          \item Its error stays below the GP on $z$, the RBF and the nearest run on every main evaluation.
-          \item With other cross-validation partitions the one-standard-error choice is unchanged on all eight
-                splits, and the minimum changes on four (Table~\ref{tab:sens}).
-          \item The rule was adopted after the first review had seen test errors of other configurations
-                (Section~\ref{sec:method}), so the margins under it are not a blind test.
-        \end{itemize}
-  \item \textbf{Initialisation matters little, the configuration more} (Tables~\ref{tab:main}
-        and~\ref{tab:sens}).
-        \begin{itemize}
-          \item Four initialisation sets move a split's mean by 0.0004--\SI{0.0010}{K}, and by \SI{0.0028}{K} on
-                the top row.
-          \item Five or six configurations per split are within one standard error of the best CV score. Their test
-                errors span up to \SI{0.03}{K} (outer 75: 0.114--\SI{0.144}{K}).
-          \item On scattered, band and the top row, all of them beat the GP on $s$. On the $5\times5$ block,
-                outer 51 and outer 75, 3 of them do; on the $7\times7$ block, 1 of 6.
-          \item The rule's choice has the lowest test error of the set on five of the seven splits, on the
-                $5\times5$ block and outer 51 by less than the initialisation range. It ranks third of 5 on
-                scattered and fourth of 6 on band.
-        \end{itemize}
-  \item \textbf{In interpolation the error sits in the upper \SI{500}{m}} (Figures~\ref{fig:profiles}
-        and~\ref{fig:examples}).
-        \begin{itemize}
-          \item It is 0.014--\SI{0.055}{K} there and 0.003--\SI{0.016}{K} below \SI{1000}{m}.
-          \item At the centre of the $7\times7$ block, the predicted anomaly (relative to the training mean) has
-                correlation 0.98 with the true one and amplitude 1.05.
-          \item This and the other example values are those of Figure~\ref{fig:examples}, which shows the first
-                initialisation set.
-        \end{itemize}
-  \item \textbf{The warm edge is the hardest region}, and the corner ($c_k = 0.8$, $c_\epsilon = 0.0875$) the
-        hardest run (Figure~\ref{fig:examples}).
-        \begin{itemize}
-          \item One row from the training set (top row), the network reproduces the corner's warming: correlation
-                0.99, amplitude 0.99, \SI{0.157}{K}.
-          \item Three cells away (outer 75), it keeps a weak version of the pattern (correlation 0.62) with a third
-                of the amplitude (0.33): a cold bias of \SI{-0.68}{K} and \SI{1.052}{K} RMSE, mostly below
-                \SI{400}{m}.
-          \item Averaged over the four initialisation sets, the network's error there is \SI{1.06}{K}. Every
-                method is between 1.06 and \SI{1.45}{K}.
-        \end{itemize}
-  \item \textbf{Part of the extrapolation error is the basis.} Projecting the held-out truth on the training
-        principal directions already leaves 0.010--\SI{0.017}{K} in interpolation and 0.031--\SI{0.079}{K} in
-        extrapolation. On outer 75 this floor is spread along the warm edge\textsuperscript{\dag}; the corner
-        run's own floor is \SI{0.85}{K}. Every method that predicts in this span shares it
-        \cite{salter2019}.
-  \item \textbf{Extrapolated fields can be statically unstable}\textsuperscript{\dag}. Toward the warm corner
-        the predicted columns contain temperature inversions of up to several kelvin, against at most
-        \SI{0.17}{K} in the truth; with this equation of state they are density inversions. All methods show
-        them, and so does the projection of the truth on the training basis, so the cause is the decoder. In
-        interpolation the inversions are about \SI{0.1}{K}, in the weakly stratified upper \SI{500}{m}.
-  \item \textbf{The spread over initialisations is not an uncertainty.} It is 0.003--\SI{0.009}{K} in
-        interpolation and 0.008--\SI{0.011}{K} in extrapolation, while the error grows from 0.017 to
-        \SI{0.114}{K}.
-  \item The comparison is between a 5-member ensemble and single baselines, and only the network's
-        hyper-parameters are tuned by cross-validation.
-\end{itemize}
+\section{Four training runs}
+\label{app:four}
 
-\section{Four training runs: cross-validation cannot choose}
-\label{sec:four}
-\begin{itemize}
-  \item Training on $c_k \in \{0.0198, 0.504\} \times c_\epsilon \in \{0.139, 3.53\}$ leaves 96 runs to predict,
-        with $K = 3$ principal directions (2 inside the cross-validation folds).
-  \item Cross-validation cannot choose here.
-        \begin{itemize}
-          \item With four runs the 5-fold split is leave-one-out, so the three repeats are identical.
-          \item The standard error (\SI{0.15}{K}) covers six configurations.
-          \item Both rules pick ReLU with $\alpha = 1$, which also has the minimum CV RMSE.
-        \end{itemize}
-  \item With that choice the network gets \SI{0.147}{K} (0.134--0.169 over the initialisation sets). The GP on
-        $s$ gets \SI{0.120}{K}, the RBF \SI{0.146}{K}, the nearest run \SI{0.181}{K}.
-  \item Over the ten configurations the network ranges from 0.10 to \SI{0.19}{K} (Table~\ref{tab:sens}). Among
-        the six within one standard error, the choice ranks fifth. The outcome is set by a choice that four runs
-        cannot inform.
-  \item Regimes:
-        \begin{itemize}
-          \item on the flat side ($s < -2$, 46 runs), the medians are 0.040 (nearest run), 0.058
-                (network) and \SI{0.061}{K} (GP on $s$);
-          \item on the warm side (50 runs) they are 0.197 (network), 0.172 (GP on $s$) and \SI{0.223}{K}
-                (nearest run).
-        \end{itemize}
-  \item With $\alpha = 1$ the network is too flat (Figure~\ref{fig:examples}, rows 2 and 5; first
-        initialisation set).
-        \begin{itemize}
-          \item At the centre run its anomaly has the right pattern (correlation 0.98) with 45\,\% of the
-                amplitude: \SI{0.114}{K} (\SI{0.124}{K} over the four sets), against \SI{0.036}{K} for the GP on
-                $s$.
-          \item At the corner: correlation 0.86, amplitude 0.40, \SI{0.801}{K} (\SI{0.831}{K} over the four
-                sets).
-        \end{itemize}
-\end{itemize}
+Training on four runs, one step in from each corner of the grid, leaves 96 runs to predict from three principal
+directions. Five-fold cross-validation is then leave-one-out, its standard error (\SI{0.15}{K}) covers six
+configurations, and both rules select the strongest penalty ($\alpha = 1$), which flattens the response. The
+network then scores \SI{0.147}{K} (0.134--0.169 over the sets of initialisations), against \SI{0.120}{K} for the
+GP on $s$, \SI{0.146}{K} for the spline and \SI{0.181}{K} for the nearest run. Over the ten configurations it
+ranges from 0.10 to \SI{0.19}{K}: the outcome is set by a choice that four runs cannot inform.
 
-\section{Next steps}
-\label{sec:next}
-\begin{itemize}
-  \item Bring the review's checks (\dag) into \texttt{det/}: paired tests with diagonals as units; linear
-        interpolation along $s$, the nearest run with tied neighbours averaged, and a GP on $(s, s_\perp)$ as
-        baselines; the errors by regime and by distance in $s$; a static-stability check.
-  \item Inputs $(s, s_\perp)$ instead of $(\log c_k, \log c_\epsilon)$, to build in the collapse that makes the
-        GP on $s$ strong with few runs.
-  \item For extrapolation, either a decoder not restricted to the span of the training states, or more runs
-        along the warm edge (large $c_k$, small $c_\epsilon$). Predicted columns need a convective adjustment, or
-        a decoder that keeps them stable, before any use as model states.
-  \item An uncertainty from resampling the training runs rather than the initialisations.
-  \item Tune the baselines by cross-validation as well (RBF smoothing, GP noise and mean function), for an even
-        comparison.
-  \item Fix the selection rule, or $\alpha$ itself, in advance, and test it on new runs or new splits. Here the
-        rule was revised after test errors had been seen, and with very few runs cross-validation cannot choose
-        at all.
-\end{itemize}
+\section{Reproducibility}
 
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=0.72\textwidth]{../results/splits.png}
-\caption{Mean RMSE over the held-out runs per split (log scale) for the network and three baselines: the GP on
-$s$, the thin-plate RBF and the nearest run. Held-out run counts are in brackets. Network: mean over 4
-initialisation sets; the bar is their range.}
-\label{fig:splits}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=\textwidth]{../results/profiles.png}
-\caption{RMSE by depth, mean over the held-out runs of each split (network: averaged over the initialisation
-sets).}
-\label{fig:profiles}
-\end{figure}
-
-\begin{figure}[!htb]
-\centering
-\includegraphics[width=0.93\textwidth]{../results/examples.png}
-\caption{Zonal-mean sections of the last-year anomaly, relative to the mean of the split's training runs (what the
-network has to add to it): truth, network (first initialisation set) and their difference. Each run has one
-colour scale, and levels are drawn with equal height. Left: the split (grey: training runs; open circles: held
-out; star: the run shown).
-Rows 1--2: the centre run of the $7\times7$ block, held out with the block (51 training runs) and in the
-four-run split.
-Rows 3--5: the warm-corner run, held out with the top row (90 training runs), with the outer 75 (25) and in the
-four-run split (4).
-Correlation and amplitude (the regression slope of the predicted on the true anomaly) are over all water
-cells.}
-\label{fig:examples}
-\end{figure}
+Every fit runs with one BLAS thread, which makes a refit bit-identical (scikit-learn 1.7.2, NumPy 2.2.5, OpenBLAS
+0.3.30). With eight threads L-BFGS stops elsewhere and a split mean moves by up to \SI{0.0003}{K}. The evaluation
+takes 46 minutes on eight cores and the sensitivity analysis 28. Tables are generated from the results by
+\texttt{det/tables.py} and figures by \texttt{det/figures.py}; Figure~\ref{fig:restart} comes from the companion
+repository. A 100-year run of the model takes 12 minutes on a laptop and reproduces a stored run to
+\SI{7e-8}{K} at year 100.
 
 \begin{thebibliography}{99}\small
 \setlength{\itemsep}{0pt}
 \bibitem{blanke1993} B.~Blanke and P.~Del\'ecluse (1993). Variability of the tropical Atlantic Ocean simulated by a
   general circulation model with two different mixed-layer physics. \emph{J.\ Phys.\ Oceanogr.} 23, 1363--1388.
-\bibitem{chen2021} Y.~Chen and Y.~Yang (2021). The one standard error rule for model selection: does it work?
-  \emph{Stats} 4, 868--892.
 \bibitem{constantine2014} P.~G.~Constantine, E.~Dow and Q.~Wang (2014). Active subspace methods in theory and
   practice: applications to kriging surfaces. \emph{SIAM J.\ Sci.\ Comput.} 36, A1500--A1524.
-\bibitem{dietterich1998} T.~G.~Dietterich (1998). Approximate statistical tests for comparing supervised
-  classification learning algorithms. \emph{Neural Comput.} 10, 1895--1923.
 \bibitem{eden2008} C.~Eden and R.~J.~Greatbatch (2008). Towards a mesoscale eddy closure. \emph{Ocean Modelling}
   20, 223--239.
 \bibitem{gaspar1990} P.~Gaspar, Y.~Gr\'egoris and J.-M.~Lefevre (1990). A simple eddy kinetic energy model for

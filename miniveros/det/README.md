@@ -149,9 +149,14 @@ Figures in `results/`:
 - `data.png`: the domain-mean target (degrees C) over the grid, with the setup default, and against s.
 - `splits.png`: the table above.
 - `profiles.png`: RMSE by depth for every split.
-- `examples.png`: zonal-mean sections of the anomaly relative to the training mean (truth, network, error). The
-  centre run of the 7 x 7 block is held out with the block and in the four-run split; the warm corner with the top
-  row, with the outer 75 and in the four-run split.
+- `runs.png`: RMSE of every held-out run against s, for leave-one-out and outer 75 (network, GP on s, nearest run).
+- `examples.png`: zonal-mean sections of the anomaly relative to the training mean (truth, network, error): the
+  centre run of the 7 x 7 block held out with the block, and the warm corner held out with the top row and with the
+  outer 75.
+- `restart_start_states.png`: the start states of the restart experiment, copied from the MiniVeros-Diffusion report
+  (`Reports/Evaluation/det_restarts_outer51_centre7_*/figures/QM-1.png`).
+
+The report (`report/report.pdf`) uses `data.png`, `runs.png`, `examples.png` and `restart_start_states.png`.
 
 ## Usage (from the miniveros directory)
 
