@@ -21,7 +21,7 @@ the TKE vertical-mixing closure (`settings.c_k`, `settings.c_eps`; setup default
 
 ## Data
 
-- Target: y_r = mean of the last 12 monthly outputs (360 days) of run r; temperature on the 17,970 water cells
+- Target: y_r = mean of the last 12 outputs of run r (instantaneous snapshots, one every 30 days); temperature on the 17,970 water cells
   (15 levels x 42 x 30, minus the 930 cells of the wall). Salinity is 35 everywhere and is dropped.
 - Why the last year: the runs still drift. Over the last 20 years, the cell RMS change from the first to the last
   year is 0.16 K, and the last-year mean differs from the 20-year mean by 0.08 K RMS. The target is the year-100

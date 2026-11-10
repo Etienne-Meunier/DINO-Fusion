@@ -100,10 +100,14 @@ reproduced in \texttt{det/} (Section~\ref{sec:next}).}
         The setup default is $(0.1, 0.7)$, the geometric centre of the design (Figure~\ref{fig:data}).
   \item Why one combination: with $l = \sqrt{2e}/N$, both $K_M = \sqrt2\, c_k e/N$ and
         $\epsilon = c_\epsilon N e/\sqrt2$ are unchanged under $(c_k, c_\epsilon, e) \to (\lambda c_k,
-        \lambda c_\epsilon, e/\lambda)$. The steady state then depends on $c_k/c_\epsilon$ only, apart from the
-        terms that break the invariance: the surface TKE flux, the vertical TKE diffusion, the minimum
-        diffusivities and the limits on $l$. The ratio is proportional to a critical Richardson number, and it
-        dominates the global mixed-layer depth in Veros \cite{mrozowska2025}.
+        \lambda c_\epsilon, e/\lambda)$. A steady state then depends on $c_k/c_\epsilon$ only, apart from what
+        breaks the invariance in the closure's equations: the vertical diffusion of $e$ (proportional to
+        $K_M e$), and the limits on $l$ (the distance to the boundaries and a minimum), where $l$ no longer
+        follows $\sqrt{e}$. The runs are also not steady. The sources of $e$ and the bounds on $K_M$ and
+        $\kappa_H$ (minimum, maximum, depth profile) keep it, since they act on invariant quantities; the minimum
+        diffusivities may set the flat response at small $c_k/c_\epsilon$ (not tested). The ratio is proportional
+        to a critical Richardson number, and it dominates the global mixed-layer depth in Veros
+        \cite{mrozowska2025}.
   \item Check on the raw runs (last output, median over the water cells of levels 3--11). Along the diagonal
         $c_k/c_\epsilon = 1/7$, from $c_k = 0.0125$ to 0.504, $e$ falls about 45-fold while $c_k e$ stays at
         1.7--\SI{1.9e-7}{m^2 s^{-2}}, and the EKE stays at \SI{7.5e-4}{m^2 s^{-2}}. So the varied constants are the
@@ -114,9 +118,9 @@ reproduced in \texttt{det/} (Section~\ref{sec:next}).}
 \section{Data}
 \begin{itemize}
   \item 100 Veros ACC runs on a $10\times10$ log-spaced grid, $c_k\in[0.0125,\,0.8]$,
-        $c_\epsilon\in[0.0875,\,5.6]$ (ratio $2^{2/3}$); 100 years, 30-day output; interior grid
+        $c_\epsilon\in[0.0875,\,5.6]$ (ratio $2^{2/3}$); 100 years, a snapshot every 30 days; interior grid
         $30\times42\times15$ (x, y, z) with the 930 cells of the wall.
-  \item Target: $y_r \in \mathbb{R}^{17970}$, the mean temperature of the last 12 outputs (360 days) of run $r$
+  \item Target: $y_r \in \mathbb{R}^{17970}$, the mean temperature of the last 12 snapshots (360 days) of run $r$
         on the water cells. $S = \SI{35}{psu}$ everywhere, so it is dropped.
   \item The runs still drift, so the averaging window matters. Over the last 20 years, the RMS change from the
         first to the last year is \SI{0.16}{K}, and the last-year mean differs from the 20-year mean by
